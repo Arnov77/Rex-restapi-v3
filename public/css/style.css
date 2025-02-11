@@ -229,6 +229,7 @@ html, body {
 
 /* Footer Full Width */
 footer {
+  position: absolute;
   background-color: #000; /* Full hitam */
   color: #fff;
   text-align: center;

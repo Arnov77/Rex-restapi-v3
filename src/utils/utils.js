@@ -41,6 +41,7 @@ const utils = {
     try {
       const page = await browser.newPage();
       await page.goto('https://www.bratgenerator.com/');
+      await page.click('#toggleButtonWhite');
       await page.locator('#textInput').fill(text);
       const screenshotBuffer = await page.locator('#textOverlay').screenshot();
       return await utils.uploadToTmpfiles(screenshotBuffer, `${utils.randomName('.jpg')}`);

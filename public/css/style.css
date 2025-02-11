@@ -229,7 +229,6 @@ html, body {
 
 /* Footer Full Width */
 footer {
-  position: absolute;
   background-color: #000; /* Full hitam */
   color: #fff;
   text-align: center;
@@ -277,6 +276,7 @@ footer a:hover {
 /* API DOCUMENTATION PAGE */
 
 .api-docs {
+  flex: 1;
   padding: 40px 20px;
   text-align: center;
 }

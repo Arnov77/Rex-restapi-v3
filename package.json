@@ -4,7 +4,7 @@
   "description": "API untuk generate gambar dari Brat Generator",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node server.js"
   },
   "author": "Arnov",
   "license": "MIT",

@@ -12,7 +12,7 @@ const utils = {
         '--no-zygote',
         '--no-cache',
       ],
-      //executablePath: process.env.CHROME_BIN, // Gunakan path dari .env
+      executablePath: process.env.CHROME_BIN, // Gunakan path dari .env
       headless: true,
       ...opts,
     }),

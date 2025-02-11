@@ -9,10 +9,19 @@
 <body>
     <header>
         <nav class="navbar">
-            <div class="logo">RESTAPI<span>Project</span></div>
-            <ul class="nav-links">
-                <li><a href="index.html">Home</a></li>
-                <li><a href="#">Docs</a></li>
+            <div class="logo">REX<span> RESTAPI</span></div>
+
+            <!-- Hamburger Menu -->
+            <div class="hamburger" id="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+
+            <!-- Navigasi -->
+            <ul class="nav-links" id="nav-links">
+                <li><a href="../index.html">Home</a></li>
+                <li><a href="#" class="active">Docs</a></li>
             </ul>
         </nav>
     </header>
@@ -24,6 +33,7 @@
                 <tr>
                     <th>Endpoint</th>
                     <th>Method</th>
+                    <th>Parameter</th>
                     <th>Deskripsi</th>
                     <th>Action</th>
                 </tr>
@@ -32,20 +42,23 @@
                 <tr>
                     <td><code>/brat</code></td>
                     <td>GET</td>
-                    <td>Mendapatkan daftar pengguna.</td>
+                    <td><code>text</code> (wajib)</td>
+                    <td>Memproses teks menjadi format unik/lucu.</td>
                     <td><a href="/brat?text=Cihuyy" target="_blank" class="btn">Coba</a></td>
                 </tr>
                 <tr>
                     <td><code>/ytmp3</code></td>
                     <td>GET</td>
-                    <td>Mendapatkan detail pengguna berdasarkan ID.</td>
-                    <td><a href="/ytmp3?query=https://youtu.be/dQw4w9WgXcQ?si=k0X9EIWFSfx6BMws" target="_blank" class="btn">Coba</a></td>
+                    <td><code>query</code> (URL YouTube)</td>
+                    <td>Mengunduh video YouTube sebagai MP3.</td>
+                    <td><a href="/ytmp3?query=https://youtu.be/dQw4w9WgXcQ" target="_blank" class="btn">Coba</a></td>
                 </tr>
                 <tr>
                     <td><code>/ytmp4</code></td>
                     <td>GET</td>
-                    <td>Menambahkan pengguna baru.</td>
-                    <td><a href="/ytmp3?query=https://youtu.be/dQw4w9WgXcQ?si=k0X9EIWFSfx6BMws" target="_blank" class="btn">Coba</a></td>
+                    <td><code>query</code> (URL YouTube)</td>
+                    <td>Mengunduh video YouTube sebagai MP4.</td>
+                    <td><a href="/ytmp4?query=https://youtu.be/dQw4w9WgXcQ" target="_blank" class="btn">Coba</a></td>
                 </tr>
             </tbody>
         </table>
@@ -54,5 +67,8 @@
     <footer>
         <p>© 2025 Rex REST API. Made with ❤️ by Arnov.</p>
     </footer>
+
+    <!-- JavaScript untuk Hamburger Menu -->
+    <script src="../js/script.js"></script>
 </body>
 </html>

@@ -20,7 +20,7 @@ ENV CHROME_BIN=/usr/bin/chromium
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
 # Mengatur direktori kerja di dalam container
-WORKDIR /app
+WORKDIR /
 
 # Menyalin file package.json dan package-lock.json ke container
 COPY package*.json ./
@@ -32,7 +32,7 @@ RUN npm install
 COPY . .
 
 # Pastikan folder tmp ada untuk menyimpan file sementara
-RUN mkdir -p /app/tmp
+RUN mkdir -p tmp
 
 # Menambahkan ffmpeg ke dalam image
 RUN apt-get update && apt-get install -y ffmpeg

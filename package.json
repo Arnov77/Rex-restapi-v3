@@ -4,7 +4,6 @@
   "description": "API untuk generate gambar dari Brat Generator",
   "main": "index.js",
   "scripts": {
-    "postinstall": "npx playwright install && npx playwright install-deps",
     "start": "node server.js"
   },
   "author": "Arnov",

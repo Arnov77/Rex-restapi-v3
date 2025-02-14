@@ -2,7 +2,7 @@
     "Downloader": [
         { "id": 1, "name": "YT MP3", "method": "GET", "action": "/api/ytmp3?query=https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
         { "id": 2, "name": "YT MP4", "method": "GET", "action": "/api/ytmp4?query=https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
-        { "id": 2, "name": "YT MP4", "method": "GET", "action": "/api/ytplay?query=Never Gonna Give You Up" }
+        { "id": 2, "name": "YT PLAY", "method": "GET", "action": "/api/ytplay?query=Never Gonna Give You Up" }
     ],
     "Other": [
         { "id": 1, "name": "BRAT", "method": "GET", "action": "/api/brat?text=Never Gonna Give You Up" }

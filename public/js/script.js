@@ -44,3 +44,8 @@ fetch('data/apis.json')
         main.innerHTML = content; // Tambahkan semua kategori ke dalam main
     })
     .catch(error => console.error('Error loading API list:', error));
+
+    function openApi(relativeUrl) {
+        const fullUrl = relativeUrl.startsWith("http") ? relativeUrl : `${window.location.origin}${relativeUrl}`;
+        window.open(fullUrl, '_blank');
+    }

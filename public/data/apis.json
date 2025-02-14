@@ -1,6 +1,6 @@
 {
     "Downloader": [
-        { "id": 1, "name": "YT M03", "method": "GET", "action": "/api/ytmp3?query=https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
+        { "id": 1, "name": "YT MP3", "method": "GET", "action": "/api/ytmp3?query=https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
         { "id": 2, "name": "YT MP4", "method": "GET", "action": "/api/ytmp4?query=https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
         { "id": 2, "name": "YT MP4", "method": "GET", "action": "/api/ytplay?query=Never Gonna Give You Up" }
     ],

@@ -18,10 +18,10 @@ const ytmp4Route = require('./src/routes/ytmp4');
 const ytplayRoute = require('./src/routes/ytplay');
 
 // Register routes
-app.use('/brat', bratRoute);
-app.use('/ytmp3', ytmp3Route);
-app.use('/ytmp4', ytmp4Route);
-app.use('/ytplay', ytplayRoute);
+app.use('/api/brat', bratRoute);
+app.use('/api/ytmp3', ytmp3Route);
+app.use('/api/ytmp4', ytmp4Route);
+app.use('/api/ytplay', ytplayRoute);
 
 // Start server
 app.listen(PORT, () => {

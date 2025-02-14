@@ -1,23 +1,46 @@
-// Toggle Hamburger Menu
-const hamburger = document.getElementById('hamburger');
-const navLinks = document.getElementById('nav-links');
+// Real-time Clock
+setInterval(() => {
+    const now = new Date();
+    document.getElementById('time').innerText = now.toLocaleTimeString();
+}, 1000);
 
-hamburger.addEventListener('click', () => {
-    navLinks.classList.toggle('active'); // Tampilkan/sembunyikan menu
-    hamburger.classList.toggle('open');  // Animasi ikon hamburger
-});
+fetch('data/apis.json')
+    .then(response => response.json())
+    .then(data => {
+        const main = document.querySelector('main');
+        let content = ''; // Variabel untuk semua tabel
 
-// Smooth Scroll for Navigation Links
-document.querySelectorAll('.nav-links a').forEach(link => {
-    link.addEventListener('click', function (e) {
-        e.preventDefault();
-        const targetId = this.getAttribute('href').substring(1);
-        const targetElement = document.getElementById(targetId);
-        if (targetElement) {
-            window.scrollTo({
-                top: targetElement.offsetTop - 60,
-                behavior: 'smooth'
-            });
+        for (const [category, apis] of Object.entries(data)) {
+            content += `
+                <section>
+                    <h2>${category}</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>No</th>
+                                <th>Name</th>
+                                <th>Method</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${apis
+                                .map(
+                                    (api, index) => `
+                                    <tr>
+                                        <td>${index + 1}</td>
+                                        <td>${api.name}</td>
+                                        <td>${api.method}</td>
+                                        <td><button class="try-btn" onclick="window.open('${api.action}', '_blank')">Try</button></td>
+                                    </tr>`
+                                )
+                                .join('')}
+                        </tbody>
+                    </table>
+                </section>
+            `;
         }
-    });
-});
+
+        main.innerHTML = content; // Tambahkan semua kategori ke dalam main
+    })
+    .catch(error => console.error('Error loading API list:', error));

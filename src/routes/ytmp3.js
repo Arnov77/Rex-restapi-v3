@@ -26,12 +26,18 @@ router.all('/', async (req, res) => {
     const availableQualities = download.availableQuality;
 
     // Format response sesuai permintaan
-    const data = availableQualities.map((quality) => ({
-      quality: `${quality}kbps`,
-      title,
-      downloadUrl: download.url,
-      format: 'audio',
-    }));
+    const maxQualities = [256, 192, 128]; // Maksimal 3 kualitas, diambil dari tertinggi ke rendah
+    const filteredQualities = availableQualities
+      .filter(q => q <= 256) // Hanya ambil yang ≤ 256kbps
+      .sort((a, b) => b - a) // Urutkan dari yang tertinggi ke terendah
+      .slice(0, 3); // Ambil maksimal 3 kualitas
+
+   const data = filteredQualities.map((quality) => ({
+     quality: `${quality}kbps`,   
+     title,
+     downloadUrl: download.url,
+     format: 'audio',
+  }));
 
     res.json({
       status: 200,

@@ -26,7 +26,7 @@ router.all('/', async (req, res) => {
     const availableQualities = download.availableQuality;
 
     // Format response sesuai permintaan
-    const maxQualities = [256, 192, 128]; // Maksimal 3 kualitas, diambil dari tertinggi ke rendah
+    const maxQualities = [128, 192, 256]; // Maksimal 3 kualitas, diambil dari tertinggi ke rendah
     const filteredQualities = availableQualities
       .filter(q => q <= 256) // Hanya ambil yang ≤ 256kbps
       .sort((a, b) => b - a) // Urutkan dari yang tertinggi ke terendah

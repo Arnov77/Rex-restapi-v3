@@ -9,7 +9,7 @@
   "author": "Arnov",
   "license": "MIT",
   "dependencies": {
-    "@vreden/youtube_scraper": "^1.2.5",
+    "@vreden/youtube_scraper": "^1.2.6",
     "axios": "^1.7.9",
     "canvas": "^3.0.0",
     "dotenv": "^16.3.1",

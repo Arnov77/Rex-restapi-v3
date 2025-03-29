@@ -40,7 +40,7 @@ const utils = {
     const browser = await utils.getBrowser();
     try {
       const page = await browser.newPage();
-      await page.goto("https://www.bratgenerator.com/", { timeout: 60000, waitUntil: "load" });
+      await page.goto("https://www.bratgenerator.com/");
       await page.click('#toggleButtonWhite');
       await page.locator('#textInput').fill(text);
       const screenshotBuffer = await page.locator('#textOverlay').screenshot();

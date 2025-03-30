@@ -1,6 +1,11 @@
 const playwright = require('playwright');
 const axios = require('axios');
 const FormData = require('form-data');
+const GIFEncoder = require('gifencoder');
+const { createCanvas, loadImage } = require('canvas');
+const stream = require('stream');
+const { promisify } = require('util');
+const pipeline = promisify(stream.pipeline);
 
 const utils = {
   getBrowser: async (...opts) =>
@@ -16,7 +21,7 @@ const utils = {
       headless: true,
       ...opts,
     }),
-  
+
   uploadToTmpfiles: async (fileBuffer, fileName) => {
     const form = new FormData();
     form.append('file', fileBuffer, { filename: fileName });
@@ -48,6 +53,51 @@ const utils = {
     } finally {
       if (browser) await browser.close();
     }
+  },
+
+  generateBratVideo: async (text) => {
+    const browser = await utils.getBrowser();
+    try {
+      const page = await browser.newPage();
+      await page.goto("https://www.bratgenerator.com/");
+      await page.click('#toggleButtonWhite');
+      
+      const words = text.split(' ');
+      let frames = [];
+      
+      for (let i = 0; i < words.length; i++) {
+        const partialText = words.slice(0, i + 1).join(' ');
+        await page.locator('#textInput').fill(partialText);
+        const screenshotBuffer = await page.locator('#textOverlay').screenshot();
+        frames.push(screenshotBuffer);
+      }
+      
+      const gifBuffer = await utils.createGIF(frames);
+      return await utils.uploadToTmpfiles(gifBuffer, `${utils.randomName('.gif')}`);
+    } finally {
+      if (browser) await browser.close();
+    }
+  },
+
+  createGIF: async (frames) => {
+    const encoder = new GIFEncoder(500, 200);
+    encoder.start();
+    encoder.setRepeat(0);
+    encoder.setDelay(500);
+    encoder.setQuality(10);
+
+    const canvas = createCanvas(500, 200);
+    const ctx = canvas.getContext('2d');
+
+    for (const frame of frames) {
+      const img = await loadImage(frame);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      encoder.addFrame(ctx);
+    }
+
+    encoder.finish();
+    return encoder.out.getData();
   },
 
   randomName: (suffix = '') => Math.random().toString(36).slice(2) + suffix,

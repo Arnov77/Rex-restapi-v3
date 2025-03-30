@@ -5,6 +5,7 @@
         { "id": 2, "name": "YT PLAY", "method": "GET", "action": "/api/ytplay?query=Never Gonna Give You Up" }
     ],
     "Other": [
-        { "id": 1, "name": "BRAT", "method": "GET", "action": "/api/brat?text=Never Gonna Give You Up" }
+        { "id": 1, "name": "BRAT", "method": "GET", "action": "/api/brat?text=Never Gonna Give You Up" },
+        { "id": 1, "name": "BRATVID", "method": "GET", "action": "/api/bratvid?text=Never Gonna Give You Up" }
     ]
 }

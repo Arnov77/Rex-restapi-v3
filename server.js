@@ -20,7 +20,7 @@ const ytplayRoute = require('./src/routes/ytplay');
 
 // Register routes
 app.use('/api/brat', bratRoute);
-app.use('/api/bravid', bratVidRoute);
+app.use('/api/bratvid', bratVidRoute);
 app.use('/api/ytmp3', ytmp3Route);
 app.use('/api/ytmp4', ytmp4Route);
 app.use('/api/ytplay', ytplayRoute);

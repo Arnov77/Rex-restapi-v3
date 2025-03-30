@@ -13,12 +13,14 @@ app.use(express.static(path.join(__dirname, 'public'))); // Serve static files (
 
 // Routes
 const bratRoute = require('./src/routes/brat');
+consy bratVidRoute= require('./src/routes/bratVid');
 const ytmp3Route = require('./src/routes/ytmp3');
 const ytmp4Route = require('./src/routes/ytmp4');
 const ytplayRoute = require('./src/routes/ytplay');
 
 // Register routes
 app.use('/api/brat', bratRoute);
+app.use('/api/bravid', bratVidRoute);
 app.use('/api/ytmp3', ytmp3Route);
 app.use('/api/ytmp4', ytmp4Route);
 app.use('/api/ytplay', ytplayRoute);

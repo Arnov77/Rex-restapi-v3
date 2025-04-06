@@ -2,6 +2,7 @@ const playwright = require('playwright');
 const axios = require('axios');
 const FormData = require('form-data');
 const GIFEncoder = require('gifencoder');
+const path = require('path');
 const { createCanvas, loadImage } = require('canvas');
 const stream = require('stream');
 const { promisify } = require('util');

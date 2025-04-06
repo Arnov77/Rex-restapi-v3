@@ -79,6 +79,7 @@ const utils = {
     } finally {
       if (browser) await browser.close();
     }
+  },
   
   createGIF: async (frames) => {
     const encoder = new GIFEncoder(512, 512);

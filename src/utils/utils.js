@@ -86,9 +86,21 @@ const utils = {
     const page = await browser.newPage();
     await page.goto('https://negro.consulting/', { waitUntil: 'networkidle' });
 
-    // Upload image
-    const uploadInput = await page.waitForSelector('input#image-upload');
-    await uploadInput.setInputFiles({ name: 'waifu.jpg', mimeType: 'image/jpeg', buffer: imageBuffer });
+    // Tunggu elemen input muncul walau tersembunyi
+    await page.waitForSelector('input#image-upload');
+
+    // Hapus 'hidden' class supaya bisa upload
+    await page.evaluate(() => {
+      const input = document.querySelector('#image-upload');
+      input.classList.remove('hidden');
+   });
+
+   // Upload gambar
+   await page.setInputFiles('#image-upload', {
+     name: 'waifu.jpg',
+     mimeType: 'image/jpeg',
+     buffer: imageBuffer
+   });
 
     // Tunggu tombol "Transform" aktif
     await page.waitForSelector('button:has-text("Transform")', { state: 'visible', timeout: 15000 });

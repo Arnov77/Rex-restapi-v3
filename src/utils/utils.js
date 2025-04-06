@@ -80,48 +80,64 @@ const utils = {
     }
   },
 
-  generateHitamkanWaifu: async (imageBuffer) => {
-  const browser = await utils.getBrowser();
-  try {
-    const page = await browser.newPage();
-    await page.goto('https://negro.consulting/', { waitUntil: 'networkidle' });
+  generateHitamkanWaifu: async (imageUrl) => {
+    const browser = await utils.getBrowser();
+    const tempDir = path.join(__dirname, '../../temp');
 
-    // Tunggu elemen input muncul walau tersembunyi
-    await page.waitForSelector('input#image-upload');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir);
+    }
 
-    // Hapus 'hidden' class supaya bisa upload
-    await page.evaluate(() => {
-      const input = document.querySelector('#image-upload');
-      input.classList.remove('hidden');
-   });
+    const imagePath = path.join(tempDir, utils.randomName('.jpg'));
 
-   // Upload gambar
-   await page.setInputFiles('#image-upload', {
-     name: 'waifu.jpg',
-     mimeType: 'image/jpeg',
-     buffer: imageBuffer
-   });
+    try {
+      // Download gambar dari URL
+      const response = await axios.get(imageUrl, { responseType: 'stream' });
+      await pipeline(response.data, fs.createWriteStream(imagePath));
 
-    // Tunggu tombol "Transform" aktif
-    await page.waitForSelector('button:has-text("Transform")', { state: 'visible', timeout: 15000 });
-    await page.click('button:has-text("Transform")');
+      const page = await browser.newPage();
+      await page.goto('https://negro.consulting/', { timeout: 60000 });
 
-    // Tunggu tombol "Save" muncul (menandakan proses selesai)
-    await page.waitForSelector('button:has-text("Save")', { state: 'visible', timeout: 15000 });
+      // Scroll ke bawah agar input file terlihat
+      await page.mouse.wheel({ deltaY: 1000 });
+      await page.waitForTimeout(1500); // Biarkan UI terbuka sepenuhnya
 
-    // Ambil elemen gambar hasil
-    const resultImg = await page.locator('button:has-text("Save")').locator('xpath=../..').locator('img').first();
-    const imgBuffer = await resultImg.screenshot(); // screenshot hasil
+      // Buka akses ke input file (remove hidden)
+      await page.evaluate(() => {
+        const input = document.querySelector('#image-upload');
+        input.classList.remove('hidden');
+      });
 
-    // Upload ke tmpfiles
-    return await utils.uploadToTmpfiles(imgBuffer, utils.randomName('.jpg'));
-  } catch (err) {
-    throw new Error('Gagal memproses gambar: ' + err.message);
-  } finally {
-    await browser.close();
-  }
-},
+      // Upload file
+      const inputFile = await page.$('input#image-upload');
+      await inputFile.setInputFiles(imagePath);
 
+      // Tunggu tombol transform muncul dan klik
+      await page.waitForSelector('button.bg-pink-500:not([disabled])', { timeout: 30000 });
+      await page.click('button.bg-pink-500');
+
+      // Tunggu proses selesai (tombol Save muncul)
+      await page.waitForSelector('button.glass-effect', { timeout: 60000 });
+
+      // Ambil canvas hasil hitam
+      const canvasElement = await page.$('canvas');
+      const resultBuffer = await canvasElement.screenshot();
+
+      // Upload hasil ke tmpfiles
+      const uploadedUrl = await utils.uploadToTmpfiles(resultBuffer, utils.randomName('.jpg'));
+
+      // Hapus file temp lokal
+      fs.unlinkSync(imagePath);
+
+      return uploadedUrl;
+
+    } catch (err) {
+      throw new Error('Gagal memproses gambar: ' + err.message);
+    } finally {
+      if (browser) await browser.close();
+    }
+  },
+  
   createGIF: async (frames) => {
     const encoder = new GIFEncoder(512, 512);
     encoder.start();

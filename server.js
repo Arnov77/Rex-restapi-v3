@@ -1,6 +1,12 @@
 const express = require('express');
+const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
+
+const tempDir = path.join(__dirname, 'temp');
+if (!fs.existsSync(tempDir)) {
+  fs.mkdirSync(tempDir);
+}
 
 dotenv.config();
 const app = express();

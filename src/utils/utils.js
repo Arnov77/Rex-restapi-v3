@@ -79,65 +79,6 @@ const utils = {
     } finally {
       if (browser) await browser.close();
     }
-  },
-
-  generateHitamkanWaifu: async (imageUrl) => {
-    const browser = await utils.getBrowser();
-    const tempDir = path.join(__dirname, '../../temp');
-
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir);
-    }
-
-    const imagePath = path.join(tempDir, utils.randomName('.jpg'));
-
-    try {
-      // Download gambar dari URL
-      const response = await axios.get(imageUrl, { responseType: 'stream' });
-      await pipeline(response.data, fs.createWriteStream(imagePath));
-
-      const page = await browser.newPage();
-      await page.goto('https://negro.consulting/', { timeout: 60000 });
-
-      // Scroll ke bawah agar input file terlihat
-      await page.mouse.wheel({ deltaY: 1000 });
-      await page.waitForTimeout(1500); // Biarkan UI terbuka sepenuhnya
-
-      // Buka akses ke input file (remove hidden)
-      await page.evaluate(() => {
-        const input = document.querySelector('#image-upload');
-        input.classList.remove('hidden');
-      });
-
-      // Upload file
-      const inputFile = await page.$('input#image-upload');
-      await inputFile.setInputFiles(imagePath);
-
-      // Tunggu tombol transform muncul dan klik
-      await page.waitForSelector('button.bg-pink-500:not([disabled])', { timeout: 30000 });
-      await page.click('button.bg-pink-500');
-
-      // Tunggu proses selesai (tombol Save muncul)
-      await page.waitForSelector('button.glass-effect', { timeout: 60000 });
-
-      // Ambil canvas hasil hitam
-      const canvasElement = await page.$('canvas');
-      const resultBuffer = await canvasElement.screenshot();
-
-      // Upload hasil ke tmpfiles
-      const uploadedUrl = await utils.uploadToTmpfiles(resultBuffer, utils.randomName('.jpg'));
-
-      // Hapus file temp lokal
-      fs.unlinkSync(imagePath);
-
-      return uploadedUrl;
-
-    } catch (err) {
-      throw new Error('Gagal memproses gambar: ' + err.message);
-    } finally {
-      if (browser) await browser.close();
-    }
-  },
   
   createGIF: async (frames) => {
     const encoder = new GIFEncoder(512, 512);

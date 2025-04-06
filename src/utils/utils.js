@@ -79,6 +79,38 @@ const utils = {
     }
   },
 
+  generateHitamkanWaifu: async (imageBuffer) => {
+  const browser = await utils.getBrowser();
+  try {
+    const page = await browser.newPage();
+    await page.goto("https://negro.consulting/", { waitUntil: 'networkidle' });
+
+    // Upload image ke input file di halaman
+    const filePath = path.join(__dirname, '../../temp', utils.randomName('.jpg'));
+    const fs = require('fs');
+    fs.writeFileSync(filePath, imageBuffer);
+
+    const inputUploadHandle = await page.$('input[type=file]');
+    await inputUploadHandle.setInputFiles(filePath);
+
+    // Tunggu sampai hasil gambar keluar
+    await page.waitForSelector('canvas'); // Bisa disesuaikan kalau elemen hasil bukan canvas
+
+    // Ambil hasil sebagai screenshot (jika gak bisa ambil langsung gambarnya)
+    const resultBuffer = await page.screenshot({ fullPage: false });
+
+    // Upload hasil ke tmpfiles
+    const url = await utils.uploadToTmpfiles(resultBuffer, `${utils.randomName('.jpg')}`);
+
+    // Hapus file sementara
+    fs.unlinkSync(filePath);
+
+    return url;
+  } finally {
+    await browser.close();
+  }
+},
+
   createGIF: async (frames) => {
     const encoder = new GIFEncoder(512, 512);
     encoder.start();

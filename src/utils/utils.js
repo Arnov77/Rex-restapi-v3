@@ -84,29 +84,27 @@ const utils = {
   const browser = await utils.getBrowser();
   try {
     const page = await browser.newPage();
-    await page.goto("https://negro.consulting/", { waitUntil: 'networkidle' });
+    await page.goto('https://negro.consulting/', { waitUntil: 'networkidle' });
 
-    // Upload image ke input file di halaman
-    const filePath = path.join(__dirname, '../../temp', utils.randomName('.jpg'));
-    const fs = require('fs');
-    fs.writeFileSync(filePath, imageBuffer);
+    // Upload image
+    const uploadInput = await page.waitForSelector('input#image-upload');
+    await uploadInput.setInputFiles({ name: 'waifu.jpg', mimeType: 'image/jpeg', buffer: imageBuffer });
 
-    const inputUploadHandle = await page.$('input[type=file]');
-    await inputUploadHandle.setInputFiles(filePath);
+    // Tunggu tombol "Transform" aktif
+    await page.waitForSelector('button:has-text("Transform")', { state: 'visible', timeout: 15000 });
+    await page.click('button:has-text("Transform")');
 
-    // Tunggu sampai hasil gambar keluar
-    await page.waitForSelector('canvas'); // Bisa disesuaikan kalau elemen hasil bukan canvas
+    // Tunggu tombol "Save" muncul (menandakan proses selesai)
+    await page.waitForSelector('button:has-text("Save")', { state: 'visible', timeout: 15000 });
 
-    // Ambil hasil sebagai screenshot (jika gak bisa ambil langsung gambarnya)
-    const resultBuffer = await page.screenshot({ fullPage: false });
+    // Ambil elemen gambar hasil
+    const resultImg = await page.locator('button:has-text("Save")').locator('xpath=../..').locator('img').first();
+    const imgBuffer = await resultImg.screenshot(); // screenshot hasil
 
-    // Upload hasil ke tmpfiles
-    const url = await utils.uploadToTmpfiles(resultBuffer, `${utils.randomName('.jpg')}`);
-
-    // Hapus file sementara
-    fs.unlinkSync(filePath);
-
-    return url;
+    // Upload ke tmpfiles
+    return await utils.uploadToTmpfiles(imgBuffer, utils.randomName('.jpg'));
+  } catch (err) {
+    throw new Error('Gagal memproses gambar: ' + err.message);
   } finally {
     await browser.close();
   }

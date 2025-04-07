@@ -150,8 +150,7 @@ blackenWaifuFromURL: async (imageUrl) => {
 
   const imagePart = result.response.candidates[0].content.parts.find(p => p.inlineData);
   const imageBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
-  return await uploadToTmpfiles(imageBuffer, utils.randomName('.jpg'));
- };
+  return await utils.uploadToTmpfiles(imageBuffer, utils.randomName('.jpg'));
 };
 
 module.exports = utils;

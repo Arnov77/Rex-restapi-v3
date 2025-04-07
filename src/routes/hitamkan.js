@@ -3,7 +3,7 @@ const router = express.Router();
 const utils = require('../utils/utils');
 const config = require('../../config');
 
-router.get('/', async (req, res) => {
+router.all('/', async (req, res) => {
   const { image } = req.query;
   if (!image) {
     return res.status(400).json({ status: 400, message: "Parameter 'image' diperlukan" });

@@ -1,7 +1,10 @@
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 const playwright = require('playwright');
 const axios = require('axios');
 const FormData = require('form-data');
+const fs = require('fs');
 const GIFEncoder = require('gifencoder');
+const path = require('path');
 const { createCanvas, loadImage } = require('canvas');
 const stream = require('stream');
 const { promisify } = require('util');
@@ -78,7 +81,7 @@ const utils = {
       if (browser) await browser.close();
     }
   },
-
+  
   createGIF: async (frames) => {
     const encoder = new GIFEncoder(512, 512);
     encoder.start();

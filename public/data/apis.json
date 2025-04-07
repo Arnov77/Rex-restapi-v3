@@ -9,6 +9,6 @@
         { "id": 2, "name": "BRATVID", "method": "GET", "action": "/api/bratvid?text=Never Gonna Give You Up" }
     ],
     "Tools": [
-        { "id": 1, "name": "Penghitam Anime", "method": "GET", "action": "/api/hitam?image=https://i.ibb.co.com/jZW6CzK9/images-1.jpg" }
+        { "id": 1, "name": "Penghitam Anime", "method": "GET", "action": "/api/hitam?image=https://i.ibb.co.com/jZW6CzK9/images-1.jpg&option=hitam" }
     ]
 }

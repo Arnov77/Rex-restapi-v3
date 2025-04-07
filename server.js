@@ -23,6 +23,7 @@ const bratVidRoute = require('./src/routes/bratVid');
 const ytmp3Route = require('./src/routes/ytmp3');
 const ytmp4Route = require('./src/routes/ytmp4');
 const ytplayRoute = require('./src/routes/ytplay');
+const hitamkanRoute = require('./src/routes/hitamkan');
 
 // Register routes
 app.use('/api/brat', bratRoute);
@@ -30,6 +31,7 @@ app.use('/api/bratvid', bratVidRoute);
 app.use('/api/ytmp3', ytmp3Route);
 app.use('/api/ytmp4', ytmp4Route);
 app.use('/api/ytplay', ytplayRoute);
+app.use('/api/hitamkan', hitamkanRoute);
 
 // Start server
 app.listen(PORT, () => {

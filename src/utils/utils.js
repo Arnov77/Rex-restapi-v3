@@ -115,43 +115,6 @@ const utils = {
       stream.on('error', (err) => reject(err));
     });
   },
-
-blackenWaifuFromURL: async (imageUrl) => {
-  const apiKey = process.env.GEMINI_API_KEY;
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-
-  // Fetch image and encode to base64
-  const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
-  const base64Image = Buffer.from(response.data).toString('base64');
-
-  const result = await model.generateContent({
-    contents: [
-      {
-        role: "user",
-        parts: [
-          { text: "Ubah karakter ini menjadi versi berkulit hitam, dengan gaya natural dan realistis." },
-          {
-            inlineData: {
-              mimeType: "image/jpeg",
-              data: base64Image,
-            }
-          }
-        ],
-      },
-    ],
-    generationConfig: {
-      temperature: 1,
-      topP: 0.95,
-      topK: 40,
-      responseMimeType: "image/jpeg",
-    },
-  });
-
-  const imagePart = result.response.candidates[0].content.parts.find(p => p.inlineData);
-  const imageBuffer = Buffer.from(imagePart.inlineData.data, 'base64');
-  return await utils.uploadToTmpfiles(imageBuffer, utils.randomName('.jpg'));
- },
 };
 
 module.exports = utils;

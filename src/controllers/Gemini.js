@@ -36,17 +36,17 @@ const blackWaifuGemini = async (req, res) => {
           {
             role: "user",
             parts: [
-              { 
-                text: "Ubah hanya warna kulit karakter anime ini menjadi hitam, " +
-                      "tanpa mengubah warna rambut, pakaian, mata, atau bagian lainnya. " +
-                      "Pertahankan semua detail dan tekstur asli kecuali warna kulit. " +
-                      "Gunakan shading alami untuk membuat kulit terlihat lebih gelap secara realistis."
+              {
+                text: "Ubah karakter anime ini menjadi terlihat seperti 'nerd'. " +
+                      "Tambahkan kacamata besar berwarna hitam, gigi depan besar (gigi kelinci), dan ekspresi wajah kikuk seperti nerd. " +
+                      "Selain itu, ubah warna kulitnya menjadi hitam, tapi pertahankan detail, tekstur, dan shading alami agar tetap realistis. " +
+                      "Jangan ubah rambut atau pakaian, dan biarkan latar belakang tetap seperti aslinya."
               },
               { inlineData: { mimeType, data: base64 } },
             ],
           },
         ],
-      });
+      });      
 
     const candidates = result.response.candidates;
     const part = candidates[0].content.parts.find((p) => p.inlineData);

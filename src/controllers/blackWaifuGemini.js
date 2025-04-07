@@ -1,9 +1,9 @@
 const fs = require("fs");
 const path = require("path");
-const axios = require("axios");
 const mime = require("mime-types");
-const { v4: uuidv4 } = require("uuid");
+const axios = require("axios");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const utils = require("../utils/utils");
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -20,23 +20,15 @@ const generationConfig = {
   responseMimeType: "text/plain",
 };
 
-async function fileToBase64(url) {
-  const response = await axios.get(url, { responseType: "arraybuffer" });
-  const buffer = Buffer.from(response.data, "binary");
-  const mimeType = response.headers["content-type"];
-  return {
-    mimeType,
-    data: buffer.toString("base64"),
-    buffer,
-  };
-}
-
-async function blackWaifuGemini(req, res) {
+const blackWaifuGemini = async (req, res) => {
   const { image } = req.query;
-  if (!image) return res.status(400).json({ error: "Parameter image diperlukan" });
+  if (!image) return res.status(400).json({ status: false, message: "Parameter 'image' diperlukan" });
 
   try {
-    const imgData = await fileToBase64(image);
+    const response = await axios.get(image, { responseType: "arraybuffer" });
+    const mimeType = response.headers["content-type"];
+    const buffer = Buffer.from(response.data);
+    const base64 = buffer.toString("base64");
 
     const result = await model.generateContent({
       generationConfig,
@@ -45,30 +37,29 @@ async function blackWaifuGemini(req, res) {
           role: "user",
           parts: [
             { text: "Ubah warna kulitnya menjadi hitam." },
-            { inlineData: { mimeType: imgData.mimeType, data: imgData.data } },
+            { inlineData: { mimeType, data: base64 } },
           ],
         },
       ],
     });
 
     const candidates = result.response.candidates;
-    const parts = candidates[0].content.parts;
-    const imgPart = parts.find((p) => p.inlineData);
+    const part = candidates[0].content.parts.find((p) => p.inlineData);
 
-    if (!imgPart) return res.status(500).json({ error: "Tidak ada gambar hasil ditemukan" });
+    if (!part) return res.status(500).json({ status: false, message: "Gagal mendapatkan gambar hasil." });
 
-    const ext = mime.extension(imgPart.inlineData.mimeType);
-    const filename = `waifu-blackened_${uuidv4()}.${ext}`;
-    const outputPath = path.join(__dirname, "../../public/results", filename);
+    const resultBuffer = Buffer.from(part.inlineData.data, "base64");
+    const uploadedUrl = await utils.uploadToTmpfiles(resultBuffer, `blackened-waifu.${mime.extension(part.inlineData.mimeType)}`);
 
-    fs.writeFileSync(outputPath, Buffer.from(imgPart.inlineData.data, "base64"));
+    res.json({
+      status: true,
+      message: "Berhasil mengubah warna kulit waifu!",
+      result: uploadedUrl,
+    });
 
-    const publicUrl = `${req.protocol}://${req.get("host")}/results/${filename}`;
-    res.json({ result: publicUrl });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: "Gagal menghitamkan waifu" });
+  } catch (err) {
+    res.status(500).json({ status: false, message: utils.getError(err) });
   }
-}
+};
 
 module.exports = { blackWaifuGemini };

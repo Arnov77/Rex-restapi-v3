@@ -24,6 +24,9 @@ const ytmp3Route = require('./src/routes/ytmp3');
 const ytmp4Route = require('./src/routes/ytmp4');
 const ytplayRoute = require('./src/routes/ytplay');
 const hitamRoute = require('./src/routes/hitam');
+const ttdlRoute = require('./src/routes/tiktok');
+const ttmp3Route = require('./src/routes/tiktok-mp3');
+const igdlRoute = require('./src/routes/instagram');
 
 // Register routes
 app.use('/api/brat', bratRoute);
@@ -32,6 +35,9 @@ app.use('/api/ytmp3', ytmp3Route);
 app.use('/api/ytmp4', ytmp4Route);
 app.use('/api/ytplay', ytplayRoute);
 app.use('/api/hitam', hitamRoute);
+app.use('/api/tiktok', ttdlRoute);
+app.use('/api/tiktok-mp3', ttmp3Route);
+app.use('/api/instagram', igdlRoute);
 
 // Start server
 app.listen(PORT, () => {

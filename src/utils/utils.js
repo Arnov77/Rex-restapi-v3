@@ -21,7 +21,7 @@ const utils = {
         '--no-cache',
       ],
       executablePath: process.env.CHROME_BIN, // Gunakan path dari .env
-      headless: false,
+      headless: true,
       ...opts,
     }),
 
@@ -134,28 +134,31 @@ const utils = {
     const browser = await utils.getBrowser();
     try {
       const page = await browser.newPage();
-      await page.goto('https://savefrom.net/', { waitUntil: 'domcontentloaded' });
+      await page.goto('https://snapsave.app/id', { waitUntil: 'domcontentloaded' });
   
-      await page.fill('#sf_url', videoUrl);
-      await page.click('#sf_submit');
+      await page.fill('#url', videoUrl);
+      await page.click('button[type="submit"]');
   
-      // Tunggu hasil download muncul
-      await page.waitForSelector('.def-btn-box a', { timeout: 15000 });
+      // Tunggu hasil unduhan muncul
+      await page.waitForSelector('#download-section a[href^="https"]', { timeout: 20000 });
   
-      const links = await page.$$eval('.def-btn-box a', anchors =>
-        anchors.map(a => ({
-          quality: a.innerText.trim(),
-          url: a.href
-        }))
+      // Ambil semua link unduhan
+      const downloadLinks = await page.$$eval(
+        '#download-section table tbody tr',
+        rows => rows.map(row => {
+          const qualityText = row.querySelector('td.video-quality')?.innerText.trim();
+          const quality = qualityText?.match(/\(([^)]+)\)/)?.[1];
+          const url = row.querySelector('td:nth-child(3) a')?.href;
+          return { quality, url };
+        }).filter(item => item.url)
       );
-  
-      if (!links.length) throw new Error('Link unduhan tidak ditemukan.');
-  
-      return links;
+      
+      if (!downloadLinks.length) throw new Error('Link unduhan tidak ditemukan.');
+      return downloadLinks;
     } finally {
       await browser.close();
     }
-  },
+  },  
   /*
     solveImageCaptcha: async (imageBuffer) => {
     const response = await axios.post('https://api.capsolver.com/solve', {

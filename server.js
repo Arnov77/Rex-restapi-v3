@@ -38,6 +38,7 @@ app.use('/api/hitam', hitamRoute);
 app.use('/api/tiktok', ttdlRoute);
 app.use('/api/tiktok-mp3', ttmp3Route);
 app.use('/api/instagram', igdlRoute);
+app.use('/api/facebook', require('./src/routes/facebook'));
 
 // Start server
 app.listen(PORT, () => {

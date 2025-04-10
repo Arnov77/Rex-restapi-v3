@@ -21,7 +21,7 @@ const utils = {
         '--no-cache',
       ],
       executablePath: process.env.CHROME_BIN, // Gunakan path dari .env
-      headless: true,
+      headless: false,
       ...opts,
     }),
 
@@ -129,6 +129,100 @@ const utils = {
       stream.on('error', (err) => reject(err));
     });
   },
+
+  facebookDownloader: async (videoUrl) => {
+    const browser = await utils.getBrowser();
+    try {
+      const page = await browser.newPage();
+      await page.goto('https://savefrom.net/', { waitUntil: 'domcontentloaded' });
+  
+      await page.fill('#sf_url', videoUrl);
+      await page.click('#sf_submit');
+  
+      // Tunggu hasil download muncul
+      await page.waitForSelector('.def-btn-box a', { timeout: 15000 });
+  
+      const links = await page.$$eval('.def-btn-box a', anchors =>
+        anchors.map(a => ({
+          quality: a.innerText.trim(),
+          url: a.href
+        }))
+      );
+  
+      if (!links.length) throw new Error('Link unduhan tidak ditemukan.');
+  
+      return links;
+    } finally {
+      await browser.close();
+    }
+  },
+  /*
+    solveImageCaptcha: async (imageBuffer) => {
+    const response = await axios.post('https://api.capsolver.com/solve', {
+      clientKey: process.env.CAPSOLVER_API_KEY,
+      task: {
+        type: "ImageToTextTask",
+        body: imageBuffer.toString('base64'),
+      }
+    });
+
+    const taskId = response.data.taskId;
+
+    // Cek hasilnya setiap 3 detik
+    while (true) {
+      const result = await axios.post('https://api.capsolver.com/getTaskResult', {
+        clientKey: process.env.CAPSOLVER_API_KEY,
+        taskId
+      });
+
+      if (result.data.status === 'ready') {
+        return result.data.solution.text;
+      }
+
+      await new Promise(r => setTimeout(r, 3000));
+    }
+  },
+
+  facebookDownloader: async (videoUrl) => {
+    const browser = await utils.getBrowser();
+    try {
+      const page = await browser.newPage();
+      await page.goto('https://en.savefrom.net/1-youtube-video-downloader-4/', {
+        waitUntil: 'domcontentloaded'
+      });
+
+      await page.fill('input[name="sf_url"]', videoUrl);
+      await page.click('button[type="submit"]');
+
+      // Deteksi CAPTCHA
+      const isCaptcha = await page.$('img.captcha');
+      if (isCaptcha) {
+        const captchaBuffer = await isCaptcha.screenshot();
+        const captchaText = await utils.solveImageCaptcha(captchaBuffer);
+
+        await page.fill('input[name="captcha_code"]', captchaText);
+        await page.click('button[type="submit"]');
+      }
+
+      // Tunggu download link muncul
+      await page.waitForSelector('.def-btn-box a');
+
+      const downloadLink = await page.getAttribute('.def-btn-box a', 'href');
+
+      return {
+        status: 200,
+        url: downloadLink
+      };
+    } catch (err) {
+      return {
+        status: 500,
+        message: utils.getError(err)
+      };
+    } finally {
+      await browser.close();
+    }
+  },
+  */
 };
 
 module.exports = utils;

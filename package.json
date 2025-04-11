@@ -10,7 +10,7 @@
   "license": "MIT",
   "dependencies": {
     "@google/generative-ai": "^0.24.0",
-    "@vreden/youtube_scraper": "^1.2.6",
+    "@vreden/youtube_scraper": "latest",
     "axios": "^1.7.9",
     "canvas": "^3.0.0",
     "dotenv": "^16.3.1",

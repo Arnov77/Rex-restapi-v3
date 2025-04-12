@@ -5,7 +5,8 @@
         { "id": 3, "name": "YT PLAY", "method": "GET", "action": "/api/ytplay?query=Never Gonna Give You Up" },
         { "id": 4, "name": "TIKTOK", "method": "GET", "action": "/api/tiktok?url=https://vt.tiktok.com/ZSrPMYuuF/" },
         { "id": 5, "name": "TIKTOK MP3", "method": "GET", "action": "/api/tiktok-mp3?url=https://vt.tiktok.com/ZSrPMYuuF/" },
-        { "id": 6, "name": "INSTAGRAM", "method": "GET", "action": "/api/instagram?url=https://www.instagram.com/p/CGh4a0iASGS/?igsh=MWV5aWZ2MmFmMDB5Yg==" }
+        { "id": 6, "name": "INSTAGRAM", "method": "GET", "action": "/api/instagram?url=https://www.instagram.com/p/CGh4a0iASGS/?igsh=MWV5aWZ2MmFmMDB5Yg==" },
+        { "id": 7, "name": "GOOGLE DRIVE", "method": "GET", "action": "/api/gdrive?url=https://drive.google.com/file/d/1Gz6fjY5GLuFI_jIp1RGYL8MisrKchsfP/view?usp=drivesdk" }
     ],
     "Sticker": [
         { "id": 1, "name": "BRAT", "method": "GET", "action": "/api/brat?text=Never Gonna Give You Up" },

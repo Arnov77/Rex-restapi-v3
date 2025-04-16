@@ -45,27 +45,25 @@ const utils = {
   },
 
   generateBrat: async (text) => {
-    const browser = await utils.getBrowser();
-    try {
-      const page = await browser.newPage();
-      await page.goto("https://www.bratgenerator.com/");
-      
-      const acceptButton = page.locator('#onetrust-accept-btn-handler');
-      if ((await acceptButton.count()) > 0 && await acceptButton.isVisible()) {
-        await acceptButton.click();
-        await page.waitForTimeout(500);
-      }
-  
-      await page.click('#toggleButtonWhite');
-      await page.locator('#textInput').fill(text);
-      await page.evaluate(() => {
-     
-      const screenshotBuffer = await page.locator('#textOverlay').screenshot();
-      return await utils.uploadToTmpfiles(screenshotBuffer, `${utils.randomName('.jpg')}`);
-    } finally {
-      if (browser) await browser.close();
-    }
-  },
+    const browser = await utils.getBrowser();
+    try {
+      const page = await browser.newPage();
+      await page.goto("https://www.bratgenerator.com/");
+      
+      const acceptButton = page.locator('#onetrust-accept-btn-handler');
+      if ((await acceptButton.count()) > 0 && await acceptButton.isVisible()) {
+        await acceptButton.click();
+        await page.waitForTimeout(500);
+      }
+  
+      await page.click('#toggleButtonWhite');
+      await page.locator('#textInput').fill(text);
+      const screenshotBuffer = await page.locator('#textOverlay').screenshot();
+      return await utils.uploadToTmpfiles(screenshotBuffer, `${utils.randomName('.jpg')}`);
+    } finally {
+      if (browser) await browser.close();
+    }
+  },
   
   generateBratVideo: async (text) => {
     const browser = await utils.getBrowser();

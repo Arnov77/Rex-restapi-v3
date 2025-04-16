@@ -58,6 +58,11 @@ const utils = {
   
       await page.click('#toggleButtonWhite');
       await page.locator('#textInput').fill(text);
+      await page.evaluate(() => {
+      const el = document.getElementById('textOverlay');
+      el.style.width = '512px';
+      el.style.height = '512px';
+  });
       const screenshotBuffer = await page.locator('#textOverlay').screenshot();
       return await utils.uploadToTmpfiles(screenshotBuffer, `${utils.randomName('.jpg')}`);
     } finally {

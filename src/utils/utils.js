@@ -21,7 +21,7 @@ const utils = {
         '--no-cache',
       ],
       executablePath: process.env.CHROME_BIN, // Gunakan path dari .env
-      headless: true,
+      headless: false,
       ...opts,
     }),
 
@@ -159,73 +159,40 @@ const utils = {
       await browser.close();
     }
   },  
-  /*
-    solveImageCaptcha: async (imageBuffer) => {
-    const response = await axios.post('https://api.capsolver.com/solve', {
-      clientKey: process.env.CAPSOLVER_API_KEY,
-      task: {
-        type: "ImageToTextTask",
-        body: imageBuffer.toString('base64'),
-      }
-    });
-
-    const taskId = response.data.taskId;
-
-    // Cek hasilnya setiap 3 detik
-    while (true) {
-      const result = await axios.post('https://api.capsolver.com/getTaskResult', {
-        clientKey: process.env.CAPSOLVER_API_KEY,
-        taskId
-      });
-
-      if (result.data.status === 'ready') {
-        return result.data.solution.text;
-      }
-
-      await new Promise(r => setTimeout(r, 3000));
-    }
-  },
-
-  facebookDownloader: async (videoUrl) => {
-    const browser = await utils.getBrowser();
+  instagramDownloader: async (url) => {
     try {
-      const page = await browser.newPage();
-      await page.goto('https://en.savefrom.net/1-youtube-video-downloader-4/', {
-        waitUntil: 'domcontentloaded'
+      const res = await axios.post('https://api.fastdl.app/api/ajaxSearch', {
+        q: url
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': 'https://fastdl.app',
+          'Referer': 'https://fastdl.app/'
+        }
       });
 
-      await page.fill('input[name="sf_url"]', videoUrl);
-      await page.click('button[type="submit"]');
+      const result = res.data;
 
-      // Deteksi CAPTCHA
-      const isCaptcha = await page.$('img.captcha');
-      if (isCaptcha) {
-        const captchaBuffer = await isCaptcha.screenshot();
-        const captchaText = await utils.solveImageCaptcha(captchaBuffer);
-
-        await page.fill('input[name="captcha_code"]', captchaText);
-        await page.click('button[type="submit"]');
+      if (!result || !result.medias || result.medias.length === 0) {
+        throw new Error('Media tidak ditemukan atau URL tidak valid.');
       }
-
-      // Tunggu download link muncul
-      await page.waitForSelector('.def-btn-box a');
-
-      const downloadLink = await page.getAttribute('.def-btn-box a', 'href');
 
       return {
         status: 200,
-        url: downloadLink
+        result: result.medias.map(media => ({
+          quality: media.quality || 'default',
+          type: media.extension,
+          url: media.url
+        }))
       };
     } catch (err) {
       return {
         status: 500,
         message: utils.getError(err)
       };
-    } finally {
-      await browser.close();
     }
   },
-  */
+
 };
 
 module.exports = utils;

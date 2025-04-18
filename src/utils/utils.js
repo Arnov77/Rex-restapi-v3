@@ -49,7 +49,7 @@ const utils = {
     try {
       const page = await browser.newPage();
       await page.goto("https://www.bratgenerator.com/");
-      
+
       const acceptButton = page.locator('#onetrust-accept-btn-handler');
       if ((await acceptButton.count()) > 0 && await acceptButton.isVisible()) {
         await acceptButton.click();
@@ -58,6 +58,25 @@ const utils = {
 
       await page.click('#toggleButtonWhite');
       await page.locator('#textInput').fill(text);
+
+      // Force styling agar elemen bener-bener kotak
+      await page.addStyleTag({
+        content: `
+          #textOverlay {
+            width: 350px !important;
+            height: 350px !important;
+            aspect-ratio: 1 / 1 !important;
+            object-fit: contain !important;
+          }
+        `
+      });
+
+      // Tunggu sedikit biar render selesai
+      await page.waitForTimeout(500);
+
+      const box = await page.locator('#textOverlay').boundingBox();
+      console.log(`textOverlay size: ${box.width} x ${box.height}`);
+
       const screenshotBuffer = await page.locator('#textOverlay').screenshot();
       return await utils.uploadToTmpfiles(screenshotBuffer, `${utils.randomName('.jpg')}`);
     } finally {

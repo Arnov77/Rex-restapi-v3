@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { tiktok } = require('majidapi/modules/social'); // Perbaiki impor
+const { ttdl } = require('ruhend-scraper');
 const config = require('../../config'); // Import config.js
 
 router.all('/', async (req, res) => {
@@ -10,38 +10,50 @@ router.all('/', async (req, res) => {
 
   try {
     const obj = req.method === 'GET' ? req.query : req.body;
-    if (!obj.url) {
-      return res.status(400).json({ status: 400, message: "Parameter 'url' diperlukan" });
+    if (!obj.query) {
+      return res.status(400).json({ status: 400, message: "Parameter 'query' diperlukan" });
     }
 
-    const url = obj.url.trim();
-    const result = await tiktok({
-      method: 'download',
-      url: url,
-    });
+    const url = obj.query.trim();
+    const result = await ttdl(url);
 
-    if (!result || !result.play) {
-      return res.status(404).json({ status: 404, message: 'Video tidak ditemukan atau tidak bisa diunduh.' });
+    if (!result || !result.video) {
+      return res.status(404).json({ status: 404, message: 'Video tidak ditemukan atau URL tidak valid.' });
     }
+
+    const data = {
+      region: result.region,
+      title: result.title,
+      published: result.published,
+      author: {
+        name: result.author,
+        username: result.username,
+        avatar: result.avatar,
+      },
+      stats: {
+        like: result.like,
+        comment: result.comment,
+        share: result.share,
+        views: result.views,
+        bookmark: result.bookmark,
+      },
+      media: {
+        cover: result.cover,
+        video: {
+          nowm: result.video,
+          wm: result.video_wm,
+          hd: result.video_hd
+        }
+      }
+    };
 
     res.json({
       status: 200,
       creator: config.creator,
-      data: {
-        videoUrl: result.play,
-        videoUrlWm: result.wmplay,
-        videoUrlHd: result.hdplay,
-        title: result.title,
-        cover: result.cover,
-        author: {
-          uniqueId: result.author.unique_id,
-          nickname: result.author.nickname,
-          avatar: result.author.avatar,
-        },
-      },
+      data
     });
   } catch (error) {
-    console.error(error.message);
+    console.error('Error TikTok:', error.message);
     res.status(500).json({ status: 500, message: error.message || 'Terjadi kesalahan' });
   }
 });

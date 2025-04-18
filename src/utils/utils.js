@@ -21,7 +21,7 @@ const utils = {
         '--no-cache',
       ],
       executablePath: process.env.CHROME_BIN, // Gunakan path dari .env
-      headless: true,
+      headless: false,
       ...opts,
     }),
 
@@ -170,7 +170,6 @@ const utils = {
     }
   },  
 
-// di utils.js
 instagramDownloader: async (videoUrl) => {
   const browser = await utils.getBrowser();
   try {
@@ -213,8 +212,7 @@ instagramDownloader: async (videoUrl) => {
   } finally {
     await browser.close();
   }
-}
-
+},
 };
 
 module.exports = utils;

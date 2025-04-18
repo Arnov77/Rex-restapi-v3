@@ -21,7 +21,7 @@ const utils = {
         '--no-cache',
       ],
       executablePath: process.env.CHROME_BIN, // Gunakan path dari .env
-      headless: false,
+      headless: true,
       ...opts,
     }),
 

@@ -63,8 +63,8 @@ const utils = {
       await page.addStyleTag({
         content: `
           #textOverlay {
-            width: 350px !important;
-            height: 350px !important;
+            width: 512px !important;
+            height: 512px !important;
             aspect-ratio: 1 / 1 !important;
             object-fit: contain !important;
           }

@@ -58,16 +58,16 @@ const utils = {
   
       await page.click('#toggleButtonWhite');
       await page.locator('#textInput').fill(text);
-await page.waitForTimeout(500);
+      await page.waitForTimeout(500);
 
-const box = await page.locator('#textOverlay').boundingBox();
-console.log(`Resolusi elemen: ${box.width}x${box.height}`);
+      const box = await page.locator('#textOverlay').boundingBox();
+      console.log(`Resolusi elemen: ${box.width}x${box.height}`);
 
-const screenshotBuffer = await page.locator('#textOverlay').screenshot();
+      const screenshotBuffer = await page.locator('#textOverlay').screenshot();
 
-const sizeOf = require('image-size');
-const dimensions = sizeOf(screenshotBuffer);
-console.log(`Resolusi screenshot: ${dimensions.width}x${dimensions.height}`);
+      const sizeOf = require('image-size');
+      const dimensions = sizeOf(screenshotBuffer);
+      console.log(`Resolusi screenshot: ${dimensions.width}x${dimensions.height}`);
 
       return await utils.uploadToTmpfiles(screenshotBuffer, `${utils.randomName('.jpg')}`);
     } finally {
@@ -169,39 +169,51 @@ console.log(`Resolusi screenshot: ${dimensions.width}x${dimensions.height}`);
       await browser.close();
     }
   },  
-  instagramDownloader: async (url) => {
+
+// di utils.js
+instagramDownloader: async (videoUrl) => {
+  const browser = await utils.getBrowser();
+  try {
+    const page = await browser.newPage();
+    await page.goto('https://snapsave.app/id/download-video-instagram', { waitUntil: 'domcontentloaded' });
+
+    await page.fill('#url', videoUrl);
+    await page.click('button[type="submit"]');
+
+    await page.waitForSelector('#download-section a[href^="https"]', { timeout: 20000 });
+
+    let thumbnail = null;
     try {
-      const res = await axios.post('https://api.fastdl.app/api/ajaxSearch', {
-        q: url
-      }, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Origin': 'https://fastdl.app',
-          'Referer': 'https://fastdl.app/'
-        }
-      });
-
-      const result = res.data;
-
-      if (!result || !result.medias || result.medias.length === 0) {
-        throw new Error('Media tidak ditemukan atau URL tidak valid.');
-      }
-
-      return {
-        status: 200,
-        result: result.medias.map(media => ({
-          quality: media.quality || 'default',
-          type: media.extension,
-          url: media.url
-        }))
-      };
-    } catch (err) {
-      return {
-        status: 500,
-        message: utils.getError(err)
-      };
+      await page.waitForSelector('#download-section .download-items__thumb.video img', { timeout: 10000 });
+      thumbnail = await page.$eval('#download-section .download-items__thumb.video img', img => img.src);
+    } catch (e) {
+      console.warn('Thumbnail tidak ditemukan:', e.message);
     }
-  },
+
+    const links = await page.$$eval(
+      '#download-section a[href^="https"]',
+      anchors => anchors.map(a => ({
+        text: a.innerText.trim(),
+        url: a.href
+      })).filter(a =>
+        a.url &&
+        !a.url.includes('play.google.com') &&
+        !/download with app/i.test(a.text)
+      )
+    );
+
+    if (!links.length) throw new Error('Link unduhan tidak ditemukan.');
+
+    return links.map(link => ({
+      text: link.text,
+      thumbnail,
+      url: link.url
+    }));
+    
+  } finally {
+    await browser.close();
+  }
+}
 
 };
 

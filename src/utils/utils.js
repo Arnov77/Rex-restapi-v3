@@ -49,26 +49,9 @@ const utils = {
     try {
       const page = await browser.newPage();
       await page.goto("https://www.bratgenerator.com/");
-      
-      const acceptButton = page.locator('#onetrust-accept-btn-handler');
-      if ((await acceptButton.count()) > 0 && await acceptButton.isVisible()) {
-        await acceptButton.click();
-        await page.waitForTimeout(500);
-      }
-  
       await page.click('#toggleButtonWhite');
       await page.locator('#textInput').fill(text);
-      await page.waitForTimeout(500);
-
-      const box = await page.locator('#textOverlay').boundingBox();
-      console.log(`Resolusi elemen: ${box.width}x${box.height}`);
-
       const screenshotBuffer = await page.locator('#textOverlay').screenshot();
-
-      const sizeOf = require('image-size');
-      const dimensions = sizeOf(screenshotBuffer);
-      console.log(`Resolusi screenshot: ${dimensions.width}x${dimensions.height}`);
-
       return await utils.uploadToTmpfiles(screenshotBuffer, `${utils.randomName('.jpg')}`);
     } finally {
       if (browser) await browser.close();

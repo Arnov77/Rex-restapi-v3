@@ -48,7 +48,7 @@ const utils = {
     const browser = await utils.getBrowser();
     try {
       const page = await browser.newPage();
-      await page.goto("https://www.bratgenerator.com/");
+      await page.goto("https://www.bratgenerator.net/");
 
       const acceptButton = page.locator('#onetrust-accept-btn-handler');
       if ((await acceptButton.count()) > 0 && await acceptButton.isVisible()) {
@@ -56,28 +56,17 @@ const utils = {
         await page.waitForTimeout(500);
       }
 
-      await page.click('#toggleButtonWhite');
-      await page.locator('#textInput').fill(text);
+      // await page.click('#toggleButtonWhite');
+      await page.locator('button:has-text("White")').click();
+      await page.locator('input[type=text]').fill(text);
 
-      // Force styling agar elemen bener-bener kotak
-      await page.addStyleTag({
-        content: `
-          #textOverlay {
-            width: 500px !important;
-            height: 500px !important;
-            aspect-ratio: 1 / 1 !important;
-            object-fit: contain !important;
-          }
-        `
-      });
-
-      // Tunggu sedikit biar render selesai
-      await page.waitForTimeout(500);
-
-      const box = await page.locator('#textOverlay').boundingBox();
-      console.log(`textOverlay size: ${box.width} x ${box.height}`);
-
-      const screenshotBuffer = await page.locator('#textOverlay').screenshot();
+      await page.locator('button:has-text("Generate")').click();
+      await page.waitForTimeout(7000);
+      const bratResult = page.locator('div.border.border-gray-300 div.text-center');
+      await bratResult.waitFor({ timeout: 10000 });
+      
+      const screenshotBuffer = await bratResult.screenshot();
+      
       return await utils.uploadToTmpfiles(screenshotBuffer, `${utils.randomName('.jpg')}`);
     } finally {
       if (browser) await browser.close();

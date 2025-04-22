@@ -11,8 +11,28 @@ const { promisify } = require('util');
 const pipeline = promisify(stream.pipeline);
 
 const utils = {
-  getBrowser: async (...opts) =>
-    playwright.chromium.launch({
+  getBrowser: async (...opts) => {
+    const proxiesPath = path.join(__dirname, 'proxies.txt');
+    let proxyOption;
+
+    if (fs.existsSync(proxiesPath)) {
+      const proxies = fs.readFileSync(proxiesPath, 'utf-8')
+        .split('\n')
+        .map(p => p.trim())
+        .filter(p => p);
+
+      if (proxies.length > 0) {
+        const randomProxy = `http://${proxies[Math.floor(Math.random() * proxies.length)]}`;
+        console.log('Pakai proxy:', randomProxy);
+        proxyOption = { server: randomProxy };
+      } else {
+        console.warn('proxies.txt kosong. Lanjut tanpa proxy.');
+      }
+    } else {
+      console.warn('proxies.txt tidak ditemukan. Lanjut tanpa proxy.');
+    }
+
+    const launchOptions = {
       args: [
         '--incognito',
         '--single-process',
@@ -20,10 +40,17 @@ const utils = {
         '--no-zygote',
         '--no-cache',
       ],
-      executablePath: process.env.CHROME_BIN, // Gunakan path dari .env
-      headless: true,
+      executablePath: process.env.CHROME_BIN,
+      headless: false,
       ...opts,
-    }),
+    };
+
+    if (proxyOption) {
+      launchOptions.proxy = proxyOption;
+    }
+
+    return playwright.chromium.launch(launchOptions);
+  },
 
   uploadToTmpfiles: async (fileBuffer, fileName) => {
     const form = new FormData();
@@ -47,26 +74,20 @@ const utils = {
   generateBrat: async (text) => {
     const browser = await utils.getBrowser();
     try {
-      const page = await browser.newPage();
-      await page.goto("https://www.bratgenerator.net/");
-
+      const page = await browser.newPage({
+        viewport: { width: 900, height: 573 }
+      });      
+      await page.goto("https://www.bratgenerator.com/");
+      
       const acceptButton = page.locator('#onetrust-accept-btn-handler');
       if ((await acceptButton.count()) > 0 && await acceptButton.isVisible()) {
         await acceptButton.click();
         await page.waitForTimeout(500);
       }
-
-      // await page.click('#toggleButtonWhite');
-      await page.locator('button:has-text("White")').click();
-      await page.locator('input[type=text]').fill(text);
-
-      await page.locator('button:has-text("Generate")').click();
-      await page.waitForTimeout(7000);
-      const bratResult = page.locator('div.border.border-gray-300 div.text-center');
-      await bratResult.waitFor({ timeout: 10000 });
-      
-      const screenshotBuffer = await bratResult.screenshot();
-      
+  
+      await page.click('#toggleButtonWhite');
+      await page.locator('#textInput').fill(text);
+      const screenshotBuffer = await page.locator('#textOverlay').screenshot();
       return await utils.uploadToTmpfiles(screenshotBuffer, `${utils.randomName('.jpg')}`);
     } finally {
       if (browser) await browser.close();

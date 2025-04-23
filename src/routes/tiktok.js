@@ -10,11 +10,11 @@ router.all('/', async (req, res) => {
 
   try {
     const obj = req.method === 'GET' ? req.query : req.body;
-    if (!obj.query) {
-      return res.status(400).json({ status: 400, message: "Parameter 'query' diperlukan" });
+    if (!obj.url) {
+      return res.status(400).json({ status: 400, message: "Parameter 'url' diperlukan" });
     }
 
-    const url = obj.query.trim();
+    const url = obj.url.trim();
     const result = await ttdl(url);
 
     if (!result || !result.video) {

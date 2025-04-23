@@ -25,8 +25,8 @@ WORKDIR /app
 # Menyalin file package.json dan package-lock.json ke container
 COPY package*.json ./
 
-# Instal dependensi
-RUN npm install
+# Instal & Update dependensi
+RUN npm install && npm update
 
 # Salin seluruh file proyek ke container
 COPY . .

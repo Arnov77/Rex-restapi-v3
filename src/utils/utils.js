@@ -97,7 +97,9 @@ const utils = {
   generateBratVideo: async (text) => {
     const browser = await utils.getBrowser();
     try {
-      const page = await browser.newPage();
+      const page = await browser.newPage({
+        viewport: { width: 900, height: 573 }
+      });   
       await page.goto("https://www.bratgenerator.com/");
 
       const acceptButton = page.locator('#onetrust-accept-btn-handler');
@@ -164,9 +166,15 @@ const utils = {
     try {
       const page = await browser.newPage();
       await page.goto('https://snapsave.app/id', { waitUntil: 'domcontentloaded' });
+
+      const acceptButton = page.locator('#onetrust-accept-btn-handler');
+      if ((await acceptButton.count()) > 0 && await acceptButton.isVisible()) {
+        await acceptButton.click();
+        await page.waitForTimeout(500);
+      }
   
       await page.fill('#url', videoUrl);
-      await page.click('button[type="submit"]');
+      await page.click('#send');
   
       // Tunggu hasil unduhan muncul
       await page.waitForSelector('#download-section a[href^="https"]', { timeout: 20000 });
@@ -232,6 +240,86 @@ instagramDownloader: async (videoUrl) => {
     await browser.close();
   }
 },
+
+generateQuoteImage: async (name, message, avatarUrl) => {
+  const browser = await utils.getBrowser();
+  try {
+    const page = await browser.newPage();
+
+    const defaultAvatar = 'https://i.ibb.co.com/dwTRp2SF/images-1.jpg';
+    avatarUrl = avatarUrl?.trim() ? avatarUrl : defaultAvatar;
+
+    const html = `
+      <html>
+        <head>
+          <style>
+            html, body {
+              margin: 0;
+              padding: 0;
+              display: inline-block;
+            }
+            body {
+              margin: 0;
+              padding: 40px;
+              font-family: 'Segoe UI', sans-serif;
+              background:rgba(255, 255, 255, 0);
+            }
+            .chat-container {
+              display: flex;
+              align-items: flex-start;
+              max-width: 600px;
+            }
+            .avatar {
+              width: 60px;
+              height: 60px;
+              border-radius: 50%;
+              object-fit: cover;
+              margin-right: 12px;
+              flex-shrink: 0;
+            }
+            .bubble {
+              background: #fff;
+              border-radius: 18px;
+              padding: 14px 16px;
+              box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+              display: inline-block;
+              max-width: 100%;
+            }
+            .name {
+              font-weight: 600;
+              font-size: 25px;
+              margin-bottom: 4px;
+              color:rgb(255, 136, 0);
+            }
+            .message {
+              font-size: 25px;
+              color: #111;
+              white-space: pre-wrap;
+              line-height: 1.5;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="chat-container">
+            <img class="avatar" src="${avatarUrl}" />
+            <div class="bubble">
+              <div class="name">${name}</div>
+              <div class="message">${message}</div>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+    await page.setContent(html, { waitUntil: 'networkidle' });
+    const element = await page.$('.chat-container');
+    const buffer = await element.screenshot({ omitBackground: true });
+
+    return buffer;
+  } finally {
+    await browser.close();
+  }
+}
+
 };
 
 module.exports = utils;

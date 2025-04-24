@@ -40,6 +40,7 @@ app.use('/api/tiktok-mp3', ttmp3Route);
 app.use('/api/instagram', igdlRoute);
 app.use('/api/facebook', require('./src/routes/facebook'));
 app.use('/api/gdrive', require('./src/routes/gdrive'));
+app.use('/api/quote', require('./src/routes/quote'));
 
 // Start server
 app.listen(PORT, () => {

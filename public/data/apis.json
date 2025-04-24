@@ -6,13 +6,15 @@
         { "id": 4, "name": "TIKTOK", "method": "GET", "action": "/api/tiktok?url=https://vt.tiktok.com/ZSrPMYuuF/" },
         { "id": 5, "name": "TIKTOK MP3", "method": "GET", "action": "/api/tiktok-mp3?url=https://vt.tiktok.com/ZSrPMYuuF/" },
         { "id": 6, "name": "INSTAGRAM", "method": "GET", "action": "/api/instagram?url=https://www.instagram.com/p/CGh4a0iASGS/?igsh=MWV5aWZ2MmFmMDB5Yg==" },
-        { "id": 7, "name": "GOOGLE DRIVE", "method": "GET", "action": "/api/gdrive?url=https://drive.google.com/file/d/1Gz6fjY5GLuFI_jIp1RGYL8MisrKchsfP/view?usp=drivesdk" }
+        { "id": 7, "name": "GOOGLE DRIVE", "method": "GET", "action": "/api/gdrive?url=https://drive.google.com/file/d/1Gz6fjY5GLuFI_jIp1RGYL8MisrKchsfP/view?usp=drivesdk" },
+        { "id": 8, "name": "FACEBOOK", "method": "GET", "action": "/api/facebook?url=https://www.facebook.com/share/r/15qfmGygKp/" }
     ],
     "Sticker": [
         { "id": 1, "name": "BRAT", "method": "GET", "action": "/api/brat?text=Never Gonna Give You Up" },
         { "id": 2, "name": "BRATVID", "method": "GET", "action": "/api/bratvid?text=Never Gonna Give You Up" }
     ],
     "Tools": [
-        { "id": 1, "name": "Penghitam Anime", "method": "GET", "action": "/api/hitam?image=https://i.ibb.co.com/jZW6CzK9/images-1.jpg&option=hitam" }
+        { "id": 1, "name": "Penghitam Anime", "method": "GET", "action": "/api/hitam?image=https://i.ibb.co.com/jZW6CzK9/images-1.jpg&option=hitam" },
+        { "id": 2, "name": "Quote", "method": "GET", "action": "/api/quote?name=Anonymous&message=Never gonna give you up&avatarUrl=" }
     ]
 }

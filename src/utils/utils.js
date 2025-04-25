@@ -345,6 +345,7 @@ generateMemeImage: async (imageUrl, topText = '', bottomText = '') => {
       <html>
         <head>
           <style>
+            @import url('https://fonts.cdnfonts.com/css/impact');
             body {
               margin: 0;
               padding: 0;

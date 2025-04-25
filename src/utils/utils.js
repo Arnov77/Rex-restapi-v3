@@ -371,7 +371,7 @@ generateMemeImage: async (imageUrl, topText = '', bottomText = '') => {
               transform: translateX(-50%);
               color: white;
               font-family: Impact, sans-serif;
-              font-size: 50px;
+              font-size: 38px;
               text-shadow: 2px 2px 4px #000;
               -webkit-text-stroke: 1.5px black; /* Tambahan outline */
               text-align: center;

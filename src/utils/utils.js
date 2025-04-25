@@ -279,12 +279,27 @@ generateQuoteImage: async (name, message, avatarUrl) => {
               flex-shrink: 0;
             }
             .bubble {
-              background: #fff;
-              border-radius: 18px;
-              padding: 14px 16px;
-              box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-              display: inline-block;
-              max-width: 100%;
+              position: relative;
+              background: #2a2f32;
+              border-radius: 16px 16px 16px 4px;
+              padding: 10px 14px;
+              color: white;
+              max-width: 80%;
+              box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+            }
+
+            .bubble::after {
+              content: '';
+              position: absolute;
+              left: -10px; /* sesuaikan posisi ke kiri */
+              bottom: 0;
+              width: 0;
+              height: 0;
+              border: 10px solid transparent;
+              border-top-color: #2a2f32; /* warna sama seperti bubble */
+              border-bottom: 0;
+              border-right: 0;
+              margin-bottom: -1px;
             }
             .name {
               font-weight: 600;
@@ -319,7 +334,77 @@ generateQuoteImage: async (name, message, avatarUrl) => {
   } finally {
     await browser.close();
   }
-}
+},
+
+generateMemeImage: async (imageUrl, topText = '', bottomText = '') => {
+  const browser = await utils.getBrowser();
+  try {
+    const page = await browser.newPage();
+
+    const html = `
+      <html>
+        <head>
+          <style>
+            body {
+              margin: 0;
+              padding: 0;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              height: 100vh;
+              background: #000;
+            }
+            .container {
+              position: relative;
+              display: inline-block;
+            }
+            img {
+              max-width: 600px;
+              width: 100%;
+              height: auto;
+              display: block;
+            }
+            .text {
+              position: absolute;
+              left: 50%;
+              transform: translateX(-50%);
+              color: white;
+              font-family: Impact, sans-serif;
+              font-size: 50px;
+              text-shadow: 2px 2px 4px #000;
+              -webkit-text-stroke: 1.5px black; /* Tambahan outline */
+              text-align: center;
+              width: 90%;
+              line-height: 1.2;
+              word-break: break-word;
+            }
+            .top {
+              top: 10px;
+            }
+            .bottom {
+              bottom: 10px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <img src="${imageUrl}" />
+            <div class="text top">${topText.toUpperCase()}</div>
+            <div class="text bottom">${bottomText.toUpperCase()}</div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    await page.setContent(html, { waitUntil: 'networkidle' });
+    const container = await page.$('.container');
+    const buffer = await container.screenshot({ omitBackground: true });
+
+    return await utils.uploadToTmpfiles(buffer, `${utils.randomName('.jpg')}`);
+  } finally {
+    await browser.close();
+  }
+},
 
 };
 

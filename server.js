@@ -41,6 +41,7 @@ app.use('/api/instagram', igdlRoute);
 app.use('/api/facebook', require('./src/routes/facebook'));
 app.use('/api/gdrive', require('./src/routes/gdrive'));
 app.use('/api/quote', require('./src/routes/quote'));
+app.use('/api/smeme', require('./src/routes/smeme'));
 
 // Start server
 app.listen(PORT, () => {

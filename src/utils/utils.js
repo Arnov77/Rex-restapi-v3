@@ -268,6 +268,7 @@ generateQuoteImage: async (name, message, avatarUrl) => {
               display: flex;
               align-items: flex-start;
               max-width: 600px;
+              padding-bottom: 60px;
             }
             .avatar {
               width: 60px;

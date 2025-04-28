@@ -15,15 +15,10 @@ router.all('/', async (req, res) => {
     const { image, top, bottom } = obj;
     if (!image) return res.status(400).json({ status: 400, message: "Parameter 'image' diperlukan (URL gambar)" });
 
-    const resultUrl = await utils.generateMemeImage(image, top || '', bottom || '');
+    const buffer = await utils.generateMemeImage(image, top || '', bottom || '');
 
-    res.json({
-      status: 200,
-      creator: config.creator,
-      data: {
-        imageUrl: resultUrl,
-      },
-    });
+    res.set('Content-Type', 'image/png');
+    res.send(buffer);
   } catch (e) {
     console.error(e);
     res.status(500).json({ status: 500, message: utils.getError(e) });

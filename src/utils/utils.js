@@ -41,7 +41,7 @@ const utils = {
         '--no-cache',
       ],
       executablePath: process.env.CHROME_BIN,
-      headless: true,
+      headless: false,
       ...opts,
     };
 
@@ -241,6 +241,84 @@ instagramDownloader: async (videoUrl) => {
   }
 },
 
+generateMemeImage: async (imageUrl, topText = '', bottomText = '') => {
+  const browser = await utils.getBrowser();
+  try {
+    const page = await browser.newPage();
+
+    const html = `
+      <html>
+        <head>
+          <style>
+            @import url('https://fonts.cdnfonts.com/css/impact');
+            body {
+              margin: 0;
+              padding: 0;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              height: 100vh;
+              background: transparent;
+            }
+            .container {
+              position: relative;
+              display: inline-block;
+            }
+            img {
+              max-width: 600px;
+              width: 100%;
+              height: auto;
+              display: block;
+            }
+            .text {
+              position: absolute;
+              left: 50%;
+              transform: translateX(-50%);
+              color: white;
+              font-family: Impact, sans-serif;
+              font-size: 65px;
+              text-shadow: 2px 2px 4px #000;
+              -webkit-text-stroke: 1.5px black; /* Tambahan outline */
+              text-align: center;
+              width: 90%;
+              line-height: 1.2;
+              word-break: break-word;
+            }
+            .top {
+              top: 5%;
+            }
+            .bottom {
+              bottom: 5%;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <img src="${imageUrl}" />
+            <div class="text top">${topText.toUpperCase()}</div>
+            <div class="text bottom">${bottomText.toUpperCase()}</div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    await page.setContent(html, { waitUntil: 'networkidle' });
+    const img = await page.$('img');
+    const boundingBox = await img.boundingBox();
+    await page.setViewportSize({
+      width: Math.ceil(boundingBox.width),
+      height: Math.ceil(boundingBox.height),
+    });
+    
+    const container = await page.$('.container');
+    const buffer = await container.screenshot({ omitBackground: true });
+
+    return buffer;
+  } finally {
+    await browser.close();
+  }
+},
+
 generateQuoteImage: async (name, message, avatarUrl) => {
   const browser = await utils.getBrowser();
   try {
@@ -280,8 +358,8 @@ generateQuoteImage: async (name, message, avatarUrl) => {
             }
             .bubble {
               position: relative;
-              background: #2a2f32;
-              border-radius: 16px 16px 16px 4px;
+              background:rgb(255, 255, 255);
+              border-radius: 0px 24px 24px 24px;
               padding: 10px 14px;
               color: white;
               max-width: 80%;
@@ -292,11 +370,11 @@ generateQuoteImage: async (name, message, avatarUrl) => {
               content: '';
               position: absolute;
               left: -10px; /* sesuaikan posisi ke kiri */
-              bottom: 0;
+              top: 0;
               width: 0;
               height: 0;
               border: 10px solid transparent;
-              border-top-color: #2a2f32; /* warna sama seperti bubble */
+              border-top-color:rgb(255, 255, 255); /* warna sama seperti bubble */
               border-bottom: 0;
               border-right: 0;
               margin-bottom: -1px;
@@ -331,77 +409,6 @@ generateQuoteImage: async (name, message, avatarUrl) => {
     const buffer = await element.screenshot({ omitBackground: true });
 
     return buffer;
-  } finally {
-    await browser.close();
-  }
-},
-
-generateMemeImage: async (imageUrl, topText = '', bottomText = '') => {
-  const browser = await utils.getBrowser();
-  try {
-    const page = await browser.newPage();
-
-    const html = `
-      <html>
-        <head>
-          <style>
-            @import url('https://fonts.cdnfonts.com/css/impact');
-            body {
-              margin: 0;
-              padding: 0;
-              display: flex;
-              justify-content: center;
-              align-items: center;
-              height: 100vh;
-              background: #000;
-            }
-            .container {
-              position: relative;
-              display: inline-block;
-            }
-            img {
-              max-width: 600px;
-              width: 100%;
-              height: auto;
-              display: block;
-            }
-            .text {
-              position: absolute;
-              left: 50%;
-              transform: translateX(-50%);
-              color: white;
-              font-family: Impact, sans-serif;
-              font-size: 38px;
-              text-shadow: 2px 2px 4px #000;
-              -webkit-text-stroke: 1.5px black; /* Tambahan outline */
-              text-align: center;
-              width: 90%;
-              line-height: 1.2;
-              word-break: break-word;
-            }
-            .top {
-              top: 10px;
-            }
-            .bottom {
-              bottom: 10px;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <img src="${imageUrl}" />
-            <div class="text top">${topText.toUpperCase()}</div>
-            <div class="text bottom">${bottomText.toUpperCase()}</div>
-          </div>
-        </body>
-      </html>
-    `;
-
-    await page.setContent(html, { waitUntil: 'networkidle' });
-    const container = await page.$('.container');
-    const buffer = await container.screenshot({ omitBackground: true });
-
-    return await utils.uploadToTmpfiles(buffer, `${utils.randomName('.jpg')}`);
   } finally {
     await browser.close();
   }

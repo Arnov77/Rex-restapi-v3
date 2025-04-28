@@ -41,7 +41,7 @@ const utils = {
         '--no-cache',
       ],
       executablePath: process.env.CHROME_BIN,
-      headless: false,
+      headless: true,
       ...opts,
     };
 

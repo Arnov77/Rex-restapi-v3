@@ -417,11 +417,14 @@ generateQuoteImage: async (name, message, avatarUrl) => {
 promotionDetector: async (text) => {
   const apiKey = process.env.GEMINI_API_KEY;
   const prompt = `
-Tolong jawab hanya "Promosi" atau "Bukan".
-Apakah teks berikut termasuk pesan promosi?
-
-"${text}"
-`;
+  Tolong jawab hanya dengan "Promosi" atau "Bukan".
+  Promosi di sini mencakup semua pesan yang bertujuan untuk menawarkan, mengiklankan, atau menjual produk, layanan, bisnis, atau komunitas, baik secara langsung maupun tidak langsung.
+  Termasuk juga ajakan untuk bergabung, bermain, atau pindah ke server Minecraft lain.
+  
+  Apakah teks berikut termasuk pesan promosi?
+  
+  "${text}"
+  `;
 
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
     method: 'POST',

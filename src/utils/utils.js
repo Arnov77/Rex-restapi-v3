@@ -417,12 +417,31 @@ generateQuoteImage: async (name, message, avatarUrl) => {
 promotionDetector: async (text) => {
   const apiKey = process.env.GEMINI_API_KEY;
   const prompt = `
-  Tolong jawab hanya dengan "Promosi" atau "Bukan".
-  Promosi di sini mencakup semua pesan yang bertujuan untuk menawarkan, mengiklankan, atau menjual produk, layanan, bisnis, atau komunitas, baik secara langsung maupun tidak langsung.
-  Termasuk juga ajakan untuk bergabung, bermain, atau pindah ke server Minecraft lain.
+  Tolong analisis teks berikut dengan cermat dan jawab hanya dengan "Promosi" atau "Bukan" berdasarkan kriteria di bawah ini:
   
-  Apakah teks berikut termasuk pesan promosi?
+  Kriteria PROMOSI:
+  1. Menyebutkan nama produk/layanan/bisnis/server tertentu disertai ajakan (beli, gabung, kunjungi, dll)
+  2. Menyertakan link/alamat untuk mendapatkan produk/layanan
+  3. Menawarkan keuntungan/harga/diskon khusus
+  4. Membandingkan keunggulan suatu produk/layanan
+  5. Ajakan eksplisit untuk bergabung/bermain di server/komunitas lain
   
+  Kriteria BUKAN PROMOSI:
+  1. Pembicaraan umum tentang produk/layanan tanpa ajakan
+  2. Menyebut merek tanpa konteks penawaran
+  3. Diskusi teknis/tanya jawab tentang produk
+  4. Pesan personal/pembicaraan sehari-hari
+  5. Referensi ke server lain dalam konteks diskusi biasa
+  
+  Contoh Promosi:
+  "Yuk join server kami IP mc.abc.com"
+  "Diskon 50% produk A, buruan beli!"
+  
+  Contoh Bukan Promosi:
+  "Server XYZ lagi down ya?"
+  "Aku pakai produk B karena awet"
+  
+  Teks yang akan dianalisis:
   "${text}"
   `;
 

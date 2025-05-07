@@ -417,34 +417,25 @@ generateQuoteImage: async (name, message, avatarUrl) => {
 promotionDetector: async (text) => {
   const apiKey = process.env.GEMINI_API_KEY;
   const prompt = `
-  Tolong analisis teks berikut dengan cermat dan jawab hanya dengan "Promosi" atau "Bukan" berdasarkan kriteria di bawah ini:
+  Analisa apakah teks berikut termasuk pesan promosi atau tidak.
   
-  Kriteria PROMOSI:
-  1. Menyebutkan nama produk/layanan/bisnis/server tertentu disertai ajakan (beli, gabung, kunjungi, dll)
-  2. Menyertakan link/alamat untuk mendapatkan produk/layanan
-  3. Menawarkan keuntungan/harga/diskon khusus
-  4. Membandingkan keunggulan suatu produk/layanan
-  5. Ajakan eksplisit untuk bergabung/bermain di server/komunitas lain
+  Promosi mencakup pesan yang benar-benar bertujuan untuk mengiklankan, menawarkan, atau menjual produk, layanan, bisnis, atau komunitas, baik secara langsung maupun tidak langsung. Termasuk ajakan bergabung atau promosi server Minecraft lain.
   
-  Kriteria BUKAN PROMOSI:
-  1. Pembicaraan umum tentang produk/layanan tanpa ajakan
-  2. Menyebut merek tanpa konteks penawaran
-  3. Diskusi teknis/tanya jawab tentang produk
-  4. Pesan personal/pembicaraan sehari-hari
-  5. Referensi ke server lain dalam konteks diskusi biasa
+  ❗ Jangan anggap sebagai promosi jika:
+  - Pesan hanya menyebut kata "promosi" dalam bentuk komentar, sarkasme, atau sindiran
+  - Pesan sedang membahas promosi yang lain, bukan mempromosikan sesuatu secara aktif
   
-  Contoh Promosi:
-  "Yuk join server kami IP mc.abc.com"
-  "Diskon 50% produk A, buruan beli!"
+  Jawaban terdiri dari:
+  1. Persentase kemungkinan promosi (0-100)
+  2. Penjelasan singkat alasan
   
-  Contoh Bukan Promosi:
-  "Server XYZ lagi down ya?"
-  "Aku pakai produk B karena awet"
-  
-  Teks yang akan dianalisis:
+  Teks:
   "${text}"
+  
+  Format:
+  [Persentase]% - [Penjelasan]
   `;
-
+    
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -456,9 +447,18 @@ promotionDetector: async (text) => {
   });
 
   const data = await response.json();
-  const result = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  return result?.toLowerCase().includes("promosi");
-},  
+  const textResponse = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+
+  const match = textResponse?.match(/(\d{1,3})%\s*-\s*(.+)/);
+  if (!match) {
+    return { percentage: 0, reason: "Tidak dapat memproses hasil dari model." };
+  }
+
+  const percentage = Math.min(100, parseInt(match[1], 10));
+  const reason = match[2];
+
+  return { percentage, reason };
+},
 
 };
 

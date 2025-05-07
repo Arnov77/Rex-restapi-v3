@@ -12,15 +12,22 @@ router.all('/', async (req, res) => {
     if (!obj.text) {
         return res.status(400).json({ status: 400, message: "Parameter 'text' diperlukan" });
     }
+
+    const threshold = parseInt(obj.threshold) || 70;
     
     try {
-        const result = await utils.promotionDetector(obj.text);
-    
+        const { percentage, reason } = await utils.promotionDetector(obj.text);
+        const isPromotion = percentage >= threshold;
+        
         res.json({
-        status: 200,
-        creator: config.creator,
-        result
-        });
+          status: 200,
+          creator: config.creator,
+          result: {
+            percentage,
+            isPromotion,
+            reason
+          }
+        });        
     } catch (e) {
         console.error(e);
         res.status(500).json({ status: 500, message: utils.getError(e) });

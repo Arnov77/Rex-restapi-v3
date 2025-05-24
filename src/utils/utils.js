@@ -416,48 +416,91 @@ generateQuoteImage: async (name, message, avatarUrl) => {
 
 promotionDetector: async (text) => {
   const apiKey = process.env.GEMINI_API_KEY;
+  
+  // Membersihkan teks input dari karakter khusus yang mungkin mengganggu
+  const cleanedText = text.trim().replace(/"/g, "'");
+  
   const prompt = `
-  Analisa apakah teks berikut termasuk pesan promosi atau tidak.
+  Analisa secara kritis apakah teks berikut termasuk pesan promosi atau tidak dengan ketentuan:
   
-  Promosi mencakup pesan yang benar-benar bertujuan untuk mengiklankan, menawarkan, atau menjual produk, layanan, bisnis, atau komunitas, baik secara langsung maupun tidak langsung. Termasuk ajakan bergabung atau promosi server Minecraft lain.
+  Klasifikasi sebagai PROMOSI jika:
+  - Mengandung penawaran produk/jasa (diskon, harga spesial, dll)
+  - Mengajak bergabung/bergabung ke komunitas/server
+  - Mempromosikan bisnis/usaha tertentu
+  - Mengandung link/URL yang mengarah ke penjualan
+  - Mengandung ajakan untuk membeli/menggunakan sesuatu
   
-  ❗ Jangan anggap sebagai promosi jika:
-  - Pesan hanya menyebut kata "promosi" dalam bentuk komentar, sarkasme, atau sindiran
-  - Pesan sedang membahas promosi yang lain, bukan mempromosikan sesuatu secara aktif
+  Klasifikasi sebagai BUKAN PROMOSI jika:
+  - Hanya menyebut kata "promosi" secara sarkastis/komentar
+  - Membahas promosi secara umum tanpa mempromosikan sesuatu
+  - Konten biasa/diskusi umum tanpa unsur penjualan
+  - Hanya menyebut merek tanpa maksud promosi
+  - Konten edukatif/informatif tentang produk tanpa ajakan beli
   
-  Jawaban terdiri dari:
-  1. Persentase kemungkinan promosi (0-100)
-  2. Penjelasan singkat alasan
-  
-  Teks:
-  "${text}"
-  
-  Format:
+  Berikan analisis dengan format:
   [Persentase]% - [Penjelasan]
+  
+  Contoh jawaban:
+  5% - Hanya menyebut merek dalam konteks diskusi biasa
+  90% - Mengandung penawaran produk dengan harga spesial
+  
+  Teks yang dianalisis:
+  "${cleanedText}"
   `;
     
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{
-        parts: [{ text: prompt }]
-      }]
-    })
-  });
+  try {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{ text: prompt }]
+        }]
+      }),
+      timeout: 10000 // tambahkan timeout untuk menghindari hanging
+    });
 
-  const data = await response.json();
-  const textResponse = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    if (!response.ok) {
+      throw new Error(`API request failed with status ${response.status}`);
+    }
 
-  const match = textResponse?.match(/(\d{1,3})%\s*-\s*(.+)/);
-  if (!match) {
-    return { percentage: 0, reason: "Tidak dapat memproses hasil dari model." };
+    const data = await response.json();
+    const textResponse = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+
+    // Improved regex pattern to handle various response formats
+    const match = textResponse?.match(/(\d{1,3})%\s*[-:]\s*(.+)/i);
+    if (!match) {
+      console.error('Unexpected API response format:', textResponse);
+      return { percentage: 0, reason: "Format respons tidak dikenali" };
+    }
+
+    const percentage = Math.min(100, Math.max(0, parseInt(match[1], 10))); // Ensure percentage is between 0-100
+    const reason = match[2].trim();
+
+    // Additional validation for common false positives
+    const falsePositiveKeywords = ['tidak ada promosi', 'bukan promosi', 'diskusi biasa', 'hanya menyebut'];
+    const isLikelyFalsePositive = falsePositiveKeywords.some(keyword => 
+      reason.toLowerCase().includes(keyword)
+    );
+
+    const adjustedPercentage = isLikelyFalsePositive 
+      ? Math.max(0, percentage - 20) // Reduce percentage for likely false positives
+      : percentage;
+
+    return { 
+      percentage: adjustedPercentage, 
+      reason,
+      rawResponse: textResponse // Untuk debugging
+    };
+    
+  } catch (error) {
+    console.error('Error in promotion detection:', error);
+    return { 
+      percentage: 0, 
+      reason: "Error dalam memproses permintaan",
+      error: error.message 
+    };
   }
-
-  const percentage = Math.min(100, parseInt(match[1], 10));
-  const reason = match[2];
-
-  return { percentage, reason };
 },
 
 };

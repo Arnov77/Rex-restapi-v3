@@ -57,7 +57,7 @@ const utils = {
     form.append('file', fileBuffer, { filename: fileName });
 
     try {
-      const response = await axios.post('https://tmpfiles.org/api/v1/upload', form, {
+      const response = await axios.post('http://tmpfiles.org/api/v1/upload', form, {
         headers: { ...form.getHeaders() },
       });
 

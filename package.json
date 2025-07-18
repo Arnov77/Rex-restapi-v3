@@ -21,7 +21,7 @@
     "gifencoder": "^2.0.1",
     "image-size": "^2.0.2",
     "majidapi": "^1.0.45",
-    "multer": "^1.4.5-lts.2",
+    "multer": "^2.0.2",
     "playwright": "^1.41.1",
     "puppeteer": "^24.6.0",
     "ruhend-scraper": "^9.0.1",

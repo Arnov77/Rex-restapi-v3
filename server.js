@@ -2,6 +2,9 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
+const express = require('express');
+const morgan  = require('morgan');
+const cors    = require('cors');
 
 const tempDir = path.join(__dirname, 'temp');
 if (!fs.existsSync(tempDir)) {
@@ -11,6 +14,9 @@ if (!fs.existsSync(tempDir)) {
 dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 7680;
+
+app.use(cors());
+app.use(morgan('dev'));
 
 // Middleware
 app.use(express.urlencoded({ extended: true }));
@@ -27,6 +33,7 @@ const hitamRoute = require('./src/routes/hitam');
 const ttdlRoute = require('./src/routes/tiktok');
 const ttmp3Route = require('./src/routes/tiktok-mp3');
 const igdlRoute = require('./src/routes/instagram');
+const mcprofile = require('./src/routes/mcprofile');
 
 // Register routes
 app.use('/api/brat', bratRoute);
@@ -43,6 +50,7 @@ app.use('/api/gdrive', require('./src/routes/gdrive'));
 app.use('/api/quote', require('./src/routes/quote'));
 app.use('/api/smeme', require('./src/routes/smeme'));
 app.use('/api/promosi', require('./src/routes/promosi'));
+app.use('/mcapi', mcprofile);  // => /mcapi/profile, /mcapi/render/head, /mcapi/profile/:edition/:id/skin
 
 // Start server
 app.listen(PORT, () => {

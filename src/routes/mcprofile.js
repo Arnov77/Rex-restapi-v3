@@ -220,52 +220,82 @@ router.get("/render/head", async (req, res, next) => {
     let skinUrl = skin;
 
     async function getSkinUrlByUsername(name) {
+      // AUTO: kalau ada prefix, langsung bedrock (dengan normalisasi spasi/underscore di tryBedrockGamertag)
       if (edition === "auto" && hasBedrockPrefix(name)) {
         const gamertag = stripBedrockPrefix(name);
         const bd = await tryBedrockGamertag(gamertag);
         return bd?.skin ?? (bd?.textureid ? `https://textures.minecraft.net/texture/${bd.textureid}` : null);
       }
+      // Bedrock dulu (coba nama asli lalu varian spasi/underscore)
       try {
         const bd = await tryBedrockGamertag(name);
         return bd?.skin ?? (bd?.textureid ? `https://textures.minecraft.net/texture/${bd.textureid}` : null);
       } catch {}
+      // Java
       try {
         const jv = await mcGet(`/api/v1/java/username/${encodeURIComponent(name)}`);
         return jv?.skin ?? (jv?.textureid ? `https://textures.minecraft.net/texture/${jv.textureid}` : null);
       } catch {}
-      const g = await axios.get(
-        `https://api.geysermc.org/v2/utils/uuid/bedrock_or_java/${encodeURIComponent(name)}?prefix=${encodeURIComponent(BEDROCK_PREFIXES[0] || ".")}`,
-        { timeout: 10_000 }
-      );
-      if (g?.data?.bedrock && g?.data?.xuid) {
-        const bd = await mcGet(`/api/v1/bedrock/xuid/${encodeURIComponent(g.data.xuid)}`);
-        return bd?.skin ?? (bd?.textureid ? `https://textures.minecraft.net/texture/${bd.textureid}` : null);
-      }
-      if (g?.data?.java && g?.data?.uuid) {
-        const jv = await mcGet(`/api/v1/java/uuid/${encodeURIComponent(g.data.uuid)}`);
-        return jv?.skin ?? (jv?.textureid ? `https://textures.minecraft.net/texture/${jv.textureid}` : null);
-      }
+      // Geyser fallback
+      try {
+        const g = await axios.get(
+          `https://api.geysermc.org/v2/utils/uuid/bedrock_or_java/${encodeURIComponent(name)}?prefix=${encodeURIComponent(BEDROCK_PREFIXES[0] || ".")}`,
+          { timeout: 10_000 }
+        );
+        if (g?.data?.bedrock && g?.data?.xuid) {
+          const bd = await mcGet(`/api/v1/bedrock/xuid/${encodeURIComponent(g.data.xuid)}`);
+          return bd?.skin ?? (bd?.textureid ? `https://textures.minecraft.net/texture/${bd.textureid}` : null);
+        }
+        if (g?.data?.java && g?.data?.uuid) {
+          const jv = await mcGet(`/api/v1/java/uuid/${encodeURIComponent(g.data.uuid)}`);
+          return jv?.skin ?? (jv?.textureid ? `https://textures.minecraft.net/texture/${jv.textureid}` : null);
+        }
+      } catch {}
       return null;
     }
 
-    if (!skinUrl && username) skinUrl = await getSkinUrlByUsername(username);
-    if (!skinUrl) skinUrl = Math.random() > 0.5 ? DEFAULT_STEVE : DEFAULT_ALEX; // cracked fallback
+    if (!skinUrl && username) {
+      skinUrl = await getSkinUrlByUsername(username);
+    }
 
-    let skinBuf;
-    try {
-      skinBuf = await axios.get(skinUrl, { responseType: "arraybuffer", timeout: 15_000 })
-        .then(r => Buffer.from(r.data));
-    } catch {
-      skinBuf = await axios.get(DEFAULT_STEVE, { responseType: "arraybuffer" })
-        .then(r => Buffer.from(r.data));
+    // Kandidat URL untuk diunduh (skin → Alex → Steve)
+    const candidates = [
+      skinUrl,
+      DEFAULT_ALEX,
+      DEFAULT_STEVE,
+    ].filter(Boolean);
+
+    let skinBuf = null;
+    let lastErr = null;
+
+    for (const url of candidates) {
+      try {
+        const resp = await axios.get(url, { responseType: "arraybuffer", timeout: 15000, validateStatus: () => true });
+        if (resp.status >= 200 && resp.status < 300 && resp.data) {
+          skinBuf = Buffer.from(resp.data);
+          break;
+        } else {
+          lastErr = new Error(`Download failed ${resp.status} for ${url}`);
+        }
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+
+    if (!skinBuf) {
+      // Gagal total: kasih info jelas (atau bisa kirim 200 dengan 1px png jika mau)
+      return res.status(502).json({ ok: false, error: "Unable to fetch skin or fallback skins", detail: String(lastErr) });
     }
 
     const out = await renderHeadFromSkinBuffer(skinBuf, parseInt(size, 10) || 100);
-    // optional cache header:
+    // Optional: cache header
     // res.set("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800");
     res.set("Content-Type", "image/png");
-    res.send(out);
-  } catch (e) { next(e); }
+    return res.send(out);
+
+  } catch (e) {
+    next(e);
+  }
 });
 
 async function renderHeadFromSkinBuffer(skinBuf, outSize = 100) {

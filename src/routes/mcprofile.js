@@ -255,8 +255,8 @@ router.get("/render/head", async (req, res, next) => {
     // Kandidat URL untuk diunduh (skin → Minotar Alex → Minotar Steve)
 const candidates = [
   skinUrl,
-  "https://minotar.net/avatar/MHF_Steve",
-  "https://minotar.net/avatar/MHF_Alex",
+  "https://minotar.net/avatar/Steve/64",
+  "https://minotar.net/avatar/Alex/64",
 ].filter(Boolean);
 
 let skinBuf = null;

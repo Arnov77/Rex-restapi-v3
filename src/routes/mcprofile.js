@@ -207,92 +207,120 @@ router.get("/profile/:edition/:id/skin", async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-// ===== render head (avatar)
+// ===== render head (avatar) — versi robust: Java pakai Crafatar (tanpa crop), Bedrock crop atlas
 router.get("/render/head", async (req, res, next) => {
   try {
     const { skin, username, edition = "auto", size = "100" } = req.query;
-    let skinUrl = skin;
+    const outSize = Math.max(1, parseInt(size, 10) || 100);
 
-    async function getSkinUrlByUsername(name) {
-      // AUTO: kalau ada prefix, langsung bedrock (dengan normalisasi spasi/underscore di tryBedrockGamertag)
-      if (edition === "auto" && hasBedrockPrefix(name)) {
-        const gamertag = stripBedrockPrefix(name);
-        const bd = await tryBedrockGamertag(gamertag);
-        return bd?.skin ?? (bd?.textureid ? `https://textures.minecraft.net/texture/${bd.textureid}` : null);
+    // Helper: unduh gambar dengan fallback list, tanpa throw di 4xx
+    async function fetchFirstOk(urls) {
+      let lastErr = null;
+      for (const url of urls.filter(Boolean)) {
+        try {
+          const resp = await axios.get(url, {
+            responseType: "arraybuffer",
+            timeout: 15000,
+            validateStatus: () => true,
+          });
+          if (resp.status >= 200 && resp.status < 300 && resp.data) {
+            return Buffer.from(resp.data);
+          } else {
+            lastErr = new Error(`HTTP ${resp.status} for ${url}`);
+          }
+        } catch (e) {
+          lastErr = e;
+        }
       }
-      // Bedrock dulu (coba nama asli lalu varian spasi/underscore)
-      try {
-        const bd = await tryBedrockGamertag(name);
-        return bd?.skin ?? (bd?.textureid ? `https://textures.minecraft.net/texture/${bd.textureid}` : null);
-      } catch {}
-      // Java
-      try {
-        const jv = await mcGet(`/api/v1/java/username/${encodeURIComponent(name)}`);
-        return jv?.skin ?? (jv?.textureid ? `https://textures.minecraft.net/texture/${jv.textureid}` : null);
-      } catch {}
-      // Geyser fallback
-      try {
-        const g = await axios.get(
-          `https://api.geysermc.org/v2/utils/uuid/bedrock_or_java/${encodeURIComponent(name)}?prefix=${encodeURIComponent(BEDROCK_PREFIXES[0] || ".")}`,
-          { timeout: 10_000 }
-        );
-        if (g?.data?.bedrock && g?.data?.xuid) {
-          const bd = await mcGet(`/api/v1/bedrock/xuid/${encodeURIComponent(g.data.xuid)}`);
-          return bd?.skin ?? (bd?.textureid ? `https://textures.minecraft.net/texture/${bd.textureid}` : null);
-        }
-        if (g?.data?.java && g?.data?.uuid) {
-          const jv = await mcGet(`/api/v1/java/uuid/${encodeURIComponent(g.data.uuid)}`);
-          return jv?.skin ?? (jv?.textureid ? `https://textures.minecraft.net/texture/${jv.textureid}` : null);
-        }
-      } catch {}
-      return null;
+      if (lastErr) throw lastErr;
+      throw new Error("No candidate URLs provided");
     }
 
-    if (!skinUrl && username) {
-      skinUrl = await getSkinUrlByUsername(username);
+    // Case 1: user kasih ?skin= langsung → anggap ATLAS, crop sendiri
+    if (skin) {
+      try {
+        const atlasBuf = await fetchFirstOk([skin]);
+        const head = await renderHeadFromSkinBuffer(atlasBuf, outSize); // <- fungsi crop kamu tetap dipakai
+        res.set("Content-Type", "image/png");
+        return res.send(head);
+      } catch (e) {
+        // kalau skin direct gagal → fallback avatar default (tanpa crop)
+        const fb = await fetchFirstOk([
+          `https://minotar.net/avatar/Alex/${outSize}`,
+          `https://minotar.net/avatar/Steve/${outSize}`,
+        ]);
+        res.set("Content-Type", "image/png");
+        return res.send(fb);
+      }
     }
 
-    // Kandidat URL untuk diunduh (skin → Minotar Alex → Minotar Steve)
-const candidates = [
-  skinUrl,
-  "https://minotar.net/avatar/Steve/64",
-  "https://minotar.net/avatar/Alex/64",
-].filter(Boolean);
-
-let skinBuf = null;
-let lastErr = null;
-
-for (const url of candidates) {
-  try {
-    const resp = await axios.get(url, {
-      responseType: "arraybuffer",
-      timeout: 15000,
-      validateStatus: () => true, // biar 404 ga throw, lanjut kandidat berikutnya
-    });
-    if (resp.status >= 200 && resp.status < 300 && resp.data) {
-      skinBuf = Buffer.from(resp.data);
-      break;
-    } else {
-      lastErr = new Error(`Download failed ${resp.status} for ${url}`);
+    // Case 2: pakai username
+    if (!username) {
+      return res.status(422).json({ ok: false, error: "Berikan ?skin= atau ?username=" });
     }
-  } catch (e) {
-    lastErr = e;
-  }
-}
 
-if (!skinBuf) {
-  return res.status(502).json({
-    ok: false,
-    error: "Unable to fetch skin or fallback skins",
-    detail: String(lastErr),
-  });
-}
+    // a) Jika deteksi Bedrock (prefix atau memang edition=bedrock)
+    if (edition === "bedrock" || hasBedrockPrefix(username)) {
+      try {
+        const gamertag = hasBedrockPrefix(username) ? stripBedrockPrefix(username) : username;
+        const bd = await tryBedrockGamertag(gamertag);
+        const atlasUrl =
+          bd?.skin ?? (bd?.textureid ? `https://textures.minecraft.net/texture/${bd.textureid}` : null);
 
-    const out = await renderHeadFromSkinBuffer(skinBuf, parseInt(size, 10) || 100);
-    // Optional: cache header
-    // res.set("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800");
+        if (!atlasUrl) throw new Error("No bedrock skin url");
+        const atlasBuf = await fetchFirstOk([atlasUrl]);
+        const head = await renderHeadFromSkinBuffer(atlasBuf, outSize);
+        res.set("Content-Type", "image/png");
+        return res.send(head);
+      } catch (e) {
+        // Bedrock gagal → fallback avatar default
+        const fb = await fetchFirstOk([
+          `https://minotar.net/avatar/Alex/${outSize}`,
+          `https://minotar.net/avatar/Steve/${outSize}`,
+        ]);
+        res.set("Content-Type", "image/png");
+        return res.send(fb);
+      }
+    }
+
+    // b) Coba Java premium: ambil UUID → PAKAI CRAFATAR AVATAR (tanpa crop)
+    try {
+      const jv = await mcGet(`/api/v1/java/username/${encodeURIComponent(username)}`);
+      const uuid = jv?.java_uuid ?? jv?.uuid;
+      if (uuid) {
+        // Langsung pakai head render dari Crafatar (sudah overlay), tidak perlu crop
+        const crafatarUrl = `https://crafatar.com/avatars/${uuid}?overlay&size=${outSize}`;
+        const buf = await fetchFirstOk([crafatarUrl]);
+        res.set("Content-Type", "image/png");
+        return res.send(buf);
+      }
+      // Kalau anehnya tak ada uuid → jatuh ke langkah berikut
+    } catch {
+      // lanjut ke geyser / atlas
+    }
+
+    // c) Kalau Java via UUID gagal, masih coba atlas (mojang texture) lalu fallback
+    try {
+      const jv2 = await mcGet(`/api/v1/java/username/${encodeURIComponent(username)}`);
+      const atlasUrl =
+        jv2?.skin ?? (jv2?.textureid ? `https://textures.minecraft.net/texture/${jv2.textureid}` : null);
+      if (atlasUrl) {
+        const atlasBuf = await fetchFirstOk([atlasUrl]);
+        const head = await renderHeadFromSkinBuffer(atlasBuf, outSize);
+        res.set("Content-Type", "image/png");
+        return res.send(head);
+      }
+    } catch {
+      // ignore, lanjut fallback
+    }
+
+    // d) Terakhir, fallback avatar default (tanpa crop) — menutup kasus cracked/offline
+    const fb = await fetchFirstOk([
+      `https://minotar.net/avatar/Alex/${outSize}`,
+      `https://minotar.net/avatar/Steve/${outSize}`,
+    ]);
     res.set("Content-Type", "image/png");
-    return res.send(out);
+    return res.send(fb);
 
   } catch (e) {
     next(e);

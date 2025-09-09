@@ -18,12 +18,6 @@ const cache = new NodeCache({ stdTTL: 300, checkperiod: 120 });
 const limiter = rateLimit({ windowMs: 60_000, max: 60 });
 router.use(limiter);
 
-// === DEFAULT SKINS (fallback)
-const DEFAULT_STEVE =
-  "https://textures.minecraft.net/texture/2bd6b6e4d7b5c2cbe62c57be9f2cb86c0fb4c9ce76bb9a1d9158f0a5f1a3";
-const DEFAULT_ALEX =
-  "https://textures.minecraft.net/texture/367df0c7d6b3c6c2e0e14e2b5b67dfba97e18f7e8c4fbb2e6e4c3158e2b0c4f2";
-
 // === helpers
 const ok = (data) => ({ ok: true, data });
 const fail = (msg, status = 400) => {
@@ -258,34 +252,41 @@ router.get("/render/head", async (req, res, next) => {
       skinUrl = await getSkinUrlByUsername(username);
     }
 
-    // Kandidat URL untuk diunduh (skin → Alex → Steve)
-    const candidates = [
-      skinUrl,
-      DEFAULT_ALEX,
-      DEFAULT_STEVE,
-    ].filter(Boolean);
+    // Kandidat URL untuk diunduh (skin → Minotar Alex → Minotar Steve)
+const candidates = [
+  skinUrl,
+  "https://minotar.net/avatar/MHF_Steve",
+  "https://minotar.net/avatar/MHF_Alex",
+].filter(Boolean);
 
-    let skinBuf = null;
-    let lastErr = null;
+let skinBuf = null;
+let lastErr = null;
 
-    for (const url of candidates) {
-      try {
-        const resp = await axios.get(url, { responseType: "arraybuffer", timeout: 15000, validateStatus: () => true });
-        if (resp.status >= 200 && resp.status < 300 && resp.data) {
-          skinBuf = Buffer.from(resp.data);
-          break;
-        } else {
-          lastErr = new Error(`Download failed ${resp.status} for ${url}`);
-        }
-      } catch (e) {
-        lastErr = e;
-      }
+for (const url of candidates) {
+  try {
+    const resp = await axios.get(url, {
+      responseType: "arraybuffer",
+      timeout: 15000,
+      validateStatus: () => true, // biar 404 ga throw, lanjut kandidat berikutnya
+    });
+    if (resp.status >= 200 && resp.status < 300 && resp.data) {
+      skinBuf = Buffer.from(resp.data);
+      break;
+    } else {
+      lastErr = new Error(`Download failed ${resp.status} for ${url}`);
     }
+  } catch (e) {
+    lastErr = e;
+  }
+}
 
-    if (!skinBuf) {
-      // Gagal total: kasih info jelas (atau bisa kirim 200 dengan 1px png jika mau)
-      return res.status(502).json({ ok: false, error: "Unable to fetch skin or fallback skins", detail: String(lastErr) });
-    }
+if (!skinBuf) {
+  return res.status(502).json({
+    ok: false,
+    error: "Unable to fetch skin or fallback skins",
+    detail: String(lastErr),
+  });
+}
 
     const out = await renderHeadFromSkinBuffer(skinBuf, parseInt(size, 10) || 100);
     // Optional: cache header

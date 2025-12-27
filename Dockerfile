@@ -1,5 +1,5 @@
 # Menggunakan image Node.js sebagai dasar
-FROM node:18
+FROM node:22
 
 # Instal Chromium dan dependensinya
 RUN apt-get update && apt-get install -y \

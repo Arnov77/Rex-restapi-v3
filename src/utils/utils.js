@@ -76,13 +76,14 @@ generateBrat: async (text) => {
       viewport: { width: 900, height: 573 }
     });      
     await page.goto("https://www.bratgenerator.com/", {
-      waitUntil: 'networkidle0'
+      waitUntil: 'domcontentloaded',
+      timeout: 30000
     });
     
     const acceptButton = page.locator('#onetrust-accept-btn-handler');
     if ((await acceptButton.count()) > 0 && await acceptButton.isVisible()) {
       await acceptButton.click();
-      await page.waitForTimeout(500);
+      await page.waitForTimeout(300);
     }
 
     await page.waitForSelector('#toggleButtonWhite', { 
@@ -91,13 +92,16 @@ generateBrat: async (text) => {
     });
     
     await page.click('#toggleButtonWhite');
-    await page.waitForTimeout(800);
+    await page.waitForTimeout(500);
     
     await page.locator('#textInput').fill(text);
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(200);
     
     const screenshotBuffer = await page.locator('#textOverlay').screenshot();
     return screenshotBuffer;
+  } catch (error) {
+    console.error('generateBrat error:', error);
+    throw error;
   } finally {
     if (browser) await browser.close();
   }
@@ -110,13 +114,14 @@ generateBratVid: async (text) => {
       viewport: { width: 900, height: 573 }
     });
     await page.goto("https://www.bratgenerator.com/", {
-      waitUntil: 'networkidle0'
+      waitUntil: 'domcontentloaded',
+      timeout: 30000
     });
 
     const acceptButton = page.locator('#onetrust-accept-btn-handler');
     if ((await acceptButton.count()) > 0 && await acceptButton.isVisible()) {
       await acceptButton.click();
-      await page.waitForTimeout(500);
+      await page.waitForTimeout(300);
     }
 
     await page.waitForSelector('#toggleButtonWhite', {
@@ -125,30 +130,21 @@ generateBratVid: async (text) => {
     });
 
     await page.click('#toggleButtonWhite');
-    await page.waitForTimeout(800);
+    await page.waitForTimeout(500);
 
     await page.locator('#textInput').fill(text);
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(200);
 
-    await page.evaluate(() => {
-      return new Promise((resolve) => {
-        const video = document.querySelector('video');
-        if (video) {
-          video.currentTime = 0;
-          video.play();
-          video.addEventListener('ended', resolve, { once: true });
-        } else {
-          resolve();
-        }
-      });
-    });
-
-    const videoBuffer = await page.locator('video').screenshot({ type: 'png' });
+    const videoBuffer = await page.locator('#textOverlay').screenshot();
     return videoBuffer;
+  } catch (error) {
+    console.error('generateBratVid error:', error);
+    throw error;
   } finally {
     if (browser) await browser.close();
   }
 },
+  
   facebookDownloader: async (videoUrl) => {
     const browser = await utils.getBrowser();
     try {

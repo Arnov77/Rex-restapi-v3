@@ -15,15 +15,10 @@ router.all('/', async (req, res) => {
       return res.status(400).json({ status: 400, message: "Parameter 'text' diperlukan" });
     }
 
-    const fileUrl = await utils.generateBratVideo(obj.text);
+    const gifBuffer = await utils.generateBratVideo(obj.text);
 
-    res.json({
-      status: 200,
-      creator: config.creator,
-      data: {
-        gifUrl: fileUrl,
-      },
-    });
+    res.set('Content-Type', 'image/gif');
+    res.send(gifBuffer);
   } catch (e) {
     console.error(e);
     res.status(500).json({ status: 500, message: utils.getError(e) });

@@ -69,99 +69,86 @@ const utils = {
     }
   },
 
-  generateBrat: async (text) => {
-    const browser = await utils.getBrowser();
-    try {
-      const page = await browser.newPage({
-        viewport: { width: 900, height: 573 }
-      });      
-      await page.goto("https://www.bratgenerator.com/");
-      
-      const acceptButton = page.locator('#onetrust-accept-btn-handler');
-      if ((await acceptButton.count()) > 0 && await acceptButton.isVisible()) {
-        await acceptButton.click();
-        await page.waitForTimeout(500);
-      }
-  
-      await page.click('#toggleButtonWhite');
-      await page.locator('#textInput').fill(text);
-      const screenshotBuffer = await page.locator('#textOverlay').screenshot();
-      return screenshotBuffer;
-    } finally {
-      if (browser) await browser.close();
-    }
-  },
-  
-  generateBratVideo: async (text) => {
-    const browser = await utils.getBrowser();
-    try {
-      const page = await browser.newPage({
-        viewport: { width: 900, height: 573 }
-      });   
-      await page.goto("https://www.bratgenerator.com/");
-
-      const acceptButton = page.locator('#onetrust-accept-btn-handler');
-      if ((await acceptButton.count()) > 0 && await acceptButton.isVisible()) {
-        await acceptButton.click();
-        await page.waitForTimeout(500);
-      }
-
-      await page.click('#toggleButtonWhite');
-      
-      const words = text.split(' ');
-      let frames = [];
-      
-      for (let i = 0; i < words.length; i++) {
-        const partialText = words.slice(0, i + 1).join(' ');
-        await page.locator('#textInput').fill(partialText);
-        const screenshotBuffer = await page.locator('#textOverlay').screenshot();
-        frames.push(screenshotBuffer);
-      }
-      
-      const gifBuffer = await utils.createGIF(frames);
-      return gifBuffer;
-    } finally {
-      if (browser) await browser.close();
-    }
-  },
-  
-  createGIF: async (frames) => {
-    const GIFEncoder = require('gifencoder');
-    const { createCanvas, loadImage } = require('canvas');
-
-    const encoder = new GIFEncoder(512, 512);
-    encoder.start();
-    encoder.setRepeat(0);
-    encoder.setDelay(500);
-    encoder.setQuality(10);
-
-    const canvas = createCanvas(512, 512);
-    const ctx = canvas.getContext('2d');
-
-    for (const frame of frames) {
-      const img = await loadImage(frame);
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      encoder.addFrame(ctx);
-    }
-
-    encoder.finish();
-    return encoder.out.getData();
-  },
-
-  randomName: (suffix = '') => Math.random().toString(36).slice(2) + suffix,
-
-  getError: (err) => err.message || 'Unknown Error',
-
-  streamToBuffer: async (stream) => {
-    return new Promise((resolve, reject) => {
-      const chunks = [];
-      stream.on('data', (chunk) => chunks.push(chunk));
-      stream.on('end', () => resolve(Buffer.concat(chunks)));
-      stream.on('error', (err) => reject(err));
+generateBrat: async (text) => {
+  const browser = await utils.getBrowser();
+  try {
+    const page = await browser.newPage({
+      viewport: { width: 900, height: 573 }
+    });      
+    await page.goto("https://www.bratgenerator.com/", {
+      waitUntil: 'networkidle0'
     });
-  },
+    
+    const acceptButton = page.locator('#onetrust-accept-btn-handler');
+    if ((await acceptButton.count()) > 0 && await acceptButton.isVisible()) {
+      await acceptButton.click();
+      await page.waitForTimeout(500);
+    }
 
+    await page.waitForSelector('#toggleButtonWhite', { 
+      visible: true,
+      timeout: 5000 
+    });
+    
+    await page.click('#toggleButtonWhite');
+    await page.waitForTimeout(800);
+    
+    await page.locator('#textInput').fill(text);
+    await page.waitForTimeout(300);
+    
+    const screenshotBuffer = await page.locator('#textOverlay').screenshot();
+    return screenshotBuffer;
+  } finally {
+    if (browser) await browser.close();
+  }
+},
+
+generateBratVid: async (text) => {
+  const browser = await utils.getBrowser();
+  try {
+    const page = await browser.newPage({
+      viewport: { width: 900, height: 573 }
+    });
+    await page.goto("https://www.bratgenerator.com/", {
+      waitUntil: 'networkidle0'
+    });
+
+    const acceptButton = page.locator('#onetrust-accept-btn-handler');
+    if ((await acceptButton.count()) > 0 && await acceptButton.isVisible()) {
+      await acceptButton.click();
+      await page.waitForTimeout(500);
+    }
+
+    await page.waitForSelector('#toggleButtonWhite', {
+      visible: true,
+      timeout: 5000
+    });
+
+    await page.click('#toggleButtonWhite');
+    await page.waitForTimeout(800);
+
+    await page.locator('#textInput').fill(text);
+    await page.waitForTimeout(300);
+
+    await page.evaluate(() => {
+      return new Promise((resolve) => {
+        const video = document.querySelector('video');
+        if (video) {
+          video.currentTime = 0;
+          video.play();
+          video.addEventListener('ended', resolve, { once: true });
+        } else {
+          resolve();
+        }
+      });
+    });
+
+    const videoBuffer = await page.locator('video').screenshot({ type: 'png' });
+    return videoBuffer;
+  } finally {
+    if (browser) await browser.close();
+  }
+},
   facebookDownloader: async (videoUrl) => {
     const browser = await utils.getBrowser();
     try {

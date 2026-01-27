@@ -3,9 +3,7 @@ const playwright = require('playwright');
 const axios = require('axios');
 const FormData = require('form-data');
 const fs = require('fs');
-const GIFEncoder = require('gifencoder');
 const path = require('path');
-const { createCanvas, loadImage } = require('canvas');
 const stream = require('stream');
 const { promisify } = require('util');
 const pipeline = promisify(stream.pipeline);
@@ -88,7 +86,7 @@ const utils = {
       await page.click('#toggleButtonWhite');
       await page.locator('#textInput').fill(text);
       const screenshotBuffer = await page.locator('#textOverlay').screenshot();
-      return await utils.uploadToTmpfiles(screenshotBuffer, `${utils.randomName('.jpg')}`);
+      return screenshotBuffer;
     } finally {
       if (browser) await browser.close();
     }
@@ -121,13 +119,16 @@ const utils = {
       }
       
       const gifBuffer = await utils.createGIF(frames);
-      return await utils.uploadToTmpfiles(gifBuffer, `${utils.randomName('.gif')}`);
+      return gifBuffer;
     } finally {
       if (browser) await browser.close();
     }
   },
   
   createGIF: async (frames) => {
+    const GIFEncoder = require('gifencoder');
+    const { createCanvas, loadImage } = require('canvas');
+
     const encoder = new GIFEncoder(512, 512);
     encoder.start();
     encoder.setRepeat(0);

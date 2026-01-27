@@ -15,15 +15,10 @@ router.all('/', async (req, res) => {
       return res.status(400).json({ status: 400, message: "Parameter 'text' diperlukan" });
     }
 
-    const fileUrl = await utils.generateBrat(obj.text);
+    const imageBuffer = await utils.generateBrat(obj.text);
 
-    res.json({
-      status: 200,
-      creator: config.creator, // Menggunakan dari config.js
-      data: {
-        imageUrl: fileUrl,
-      },
-    });
+    res.set('Content-Type', 'image/jpeg');
+    res.send(imageBuffer);
   } catch (e) {
     console.error(e);
     res.status(500).json({ status: 500, message: utils.getError(e) });

@@ -14,8 +14,12 @@ router.all('/', async (req, res) => {
     if (!obj.text) {
       return res.status(400).json({ status: 400, message: "Parameter 'text' diperlukan" });
     }
-
-    const gifBuffer = await utils.generateBratVideo(obj.text);
+    
+    const preset = obj.preset || 'bratdeluxe';
+    const bgColor = obj.bgColor || null;
+    const textColor = obj.textColor || null;
+    
+    const gifBuffer = await utils.generateBratVideo(obj.text, preset, bgColor, textColor);
 
     res.set('Content-Type', 'image/gif');
     res.send(gifBuffer);

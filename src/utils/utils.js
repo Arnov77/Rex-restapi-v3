@@ -7,8 +7,13 @@ const path = require('path');
 const stream = require('stream');
 const { promisify } = require('util');
 const pipeline = promisify(stream.pipeline);
+const { initColorIndex, convertColor } = require('./color'); 
 
 const utils = {
+  init: async () => {
+    await initColorIndex();
+  },
+
   getBrowser: async (...opts) => {
     const proxiesPath = path.join(__dirname, 'proxies.txt');
     let proxyOption;
@@ -68,83 +73,131 @@ const utils = {
       throw new Error('Gagal mengunggah ke tmpfiles.org: ' + error.message);
     }
   },
+  
+  convertColor: (color) => convertColor(color),
 
-generateBrat: async (text) => {
+  generateBrat: async (text, presetValue = 'brat', bgColor = null, textColor = null) => {
+    const browser = await utils.getBrowser();
+    try {
+      const page = await browser.newPage({
+        viewport: { width: 900, height: 600 }
+      });
+      await page.goto("https://bratify.vercel.app/", { waitUntil: 'networkidle' });
+      
+      await page.waitForSelector('#preset');
+      
+      if (bgColor && textColor) {
+        await page.selectOption('#preset', 'custom');
+        await page.fill('input#background', utils.convertColor(bgColor));
+        await page.fill('input#foreground', utils.convertColor(textColor));
+      } else {
+        await page.selectOption('#preset', presetValue);
+      }
+      
+      const textInput = await page.locator('div[contenteditable="true"].album-art');
+      await textInput.click();
+      await page.keyboard.press('Control+A');
+      await page.keyboard.press('Backspace');
+      await textInput.type(text);
+      
+      await page.waitForTimeout(1000);
+      
+      const downloadPath = '/tmp/brat-' + Date.now() + '.png';
+      const [download] = await Promise.all([
+        page.waitForEvent('download'),
+        page.click('section.export button:first-child')
+      ]);
+      
+      await download.saveAs(downloadPath);
+      const buffer = fs.readFileSync(downloadPath);
+      fs.unlinkSync(downloadPath);
+      
+      return buffer;
+    } finally {
+      if (browser) await browser.close();
+    }
+  },
+
+  generateBratVideo: async (text, presetValue = 'brat', bgColor = null, textColor = null) => {
   const browser = await utils.getBrowser();
   try {
     const page = await browser.newPage({
-      viewport: { width: 900, height: 573 }
-    });      
-    await page.goto("https://www.bratgenerator.com/", {
-      waitUntil: 'domcontentloaded',
-      timeout: 30000
-    });
+      viewport: { width: 900, height: 600 }
+    });   
+    await page.goto("https://bratify.vercel.app/", { waitUntil: 'networkidle' });
+
+    await page.waitForSelector('#preset');
     
-    const acceptButton = page.locator('#onetrust-accept-btn-handler');
-    if ((await acceptButton.count()) > 0 && await acceptButton.isVisible()) {
-      await acceptButton.click();
-      await page.waitForTimeout(300);
+    if (bgColor && textColor) {
+      await page.selectOption('#preset', 'custom');
+      await page.fill('input#background', utils.convertColor(bgColor));
+      await page.fill('input#foreground', utils.convertColor(textColor));
+    } else {
+      await page.selectOption('#preset', presetValue);
     }
 
-    await page.waitForSelector('#toggleButtonWhite', { 
-      visible: true,
-      timeout: 5000 
-    });
+    const words = text.split(' ');
+    let frames = [];
     
-    await page.click('#toggleButtonWhite');
-    await page.waitForTimeout(500);
-    
-    await page.locator('#textInput').fill(text);
-    await page.waitForTimeout(200);
-    
-    const screenshotBuffer = await page.locator('#textOverlay').screenshot();
-    return screenshotBuffer;
-  } catch (error) {
-    console.error('generateBrat error:', error);
-    throw error;
-  } finally {
-    if (browser) await browser.close();
-  }
-},
-
-generateBratVid: async (text) => {
-  const browser = await utils.getBrowser();
-  try {
-    const page = await browser.newPage({
-      viewport: { width: 900, height: 573 }
-    });
-    await page.goto("https://www.bratgenerator.com/", {
-      waitUntil: 'domcontentloaded',
-      timeout: 30000
-    });
-
-    const acceptButton = page.locator('#onetrust-accept-btn-handler');
-    if ((await acceptButton.count()) > 0 && await acceptButton.isVisible()) {
-      await acceptButton.click();
+    for (let i = 0; i < words.length; i++) {
+      const partialText = words.slice(0, i + 1).join(' ');
+      
+      const textInput = await page.locator('div[contenteditable="true"].album-art');
+      await textInput.click();
+      await page.keyboard.press('Control+A');
+      await page.keyboard.press('Backspace');
+      await textInput.type(partialText);
+      
       await page.waitForTimeout(300);
+      
+      const screenshotBuffer = await page.locator('section.shadow').screenshot();
+      frames.push(screenshotBuffer);
     }
-
-    await page.waitForSelector('#toggleButtonWhite', {
-      visible: true,
-      timeout: 5000
-    });
-
-    await page.click('#toggleButtonWhite');
-    await page.waitForTimeout(500);
-
-    await page.locator('#textInput').fill(text);
-    await page.waitForTimeout(200);
-
-    const videoBuffer = await page.locator('#textOverlay').screenshot();
-    return videoBuffer;
-  } catch (error) {
-    console.error('generateBratVid error:', error);
-    throw error;
+    
+    const gifBuffer = await utils.createGIF(frames);
+    return gifBuffer;
   } finally {
     if (browser) await browser.close();
   }
 },
   
+  createGIF: async (frames) => {
+    const GIFEncoder = require('gifencoder');
+    const { createCanvas, loadImage } = require('canvas');
+
+    const encoder = new GIFEncoder(512, 512);
+    encoder.start();
+    encoder.setRepeat(0);
+    encoder.setDelay(500);
+    encoder.setQuality(10);
+
+    const canvas = createCanvas(512, 512);
+    const ctx = canvas.getContext('2d');
+
+    for (const frame of frames) {
+      const img = await loadImage(frame);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      encoder.addFrame(ctx);
+    }
+
+    encoder.finish();
+    return encoder.out.getData();
+  },
+
+  randomName: (suffix = '') => Math.random().toString(36).slice(2) + suffix,
+
+  getError: (err) => err.message || 'Unknown Error',
+
+  streamToBuffer: async (stream) => {
+    return new Promise((resolve, reject) => {
+      const chunks = [];
+      stream.on('data', (chunk) => chunks.push(chunk));
+      stream.on('end', () => resolve(Buffer.concat(chunks)));
+      stream.on('error', (err) => reject(err));
+    });
+  },
+
   facebookDownloader: async (videoUrl) => {
     const browser = await utils.getBrowser();
     try {
@@ -160,10 +213,8 @@ generateBratVid: async (text) => {
       await page.fill('#url', videoUrl);
       await page.click('#send');
   
-      // Tunggu hasil unduhan muncul
       await page.waitForSelector('#download-section a[href^="https"]', { timeout: 20000 });
   
-      // Ambil semua link unduhan
       const downloadLinks = await page.$$eval(
         '#download-section table tbody tr',
         rows => rows.map(row => {
@@ -262,7 +313,7 @@ generateMemeImage: async (imageUrl, topText = '', bottomText = '') => {
               font-family: Impact, sans-serif;
               font-size: 65px;
               text-shadow: 2px 2px 4px #000;
-              -webkit-text-stroke: 1.5px black; /* Tambahan outline */
+              -webkit-text-stroke: 1.5px black;
               text-align: center;
               width: 90%;
               line-height: 1.2;
@@ -353,12 +404,12 @@ generateQuoteImage: async (name, message, avatarUrl) => {
             .bubble::after {
               content: '';
               position: absolute;
-              left: -10px; /* sesuaikan posisi ke kiri */
+              left: -10px;
               top: 0;
               width: 0;
               height: 0;
               border: 10px solid transparent;
-              border-top-color:rgb(255, 255, 255); /* warna sama seperti bubble */
+              border-top-color:rgb(255, 255, 255);
               border-bottom: 0;
               border-right: 0;
               margin-bottom: -1px;
@@ -401,7 +452,6 @@ generateQuoteImage: async (name, message, avatarUrl) => {
 promotionDetector: async (text) => {
   const apiKey = process.env.GEMINI_API_KEY;
   
-  // Membersihkan teks input dari karakter khusus yang mungkin mengganggu
   const cleanedText = text.trim().replace(/"/g, "'");
   
   const prompt = `
@@ -441,7 +491,7 @@ promotionDetector: async (text) => {
           parts: [{ text: prompt }]
         }]
       }),
-      timeout: 10000 // tambahkan timeout untuk menghindari hanging
+      timeout: 10000
     });
 
     if (!response.ok) {
@@ -451,30 +501,28 @@ promotionDetector: async (text) => {
     const data = await response.json();
     const textResponse = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
 
-    // Improved regex pattern to handle various response formats
     const match = textResponse?.match(/(\d{1,3})%\s*[-:]\s*(.+)/i);
     if (!match) {
       console.error('Unexpected API response format:', textResponse);
       return { percentage: 0, reason: "Format respons tidak dikenali" };
     }
 
-    const percentage = Math.min(100, Math.max(0, parseInt(match[1], 10))); // Ensure percentage is between 0-100
+    const percentage = Math.min(100, Math.max(0, parseInt(match[1], 10)));
     const reason = match[2].trim();
 
-    // Additional validation for common false positives
     const falsePositiveKeywords = ['tidak ada promosi', 'bukan promosi', 'diskusi biasa', 'hanya menyebut'];
     const isLikelyFalsePositive = falsePositiveKeywords.some(keyword => 
       reason.toLowerCase().includes(keyword)
     );
 
     const adjustedPercentage = isLikelyFalsePositive 
-      ? Math.max(0, percentage - 20) // Reduce percentage for likely false positives
+      ? Math.max(0, percentage - 20)
       : percentage;
 
     return { 
       percentage: adjustedPercentage, 
       reason,
-      rawResponse: textResponse // Untuk debugging
+      rawResponse: textResponse
     };
     
   } catch (error) {

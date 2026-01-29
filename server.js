@@ -4,6 +4,7 @@ const path = require('path');
 const dotenv = require('dotenv');
 const morgan  = require('morgan');
 const cors    = require('cors');
+const utils = require('./src/utils/utils')
 
 const tempDir = path.join(__dirname, 'temp');
 if (!fs.existsSync(tempDir)) {
@@ -12,7 +13,7 @@ if (!fs.existsSync(tempDir)) {
 
 dotenv.config();
 const app = express();
-const PORT = process.env.PORT || 7680;
+const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(morgan('dev'));
@@ -52,6 +53,16 @@ app.use('/api/promosi', require('./src/routes/promosi'));
 app.use('/mcapi', mcprofile);  // => /mcapi/profile, /mcapi/render/head, /mcapi/profile/:edition/:id/skin
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`Server berjalan di http://localhost:${PORT}`);
-});
+(async () => {
+  try {
+    await utils.init();
+
+    app.listen(PORT, () => {
+      console.log(`Server berjalan di http://localhost:${PORT}`);
+    });
+
+  } catch (err) {
+    console.error('Gagal init utils:', err);
+    process.exit(1);
+  }
+})();

@@ -1,21 +1,20 @@
 {
     "Downloader": [
-        { "id": 1, "name": "YT MP3", "method": "GET", "action": "/api/ytmp3?query=https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
-        { "id": 2, "name": "YT MP4", "method": "GET", "action": "/api/ytmp4?query=https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
-        { "id": 3, "name": "YT PLAY", "method": "GET", "action": "/api/ytplay?query=Never Gonna Give You Up" },
-        { "id": 4, "name": "TIKTOK", "method": "GET", "action": "/api/tiktok?url=https://vt.tiktok.com/ZSrPMYuuF/" },
-        { "id": 5, "name": "TIKTOK MP3", "method": "GET", "action": "/api/tiktok-mp3?url=https://vt.tiktok.com/ZSrPMYuuF/" },
-        { "id": 6, "name": "INSTAGRAM", "method": "GET", "action": "/api/instagram?url=https://www.instagram.com/p/CGh4a0iASGS/?igsh=MWV5aWZ2MmFmMDB5Yg==" },
-        { "id": 7, "name": "GOOGLE DRIVE", "method": "GET", "action": "/api/gdrive?url=https://drive.google.com/file/d/1Gz6fjY5GLuFI_jIp1RGYL8MisrKchsfP/view?usp=drivesdk" },
-        { "id": 8, "name": "FACEBOOK", "method": "GET", "action": "/api/facebook?url=https://www.facebook.com/share/r/15qfmGygKp/" }
+        { "id": 1, "name": "YouTube MP3", "method": "POST", "action": "/api/youtube/mp3", "description": "Download YouTube video as MP3 audio", "params": [{"name": "query", "type": "string", "example": "never gonna give you up"}] },
+        { "id": 2, "name": "YouTube MP4", "method": "POST", "action": "/api/youtube/mp4", "description": "Download YouTube video as MP4", "params": [{"name": "query", "type": "string", "example": "never gonna give you up"}] },
+        { "id": 3, "name": "TikTok Download", "method": "POST", "action": "/api/tiktok/download", "description": "Download TikTok video", "params": [{"name": "url", "type": "string", "example": "https://vt.tiktok.com/..."}] },
+        { "id": 4, "name": "TikTok Audio", "method": "POST", "action": "/api/tiktok/audio", "description": "Download TikTok audio", "params": [{"name": "url", "type": "string", "example": "https://vt.tiktok.com/..."}] },
+        { "id": 5, "name": "Instagram Download", "method": "POST", "action": "/api/instagram/download", "description": "Download Instagram content", "params": [{"name": "url", "type": "string", "example": "https://instagram.com/p/..."}] },
+        { "id": 6, "name": "Google Drive", "method": "GET", "action": "/api/gdrive?url=https://drive.google.com/file/d/1Gz6fjY5GLuFI_jIp1RGYL8MisrKchsfP/view?usp=drivesdk", "description": "Download from Google Drive" },
+        { "id": 7, "name": "Quote Maker", "method": "GET", "action": "/api/quote?name=Anonymous&message=Never gonna give you up", "description": "Generate quote image" }
     ],
-    "Sticker": [
-        { "id": 1, "name": "BRAT", "method": "GET", "action": "/api/brat?text=Never Gonna Give You Up" },
-        { "id": 2, "name": "BRATVID", "method": "GET", "action": "/api/bratvid?text=Never Gonna Give You Up" }
+    "Image Generator": [
+        { "id": 1, "name": "Brat Image", "method": "POST", "action": "/api/brat/image", "description": "Generate brat style image", "params": [{"name": "text", "type": "string", "example": "hello world"}, {"name": "preset", "type": "select"}, {"name": "bgColor", "type": "string", "example": "#FF5733"}, {"name": "textColor", "type": "string", "example": "#FFFFFF"}] },
+        { "id": 2, "name": "Brat GIF", "method": "POST", "action": "/api/brat/video", "description": "Generate brat style GIF", "params": [{"name": "text", "type": "string", "example": "hello world"}, {"name": "preset", "type": "select"}, {"name": "bgColor", "type": "string", "example": "#FF5733"}, {"name": "textColor", "type": "string", "example": "#FFFFFF"}] },
+        { "id": 3, "name": "AI Image (Gemini)", "method": "POST", "action": "/api/ai/gemini/generate", "description": "Generate image with AI", "params": [{"name": "imageUrl", "type": "string"}, {"name": "option", "type": "string"}] }
     ],
-    "Tools": [
-        { "id": 1, "name": "Penghitam Anime", "method": "GET", "action": "/api/hitam?image=https://i.ibb.co.com/jZW6CzK9/images-1.jpg&option=hitam" },
-        { "id": 2, "name": "Quote", "method": "GET", "action": "/api/quote?name=Anonymous&message=Never gonna give you up&avatarUrl=" },
-        { "id": 3, "name": "Smeme", "method": "GET", "action": "/api/smeme?top=Never gonna&bottom=give you up&image=https://i.ibb.co.com/fzrXZbSS/download-1-1.jpg" }
+    "Status": [
+        { "id": 1, "name": "Health Check", "method": "GET", "action": "/health", "description": "Server health check" },
+        { "id": 2, "name": "API Status", "method": "GET", "action": "/api/status", "description": "API version and status" }
     ]
 }

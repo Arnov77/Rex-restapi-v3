@@ -1,14 +1,17 @@
 {
-  "name": "brat-api",
-  "version": "1.0.0",
-  "description": "API untuk generate gambar dari Brat Generator",
-  "main": "index.js",
+  "name": "rex-media-api",
+  "version": "2.0.0",
+  "description": "Professional Multi-Service Media & AI API with clean architecture",
+  "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "nodemon --ignore 'node_modules/**' --ignore '**/*-player-script.js' --ignore 'logs/**' server.js",
+    "logs": "tail -f logs/*.log"
   },
   "author": "Arnov",
   "license": "MIT",
   "dependencies": {
+    "@distube/ytdl-core": "^4.16.12",
     "@google/generative-ai": "^0.24.0",
     "@vreden/youtube_scraper": "^1.2.7",
     "axios": "^1.12.0",
@@ -23,16 +26,24 @@
     "fs-extra": "^11.2.0",
     "gifencoder": "^2.0.1",
     "image-size": "^2.0.2",
+    "joi": "^17.11.0",
     "majidapi": "^1.0.45",
+    "mime-types": "^2.1.35",
     "morgan": "^1.10.1",
     "multer": "^2.0.2",
     "node-cache": "^5.1.2",
     "playwright": "^1.41.1",
     "puppeteer": "^24.6.0",
-    "ruhend-scraper": "^9.0.1",
+    "ruhend-scraper": "^9.0.8",
     "sharp": "^0.32.2",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
     "uuid": "^11.1.0",
+    "youtube-dl-exec": "^3.1.4",
     "yt-search": "^2.12.1",
     "ytdl-core": "^4.11.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
   }
 }

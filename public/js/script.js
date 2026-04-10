@@ -57,6 +57,7 @@ function showAll(el) {
   setActive(el);
   document.getElementById('activeTitle').textContent = 'Semua Endpoint';
   renderAll(DATA);
+  if (window.innerWidth <= 768) closeMobileMenu(); // <--- Menutup menu di HP
 }
 
 function showCat(cat, el) {
@@ -64,6 +65,7 @@ function showCat(cat, el) {
   document.getElementById('activeTitle').textContent = cat;
   document.getElementById('mainContent').innerHTML = renderSection(cat, DATA[cat]);
   setTimeout(() => document.getElementById(slugify(cat))?.scrollIntoView({ behavior: 'smooth' }), 50);
+  if (window.innerWidth <= 768) closeMobileMenu(); // <--- Menutup menu di HP
 }
 
 function setActive(el) {
@@ -606,3 +608,29 @@ function showError(msg) {
     <div class="res-body">Error: ${msg}</div>
   </div>`;
 }
+
+// ── Mobile Sidebar Menu ──
+const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+const sidebar = document.getElementById('sidebar');
+const mobileOverlay = document.getElementById('mobileOverlay');
+
+function closeMobileMenu() {
+  sidebar.classList.remove('open');
+  mobileOverlay.classList.remove('active');
+  setTimeout(() => mobileOverlay.style.display = 'none', 300);
+}
+
+function toggleMobileMenu() {
+  const isOpen = sidebar.classList.contains('open');
+  if (isOpen) {
+    closeMobileMenu();
+  } else {
+    sidebar.classList.add('open');
+    mobileOverlay.style.display = 'block';
+    // Timeout sedikit agar animasi CSS berjalan
+    setTimeout(() => mobileOverlay.classList.add('active'), 10);
+  }
+}
+
+if (mobileMenuBtn) mobileMenuBtn.addEventListener('click', toggleMobileMenu);
+if (mobileOverlay) mobileOverlay.addEventListener('click', closeMobileMenu);

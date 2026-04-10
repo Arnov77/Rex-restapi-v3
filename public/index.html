@@ -10,8 +10,9 @@
 <body>
 <div class="layout">
 
-  <!-- SIDEBAR -->
-  <aside class="sidebar">
+  <div class="mobile-sidebar-overlay" id="mobileOverlay"></div>
+
+  <aside class="sidebar" id="sidebar">
     <div class="sidebar-logo">
       <div class="logo-mark">//</div>
       <div class="logo-name">Rex REST API</div>
@@ -47,9 +48,9 @@
     </div>
   </aside>
 
-  <!-- MAIN CONTENT -->
   <div class="content">
     <div class="mobile-bar">
+      <button class="hamburger-btn" id="mobileMenuBtn">☰</button>
       <span class="mobile-logo">// Rex API</span>
       <span class="mobile-clock" id="mclock">00:00:00</span>
     </div>
@@ -64,7 +65,6 @@
   </div>
 </div>
 
-<!-- MODAL -->
 <div class="overlay" id="overlay">
   <div class="modal" id="modal">
     <div class="modal-top">

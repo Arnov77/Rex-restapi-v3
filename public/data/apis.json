@@ -1,20 +1,127 @@
 {
-    "Downloader": [
-        { "id": 1, "name": "YouTube MP3", "method": "POST", "action": "/api/youtube/mp3", "description": "Download YouTube video as MP3 audio", "params": [{"name": "query", "type": "string", "example": "never gonna give you up"}] },
-        { "id": 2, "name": "YouTube MP4", "method": "POST", "action": "/api/youtube/mp4", "description": "Download YouTube video as MP4", "params": [{"name": "query", "type": "string", "example": "never gonna give you up"}] },
-        { "id": 3, "name": "TikTok Download", "method": "POST", "action": "/api/tiktok/download", "description": "Download TikTok video", "params": [{"name": "url", "type": "string", "example": "https://vt.tiktok.com/..."}] },
-        { "id": 4, "name": "TikTok Audio", "method": "POST", "action": "/api/tiktok/audio", "description": "Download TikTok audio", "params": [{"name": "url", "type": "string", "example": "https://vt.tiktok.com/..."}] },
-        { "id": 5, "name": "Instagram Download", "method": "POST", "action": "/api/instagram/download", "description": "Download Instagram content", "params": [{"name": "url", "type": "string", "example": "https://instagram.com/p/..."}] },
-        { "id": 6, "name": "Google Drive", "method": "GET", "action": "/api/gdrive?url=https://drive.google.com/file/d/1Gz6fjY5GLuFI_jIp1RGYL8MisrKchsfP/view?usp=drivesdk", "description": "Download from Google Drive" },
-        { "id": 7, "name": "Quote Maker", "method": "GET", "action": "/api/quote?name=Anonymous&message=Never gonna give you up", "description": "Generate quote image" }
-    ],
-    "Image Generator": [
-        { "id": 1, "name": "Brat Image", "method": "POST", "action": "/api/brat/image", "description": "Generate brat style image", "params": [{"name": "text", "type": "string", "example": "hello world"}, {"name": "preset", "type": "select"}, {"name": "bgColor", "type": "string", "example": "#FF5733"}, {"name": "textColor", "type": "string", "example": "#FFFFFF"}] },
-        { "id": 2, "name": "Brat GIF", "method": "POST", "action": "/api/brat/video", "description": "Generate brat style GIF", "params": [{"name": "text", "type": "string", "example": "hello world"}, {"name": "preset", "type": "select"}, {"name": "bgColor", "type": "string", "example": "#FF5733"}, {"name": "textColor", "type": "string", "example": "#FFFFFF"}] },
-        { "id": 3, "name": "AI Image (Gemini)", "method": "POST", "action": "/api/ai/gemini/generate", "description": "Generate image with AI", "params": [{"name": "imageUrl", "type": "string"}, {"name": "option", "type": "string"}] }
-    ],
-    "Status": [
-        { "id": 1, "name": "Health Check", "method": "GET", "action": "/health", "description": "Server health check" },
-        { "id": 2, "name": "API Status", "method": "GET", "action": "/api/status", "description": "API version and status" }
-    ]
+  "Downloader": [
+    {
+      "id": 1,
+      "name": "YouTube MP3",
+      "method": "POST",
+      "action": "/api/youtube/mp3",
+      "description": "Download audio dari YouTube. Masukkan judul lagu atau URL video YouTube.",
+      "params": [
+        {"name": "query", "type": "string", "example": "never gonna give you up", "required": true}
+      ]
+    },
+    {
+      "id": 2,
+      "name": "YouTube MP4",
+      "method": "POST",
+      "action": "/api/youtube/mp4",
+      "description": "Download video dari YouTube dalam format MP4 dengan berbagai resolusi.",
+      "params": [
+        {"name": "query", "type": "string", "example": "never gonna give you up official mv", "required": true}
+      ]
+    },
+    {
+      "id": 3,
+      "name": "TikTok Video",
+      "method": "POST",
+      "action": "/api/tiktok/download",
+      "description": "Download video TikTok tanpa watermark beserta info akun dan statistik.",
+      "params": [
+        {"name": "url", "type": "string", "example": "https://vt.tiktok.com/ZSxxxxxxx/", "required": true}
+      ]
+    },
+    {
+      "id": 4,
+      "name": "TikTok Audio",
+      "method": "POST",
+      "action": "/api/tiktok/audio",
+      "description": "Ambil audio/musik dari video TikTok dalam format MP3.",
+      "params": [
+        {"name": "url", "type": "string", "example": "https://vt.tiktok.com/ZSxxxxxxx/", "required": true}
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Instagram Download",
+      "method": "POST",
+      "action": "/api/instagram/download",
+      "description": "Download foto atau video dari postingan Instagram.",
+      "params": [
+        {"name": "url", "type": "string", "example": "https://www.instagram.com/p/xxxxxxxx/", "required": true}
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Google Drive",
+      "method": "GET",
+      "action": "/api/gdrive?url=https://drive.google.com/file/d/1Gz6fjY5GLuFI_jIp1RGYL8MisrKchsfP/view?usp=drivesdk",
+      "description": "Generate link download langsung dari Google Drive. Mendukung semua jenis file.",
+      "params": []
+    },
+    {
+      "id": 7,
+      "name": "Quote Maker",
+      "method": "GET",
+      "action": "/api/quote?name=Anonymous&message=Hidup itu indah jika kita mau bersyukur",
+      "description": "Buat gambar quote WhatsApp style dengan nama dan pesan kustom.",
+      "params": []
+    }
+  ],
+  "Image Generator": [
+    {
+      "id": 1,
+      "name": "Brat Image",
+      "method": "POST",
+      "action": "/api/brat/image",
+      "description": "Generate gambar brat style. Pilih preset atau atur warna background dan teks sendiri.",
+      "params": [
+        {"name": "text", "type": "string", "example": "i am so brat", "required": true},
+        {"name": "preset", "type": "select", "required": false},
+        {"name": "bgColor", "type": "string", "example": "#e4ff3d", "required": false},
+        {"name": "textColor", "type": "string", "example": "#000000", "required": false}
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Brat GIF",
+      "method": "POST",
+      "action": "/api/brat/video",
+      "description": "Generate animasi GIF brat style. Teks muncul satu per satu seperti efek mengetik.",
+      "params": [
+        {"name": "text", "type": "string", "example": "i am so brat", "required": true},
+        {"name": "preset", "type": "select", "required": false},
+        {"name": "bgColor", "type": "string", "example": "#e4ff3d", "required": false},
+        {"name": "textColor", "type": "string", "example": "#000000", "required": false}
+      ]
+    },
+    {
+      "id": 3,
+      "name": "AI Image (Gemini)",
+      "method": "POST",
+      "action": "/api/ai/gemini/generate",
+      "description": "Modifikasi gambar karakter anime menggunakan AI Gemini. Ubah jadi 'hitam' atau 'nerd'.",
+      "params": [
+        {"name": "image", "type": "string", "example": "https://i.ibb.co/contoh.jpg", "required": true},
+        {"name": "option", "type": "string", "example": "hitam", "required": true}
+      ]
+    }
+  ],
+  "Status": [
+    {
+      "id": 1,
+      "name": "Health Check",
+      "method": "GET",
+      "action": "/health",
+      "description": "Cek status dan uptime server. Berguna untuk monitoring.",
+      "params": []
+    },
+    {
+      "id": 2,
+      "name": "API Status",
+      "method": "GET",
+      "action": "/api/status",
+      "description": "Lihat versi API, environment, dan info runtime server.",
+      "params": []
+    }
+  ]
 }

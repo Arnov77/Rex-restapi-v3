@@ -1,30 +1,639 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="css/style.css">
-    <title>Rex REST API</title>
-    <link rel="apple-touch-icon" sizes="180x180" href="assets/image/apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="assets/image/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="assets/image/favicon-16x16.png">
-    <link rel="manifest" href="/site.webmanifest">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rex REST API</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07090c;
+  --surface:#0c1018;
+  --card:#101720;
+  --card2:#131d28;
+  --b1:rgba(255,255,255,0.06);
+  --b2:rgba(255,255,255,0.1);
+  --b3:rgba(255,255,255,0.16);
+  --accent:#10e8a0;
+  --accent2:rgba(16,232,160,0.15);
+  --accent3:rgba(16,232,160,0.08);
+  --blue:#4f9eff;
+  --blue2:rgba(79,158,255,0.14);
+  --amber:#f0a030;
+  --amber2:rgba(240,160,48,0.14);
+  --red:#ff5e5e;
+  --red2:rgba(255,94,94,0.14);
+  --purple:#a78bfa;
+  --purple2:rgba(167,139,250,0.14);
+  --tx:#dde4ee;
+  --tx2:#8494a8;
+  --tx3:#4a5a6d;
+  --mono:'JetBrains Mono',monospace;
+  --sans:'Plus Jakarta Sans',sans-serif;
+  --r:10px;--rl:16px;--rxl:22px;
+}
+html{scroll-behavior:smooth}
+body{font-family:var(--sans);background:var(--bg);color:var(--tx);min-height:100vh;overflow-x:hidden;font-size:14px}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--b2);border-radius:99px}
+
+/* ─── LAYOUT ─── */
+.layout{display:flex;min-height:100vh}
+.sidebar{width:240px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--b1);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.content{flex:1;min-width:0;overflow-x:hidden}
+
+/* ─── SIDEBAR ─── */
+.sidebar-logo{padding:20px 18px 16px;border-bottom:1px solid var(--b1)}
+.logo-mark{font-family:var(--mono);font-size:20px;color:var(--accent);letter-spacing:-2px;line-height:1}
+.logo-name{font-size:15px;font-weight:600;color:var(--tx);margin-top:6px}
+.logo-ver{font-family:var(--mono);font-size:10px;color:var(--tx3);margin-top:2px}
+.sidebar-stats{padding:12px 18px;border-bottom:1px solid var(--b1);display:flex;gap:10px}
+.stat-box{flex:1;background:var(--card);border:1px solid var(--b1);border-radius:var(--r);padding:8px 10px;text-align:center}
+.stat-num{font-family:var(--mono);font-size:16px;font-weight:500;color:var(--accent)}
+.stat-lbl{font-size:10px;color:var(--tx3);margin-top:2px}
+.sidebar-nav{padding:12px 10px;flex:1}
+.nav-label{font-family:var(--mono);font-size:9px;letter-spacing:1.5px;color:var(--tx3);text-transform:uppercase;padding:6px 8px 4px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r);cursor:pointer;transition:all .15s;margin-bottom:2px;text-decoration:none;color:var(--tx2);font-size:13px}
+.nav-item:hover{background:var(--card);color:var(--tx)}
+.nav-item.active{background:var(--accent2);color:var(--accent)}
+.nav-icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;background:var(--b1)}
+.nav-item.active .nav-icon{background:rgba(16,232,160,0.2)}
+.nav-count{margin-left:auto;font-family:var(--mono);font-size:10px;background:var(--b1);padding:2px 7px;border-radius:99px}
+.sidebar-foot{padding:14px 18px;border-top:1px solid var(--b1)}
+.clock-row{display:flex;align-items:center;gap:8px}
+.pulse{width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(16,232,160,.4)}50%{opacity:.5;box-shadow:0 0 0 6px rgba(16,232,160,0)}}
+.clock-time{font-family:var(--mono);font-size:12px;color:var(--tx2)}
+.clock-status{font-size:10px;color:var(--tx3);margin-top:2px}
+.wa-btn{width:100%;margin-top:10px;font-family:var(--sans);font-size:12px;font-weight:600;color:var(--bg);background:var(--accent);border:none;padding:9px;border-radius:var(--r);cursor:pointer;transition:opacity .15s}
+.wa-btn:hover{opacity:.85}
+
+/* ─── CONTENT HEADER ─── */
+.content-header{padding:24px 28px 20px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;position:sticky;top:0;background:var(--bg);z-index:50;backdrop-filter:blur(10px)}
+.content-title{font-size:17px;font-weight:600;color:var(--tx)}
+.search-wrap{position:relative;flex:1;max-width:280px}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--tx3);font-size:14px;pointer-events:none}
+.search-input{width:100%;background:var(--card);border:1px solid var(--b1);border-radius:var(--r);color:var(--tx);font-family:var(--sans);font-size:13px;padding:9px 12px 9px 36px;outline:none;transition:border-color .15s}
+.search-input:focus{border-color:var(--b2)}
+.search-input::placeholder{color:var(--tx3)}
+
+/* ─── SECTION ─── */
+.section{padding:24px 28px;border-bottom:1px solid var(--b1)}
+.section:last-child{border-bottom:none}
+.section-head{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.section-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.section-info .title{font-size:15px;font-weight:600;color:var(--tx)}
+.section-info .sub{font-size:12px;color:var(--tx2);margin-top:2px}
+.endpoint-count{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--tx3);background:var(--card);border:1px solid var(--b1);padding:4px 10px;border-radius:99px}
+
+/* ─── API CARD ─── */
+.api-card{background:var(--card);border:1px solid var(--b1);border-radius:var(--rl);padding:18px;margin-bottom:10px;transition:all .18s;cursor:pointer;position:relative;overflow:hidden}
+.api-card:hover{background:var(--card2);border-color:var(--b2);transform:translateY(-1px)}
+.api-card:last-child{margin-bottom:0}
+.card-header{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px}
+.method-tag{font-family:var(--mono);font-size:10px;font-weight:500;padding:4px 10px;border-radius:6px;letter-spacing:.5px;flex-shrink:0;margin-top:2px}
+.m-get{color:#93c5fd;background:var(--blue2);border:1px solid rgba(79,158,255,0.2)}
+.m-post{color:#fbbf24;background:var(--amber2);border:1px solid rgba(240,160,48,0.2)}
+.card-title-row{flex:1}
+.card-title{font-size:15px;font-weight:600;color:var(--tx);line-height:1.3}
+.card-desc{font-size:12px;color:var(--tx2);margin-top:3px;line-height:1.5}
+.card-path{font-family:var(--mono);font-size:11px;color:var(--accent);margin-top:8px}
+.test-btn{flex-shrink:0;font-size:12px;font-weight:600;color:var(--accent);background:var(--accent2);border:1px solid rgba(16,232,160,0.2);padding:7px 14px;border-radius:8px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.test-btn:hover{background:rgba(16,232,160,0.22)}
+.params-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;padding-top:12px;border-top:1px solid var(--b1)}
+.param-chip{display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--b1);border-radius:8px;padding:5px 10px}
+.param-name{font-family:var(--mono);font-size:11px;color:var(--tx2)}
+.param-type{font-size:10px;color:var(--tx3)}
+.param-req{font-size:9px;color:var(--red);background:var(--red2);padding:1px 5px;border-radius:4px;font-weight:500}
+.param-opt{font-size:9px;color:var(--tx3);background:var(--b1);padding:1px 5px;border-radius:4px}
+.param-select{font-size:10px;color:var(--purple);background:var(--purple2);padding:1px 6px;border-radius:4px}
+.param-color{font-size:10px;color:var(--amber);background:var(--amber2);padding:1px 6px;border-radius:4px}
+.no-params{font-family:var(--mono);font-size:11px;color:var(--tx3);font-style:italic}
+
+/* ─── MODAL ─── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:999;overflow-y:auto;align-items:flex-start;justify-content:center;padding:20px;backdrop-filter:blur(6px)}
+.overlay.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--b2);border-radius:var(--rxl);width:100%;max-width:560px;margin:auto;animation:fadeUp .2s ease;position:relative}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.modal-head{padding:22px 22px 0}
+.modal-top-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
+.modal-name{font-size:17px;font-weight:600;color:var(--tx)}
+.close-btn{width:30px;height:30px;border-radius:8px;background:var(--card);border:1px solid var(--b1);color:var(--tx2);cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;line-height:1;transition:all .15s}
+.close-btn:hover{border-color:var(--b2);color:var(--tx)}
+.modal-meta{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.modal-path{font-family:var(--mono);font-size:12px;color:var(--tx2);background:var(--card);border:1px solid var(--b1);padding:8px 12px;border-radius:8px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.modal-desc{font-size:13px;color:var(--tx2);line-height:1.6;margin-bottom:18px}
+.modal-body{padding:0 22px 22px}
+.form-section-title{font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:var(--tx3);text-transform:uppercase;margin-bottom:12px}
+.field-wrap{margin-bottom:14px}
+.field-label{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.field-label-text{font-size:13px;font-weight:500;color:var(--tx)}
+.field-desc{font-size:11px;color:var(--tx3);margin-bottom:6px;line-height:1.5}
+.field-input{width:100%;background:var(--card);border:1px solid var(--b1);border-radius:var(--r);color:var(--tx);font-family:var(--sans);font-size:13px;padding:10px 13px;outline:none;transition:border-color .15s}
+.field-input:focus{border-color:rgba(16,232,160,0.4)}
+.field-input::placeholder{color:var(--tx3)}
+.field-select{width:100%;background:var(--card);border:1px solid var(--b1);border-radius:var(--r);color:var(--tx);font-family:var(--sans);font-size:13px;padding:10px 13px;outline:none;cursor:pointer;appearance:none;transition:border-color .15s}
+.field-select:focus{border-color:rgba(16,232,160,0.4)}
+.select-wrap{position:relative}
+.select-arrow{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--tx3);pointer-events:none;font-size:12px}
+.color-row{display:flex;gap:8px}
+.color-picker-wrap{position:relative;flex-shrink:0}
+.color-picker{width:44px;height:42px;border-radius:var(--r);border:1px solid var(--b1);cursor:pointer;padding:3px;background:var(--card)}
+.color-text{flex:1}
+.color-preview{width:18px;height:18px;border-radius:5px;flex-shrink:0;border:1px solid var(--b1)}
+.field-extra{margin-top:8px;padding:10px 12px;background:var(--card2);border:1px solid var(--b1);border-radius:8px}
+.extra-label{font-family:var(--mono);font-size:10px;color:var(--tx3);margin-bottom:6px}
+.preset-grid{display:flex;gap:6px;flex-wrap:wrap}
+.preset-opt{padding:5px 12px;border-radius:99px;border:1px solid var(--b1);font-size:11px;cursor:pointer;transition:all .15s;color:var(--tx2);background:var(--card);font-family:var(--mono)}
+.preset-opt:hover{border-color:var(--b2);color:var(--tx)}
+.preset-opt.selected{background:var(--accent2);border-color:rgba(16,232,160,.3);color:var(--accent)}
+.color-fields-wrap{display:none;gap:12px;margin-top:12px}
+.color-fields-wrap.show{display:flex}
+.color-field{flex:1}
+.modal-actions{display:flex;gap:8px;margin-top:18px}
+.btn-primary{flex:1;font-family:var(--sans);font-size:13px;font-weight:600;color:var(--bg);background:var(--accent);border:none;padding:11px;border-radius:var(--r);cursor:pointer;transition:opacity .15s}
+.btn-primary:hover{opacity:.85}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.btn-secondary{font-family:var(--sans);font-size:13px;font-weight:500;color:var(--tx2);background:var(--card);border:1px solid var(--b1);padding:11px 16px;border-radius:var(--r);cursor:pointer;transition:all .15s}
+.btn-secondary:hover{border-color:var(--b2);color:var(--tx)}
+/* ─── RESPONSE ─── */
+.response-wrap{margin-top:18px;border-top:1px solid var(--b1);padding-top:18px}
+.response-topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.res-label{font-family:var(--mono);font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:1px}
+.res-status{font-family:var(--mono);font-size:11px;padding:3px 10px;border-radius:99px}
+.s-ok{color:var(--accent);background:var(--accent3);border:1px solid rgba(16,232,160,.2)}
+.s-err{color:var(--red);background:var(--red2);border:1px solid rgba(255,94,94,.2)}
+.s-load{color:var(--tx3);background:var(--b1);border:1px solid var(--b1)}
+.res-body{background:var(--card);border:1px solid var(--b1);border-radius:var(--r);padding:14px;font-family:var(--mono);font-size:12px;color:#9db4cc;max-height:280px;overflow-y:auto;line-height:1.7;white-space:pre-wrap;word-break:break-all}
+.img-result{text-align:center;padding:14px;background:var(--card);border:1px solid var(--b1);border-radius:var(--r)}
+.img-result img{max-width:100%;max-height:260px;border-radius:8px}
+.img-dl{display:inline-block;margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--accent);text-decoration:none;padding:6px 14px;border:1px solid rgba(16,232,160,.25);border-radius:8px;background:var(--accent2)}
+.empty-hint{font-family:var(--mono);font-size:11px;color:var(--tx3);font-style:italic}
+
+/* ─── MOBILE ─── */
+@media(max-width:768px){
+  .sidebar{display:none}
+  .mobile-bar{display:flex}
+}
+.mobile-bar{display:none;position:sticky;top:0;z-index:80;background:var(--surface);border-bottom:1px solid var(--b1);padding:14px 16px;align-items:center;gap:12px}
+.mobile-logo{font-family:var(--mono);font-size:16px;color:var(--accent);letter-spacing:-1px;font-weight:500}
+.mobile-clock{font-family:var(--mono);font-size:11px;color:var(--tx3);margin-left:auto}
+@media(max-width:768px){
+  .content-header{padding:16px;position:relative}
+  .section{padding:16px}
+}
+</style>
 </head>
 <body>
-    <header>
-        <h1>Rex REST API</h1>
-        <p>Explore our API documentation</p>
-        <div id="time">00:00:00</div>
-        <button class="btn-whatsapp">Contact WhatsApp</button>
-    </header>
-    <div class="main-container">
-    <main>
-        <!-- Di isi dari script.js -->
-    </main>
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">//</div>
+      <div class="logo-name">Rex REST API</div>
+      <div class="logo-ver">v2.0.0 — by Arnov</div>
     </div>
-    <footer>
-        <p>&copy; 2025 Rex REST API. All rights reserved.</p>
-    </footer>
+    <div class="sidebar-stats">
+      <div class="stat-box"><div class="stat-num" id="totalEp">0</div><div class="stat-lbl">Endpoints</div></div>
+      <div class="stat-box"><div class="stat-num" id="totalCat">0</div><div class="stat-lbl">Kategori</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-label">Navigasi</div>
+      <div id="navItems"></div>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="clock-row">
+        <div class="pulse"></div>
+        <div>
+          <div class="clock-time" id="clock">00:00:00</div>
+          <div class="clock-status">Server aktif</div>
+        </div>
+      </div>
+      <button class="wa-btn" onclick="window.open('https://wa.me/','_blank')">Hubungi via WhatsApp</button>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <div class="content">
+    <!-- mobile bar -->
+    <div class="mobile-bar">
+      <span class="mobile-logo">// Rex API</span>
+      <span class="mobile-clock" id="mclock">00:00:00</span>
+    </div>
+
+    <div class="content-header">
+      <div class="content-title" id="activeTitle">Semua Endpoint</div>
+      <div class="search-wrap">
+        <span class="search-icon">&#128269;</span>
+        <input class="search-input" id="searchInput" type="text" placeholder="Cari endpoint...">
+      </div>
+    </div>
+    <div id="mainContent"></div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="overlay" id="overlay">
+  <div class="modal" id="modal">
+    <div class="modal-head">
+      <div class="modal-top-row">
+        <div class="modal-name" id="mName"></div>
+        <button class="close-btn" onclick="closeModal()">&#x2715;</button>
+      </div>
+      <div class="modal-meta">
+        <span class="method-tag" id="mMethod"></span>
+        <span class="modal-path" id="mPath"></span>
+      </div>
+      <p class="modal-desc" id="mDesc"></p>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+/* ── CLOCK ── */
+function tick(){
+  const t=new Date().toLocaleTimeString('id-ID');
+  const el=document.getElementById('clock');
+  const mel=document.getElementById('mclock');
+  if(el)el.textContent=t;
+  if(mel)mel.textContent=t;
+}
+tick();setInterval(tick,1000);
+
+/* ── DATA & RENDER ── */
+const ICONS={'Downloader':'⬇️','Image Generator':'🎨','Status':'💚'};
+const COLORS={'Downloader':'--accent','Image Generator':'--purple','Status':'--blue'};
+let DATA={};
+
+fetch('data/apis.json')
+  .then(r=>r.json())
+  .then(data=>{
+    DATA=data;
+    const total=Object.values(data).reduce((a,b)=>a+b.length,0);
+    document.getElementById('totalEp').textContent=total;
+    document.getElementById('totalCat').textContent=Object.keys(data).length;
+    buildNav(data);
+    renderAll(data);
+    document.getElementById('searchInput').addEventListener('input',e=>doSearch(e.target.value));
+  });
+
+function buildNav(data){
+  const nav=document.getElementById('navItems');
+  let html=`<a class="nav-item active" onclick="showAll(this)" href="#" style="text-decoration:none">
+    <span class="nav-icon">🏠</span><span>Semua</span>
+    <span class="nav-count">${Object.values(data).reduce((a,b)=>a+b.length,0)}</span>
+  </a>`;
+  Object.entries(data).forEach(([cat,apis])=>{
+    const icon=ICONS[cat]||'📦';
+    html+=`<a class="nav-item" onclick="showCat('${cat}',this)" href="#${slugify(cat)}" style="text-decoration:none">
+      <span class="nav-icon">${icon}</span><span>${cat}</span>
+      <span class="nav-count">${apis.length}</span>
+    </a>`;
+  });
+  nav.innerHTML=html;
+}
+
+function slugify(s){return s.toLowerCase().replace(/\s+/g,'-')}
+
+function renderAll(data){
+  const mc=document.getElementById('mainContent');
+  mc.innerHTML=Object.entries(data).map(([cat,apis])=>renderSection(cat,apis)).join('');
+}
+
+function renderSection(cat,apis){
+  const icon=ICONS[cat]||'📦';
+  const id=slugify(cat);
+  return `<div class="section" id="${id}">
+    <div class="section-head">
+      <div class="section-icon" style="background:var(--card2)">${icon}</div>
+      <div class="section-info">
+        <div class="title">${cat}</div>
+        <div class="sub">Klik endpoint untuk mencoba</div>
+      </div>
+      <div class="endpoint-count">${apis.length} endpoints</div>
+    </div>
+    ${apis.map((api,i)=>renderCard(api,i+1)).join('')}
+  </div>`;
+}
+
+function renderCard(api,num){
+  const mc=api.method==='GET'?'m-get':'m-post';
+  const pathShort=api.action.split('?')[0];
+  const paramsHtml=buildParamChips(api);
+  return `<div class="api-card" onclick="openModal(${safeJSON(api)})">
+    <div class="card-header">
+      <span class="method-tag ${mc}">${api.method}</span>
+      <div class="card-title-row">
+        <div class="card-title">${api.name}</div>
+        <div class="card-desc">${api.description||''}</div>
+        <div class="card-path">${pathShort}</div>
+      </div>
+      <button class="test-btn" onclick="event.stopPropagation();openModal(${safeJSON(api)})">Coba ↗</button>
+    </div>
+    <div class="params-row">${paramsHtml}</div>
+  </div>`;
+}
+
+function buildParamChips(api){
+  if(!api.params||api.params.length===0){
+    return api.method==='GET'&&api.action.includes('?')
+      ?getQueryChips(api.action)
+      :'<span class="no-params">Tidak ada parameter</span>';
+  }
+  return api.params.map(p=>{
+    let typeTag='';
+    if(p.name==='preset'&&p.type==='select') typeTag=`<span class="param-select">select</span>`;
+    else if(p.name==='bgColor'||p.name==='textColor'||p.name==='option') typeTag=`<span class="param-color">${p.name==='option'?'enum':'color'}</span>`;
+    else typeTag=`<span class="param-type">${p.type||'string'}</span>`;
+    const req=p.required===false?`<span class="param-opt">opsional</span>`:`<span class="param-req">wajib</span>`;
+    return `<div class="param-chip"><span class="param-name">${p.name}</span>${typeTag}${req}</div>`;
+  }).join('');
+}
+
+function getQueryChips(action){
+  const qs=action.split('?')[1]||'';
+  if(!qs)return'';
+  return qs.split('&').map(part=>{
+    const key=part.split('=')[0];
+    return `<div class="param-chip"><span class="param-name">${key}</span><span class="param-type">string</span><span class="param-opt">query</span></div>`;
+  }).join('');
+}
+
+function safeJSON(obj){return JSON.stringify(obj).replace(/"/g,'&quot;')}
+
+/* ── FILTER ── */
+function showAll(el){
+  setActive(el);
+  document.getElementById('activeTitle').textContent='Semua Endpoint';
+  renderAll(DATA);
+}
+
+function showCat(cat,el){
+  setActive(el);
+  document.getElementById('activeTitle').textContent=cat;
+  const mc=document.getElementById('mainContent');
+  mc.innerHTML=renderSection(cat,DATA[cat]);
+  setTimeout(()=>document.getElementById(slugify(cat))?.scrollIntoView({behavior:'smooth'}),50);
+}
+
+function setActive(el){
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  if(el)el.classList.add('active');
+}
+
+function doSearch(q){
+  if(!q.trim()){renderAll(DATA);return}
+  const low=q.toLowerCase();
+  const filtered={};
+  Object.entries(DATA).forEach(([cat,apis])=>{
+    const matched=apis.filter(a=>
+      a.name.toLowerCase().includes(low)||
+      (a.description||'').toLowerCase().includes(low)||
+      a.action.toLowerCase().includes(low)
+    );
+    if(matched.length)filtered[cat]=matched;
+  });
+  renderAll(filtered);
+}
+
+/* ── MODAL ── */
+let currentApi=null;
+function openModal(api){
+  currentApi=api;
+  const mc=api.method==='GET'?'m-get':'m-post';
+  document.getElementById('mName').textContent=api.name;
+  const mMethod=document.getElementById('mMethod');
+  mMethod.textContent=api.method;
+  mMethod.className='method-tag '+mc;
+  document.getElementById('mPath').textContent=api.action;
+  document.getElementById('mDesc').textContent=api.description||'';
+  document.getElementById('modalBody').innerHTML=buildForm(api);
+  document.getElementById('overlay').classList.add('open');
+  document.getElementById('overlay').onclick=e=>{if(e.target===document.getElementById('overlay'))closeModal()};
+}
+
+function closeModal(){
+  document.getElementById('overlay').classList.remove('open');
+  currentApi=null;
+}
+
+function buildForm(api){
+  if(api.method==='GET'){
+    return `<div style="margin-bottom:16px">
+      <div class="form-section-title">Info</div>
+      <p style="font-size:13px;color:var(--tx2);line-height:1.6">Endpoint ini menggunakan method GET. Klik tombol di bawah untuk membuka di browser.</p>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="window.open('${api.action}','_blank')">Buka di Browser ↗</button>
+    </div>`;
+  }
+
+  const isBrat=api.name.toLowerCase().includes('brat');
+  const isGemini=api.name.toLowerCase().includes('gemini')||api.name.toLowerCase().includes('ai image');
+
+  let fields='';
+  if(api.params){
+    api.params.forEach(p=>{
+      if(isBrat&&(p.name==='bgColor'||p.name==='textColor'))return;
+      if(isBrat&&p.name==='preset')return;
+      fields+=buildField(p,api);
+    });
+  }
+
+  let extra='';
+  if(isBrat){
+    extra=`<div class="field-extra">
+      <div class="extra-label">PRESET STYLE</div>
+      <div class="preset-grid">
+        <div class="preset-opt selected" onclick="selectPreset('bratdeluxe',this)">bratdeluxe</div>
+        <div class="preset-opt" onclick="selectPreset('brat',this)">brat</div>
+        <div class="preset-opt" onclick="selectPreset('custom',this)">custom ✏️</div>
+      </div>
+      <div class="color-fields-wrap" id="colorFields">
+        <div class="color-field">
+          <div class="field-label"><span class="field-label-text">Background</span><span class="param-color">color</span><span class="param-opt">opsional</span></div>
+          <div class="color-row">
+            <div class="color-picker-wrap">
+              <input type="color" class="color-picker" id="f-bgColor-picker" value="#e4ff3d" onchange="syncColor('bgColor')">
+            </div>
+            <input type="text" class="field-input color-text" id="f-bgColor" placeholder="#e4ff3d" value="#e4ff3d" oninput="syncPicker('bgColor')">
+          </div>
+        </div>
+        <div class="color-field">
+          <div class="field-label"><span class="field-label-text">Text Color</span><span class="param-color">color</span><span class="param-opt">opsional</span></div>
+          <div class="color-row">
+            <div class="color-picker-wrap">
+              <input type="color" class="color-picker" id="f-textColor-picker" value="#000000" onchange="syncColor('textColor')">
+            </div>
+            <input type="text" class="field-input color-text" id="f-textColor" placeholder="#000000" value="#000000" oninput="syncPicker('textColor')">
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  if(isGemini){
+    extra=`<div class="field-extra">
+      <div class="extra-label">PILIH OPSI</div>
+      <div class="preset-grid">
+        <div class="preset-opt selected" onclick="selectOption('hitam',this)">hitam 🖤</div>
+        <div class="preset-opt" onclick="selectOption('nerd',this)">nerd 🤓</div>
+      </div>
+      <input type="hidden" id="f-option" value="hitam">
+    </div>`;
+  }
+
+  return `<div>
+    <div class="form-section-title">Parameter</div>
+    ${fields}
+    ${extra}
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">Batal</button>
+      <button class="btn-primary" id="sendBtn" onclick="sendRequest()">Kirim Request ↗</button>
+    </div>
+    <div id="responseArea"></div>
+  </div>`;
+}
+
+function buildField(p,api){
+  const isReq=p.required!==false;
+  const req=isReq?`<span class="param-req">wajib</span>`:`<span class="param-opt">opsional</span>`;
+  let input='';
+  if(p.type==='select'){
+    input=`<div class="select-wrap">
+      <select class="field-select" id="f-${p.name}">
+        <option value="nerd">nerd</option>
+        <option value="hitam">hitam</option>
+      </select>
+      <span class="select-arrow">▾</span>
+    </div>`;
+  } else {
+    const hint=p.example||`contoh: ${p.name}`;
+    const type=p.name==='url'||p.name==='imageUrl'||p.name==='image'?'url':'text';
+    input=`<input type="${type}" class="field-input" id="f-${p.name}" placeholder="${hint}">`;
+  }
+  let desc='';
+  if(p.name==='url') desc='<div class="field-desc">Masukkan URL lengkap termasuk https://</div>';
+  if(p.name==='query') desc='<div class="field-desc">Bisa berupa judul lagu/video atau link YouTube langsung</div>';
+  if(p.name==='text') desc='<div class="field-desc">Teks yang akan ditampilkan di gambar</div>';
+  if(p.name==='imageUrl'||p.name==='image') desc='<div class="field-desc">URL gambar yang ingin dimodifikasi dengan AI</div>';
+  return `<div class="field-wrap">
+    <div class="field-label"><span class="field-label-text">${p.name}</span><span class="param-type">${p.type||'string'}</span>${req}</div>
+    ${desc}${input}
+  </div>`;
+}
+
+/* ── PRESET & COLOR ── */
+let selectedPreset='bratdeluxe';
+function selectPreset(val,el){
+  selectedPreset=val;
+  document.querySelectorAll('.preset-opt').forEach(o=>{
+    if(!o.getAttribute('onclick').includes('selectOption'))o.classList.remove('selected');
+  });
+  el.classList.add('selected');
+  const cf=document.getElementById('colorFields');
+  if(cf)cf.classList.toggle('show',val==='custom');
+}
+
+let selectedOption='hitam';
+function selectOption(val,el){
+  selectedOption=val;
+  document.querySelectorAll('.preset-opt').forEach(o=>{
+    if(o.getAttribute('onclick').includes('selectOption'))o.classList.remove('selected');
+  });
+  el.classList.add('selected');
+  const hi=document.getElementById('f-option');
+  if(hi)hi.value=val;
+}
+
+function syncColor(name){
+  const picker=document.getElementById(`f-${name}-picker`);
+  const text=document.getElementById(`f-${name}`);
+  if(picker&&text)text.value=picker.value;
+}
+function syncPicker(name){
+  const text=document.getElementById(`f-${name}`);
+  const picker=document.getElementById(`f-${name}-picker`);
+  if(picker&&text&&/^#[0-9a-fA-F]{6}$/.test(text.value))picker.value=text.value;
+}
+
+/* ── SEND ── */
+function sendRequest(){
+  if(!currentApi)return;
+  const api=currentApi;
+  const btn=document.getElementById('sendBtn');
+  btn.disabled=true;btn.textContent='Mengirim...';
+  const body={};
+  if(api.params){
+    api.params.forEach(p=>{
+      if(p.name==='bgColor'||p.name==='textColor'||p.name==='preset')return;
+      const el=document.getElementById(`f-${p.name}`);
+      if(el&&el.value.trim())body[p.name]=el.value.trim();
+    });
+  }
+  const isBrat=api.name.toLowerCase().includes('brat');
+  const isGemini=api.name.toLowerCase().includes('gemini')||api.name.toLowerCase().includes('ai image');
+  if(isBrat){
+    body.preset=selectedPreset;
+    if(selectedPreset==='custom'){
+      const bg=document.getElementById('f-bgColor');
+      const tc=document.getElementById('f-textColor');
+      if(bg)body.bgColor=bg.value;
+      if(tc)body.textColor=tc.value;
+    }
+  }
+  if(isGemini){
+    const opt=document.getElementById('f-option');
+    if(opt)body.option=opt.value;
+  }
+  showLoading();
+  fetch(api.action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+  .then(async res=>{
+    const ct=res.headers.get('content-type')||'';
+    if(ct.includes('image/')){
+      const blob=await res.blob();
+      const url=URL.createObjectURL(blob);
+      const ext=ct.includes('gif')?'gif':'png';
+      showImage(url,ext,res.status);
+    } else {
+      const json=await res.json();
+      showJSON(json,res.status);
+    }
+  })
+  .catch(err=>showError(err.message))
+  .finally(()=>{btn.disabled=false;btn.textContent='Kirim Request ↗'});
+}
+
+function showLoading(){
+  document.getElementById('responseArea').innerHTML=`<div class="response-wrap">
+    <div class="response-topbar"><span class="res-label">Response</span><span class="res-status s-load">Memuat...</span></div>
+    <div class="res-body">Mengirim request ke server...</div>
+  </div>`;
+}
+function showJSON(json,status){
+  const ok=status>=200&&status<300;
+  document.getElementById('responseArea').innerHTML=`<div class="response-wrap">
+    <div class="response-topbar"><span class="res-label">Response</span><span class="res-status ${ok?'s-ok':'s-err'}">${status} ${ok?'OK':'Error'}</span></div>
+    <div class="res-body">${JSON.stringify(json,null,2)}</div>
+  </div>`;
+}
+function showImage(url,ext,status){
+  document.getElementById('responseArea').innerHTML=`<div class="response-wrap">
+    <div class="response-topbar"><span class="res-label">Response</span><span class="res-status s-ok">${status} OK — ${ext.toUpperCase()}</span></div>
+    <div class="img-result"><img src="${url}" alt="Hasil"><br><a href="${url}" download="result.${ext}" class="img-dl">⬇ Download ${ext.toUpperCase()}</a></div>
+  </div>`;
+}
+function showError(msg){
+  document.getElementById('responseArea').innerHTML=`<div class="response-wrap">
+    <div class="response-topbar"><span class="res-label">Response</span><span class="res-status s-err">Error</span></div>
+    <div class="res-body">Error: ${msg}</div>
+  </div>`;
+}
+</script>
 </body>
-<script src="js/script.js"></script>
 </html>

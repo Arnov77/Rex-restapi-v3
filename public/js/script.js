@@ -1,245 +1,191 @@
-// Real-time Clock
 setInterval(() => {
-    const now = new Date();
-    document.getElementById('time').innerText = now.toLocaleTimeString();
+  const now = new Date();
+  document.getElementById('time').textContent = now.toLocaleTimeString('id-ID');
 }, 1000);
 
+let allApis = {};
+let activeCategory = 'Semua';
+
 fetch('data/apis.json')
-    .then(response => response.json())
-    .then(data => {
-        const main = document.querySelector('main');
-        let content = '';
+  .then(r => r.json())
+  .then(data => {
+    allApis = data;
+    const total = Object.values(data).reduce((a, b) => a + b.length, 0);
+    document.getElementById('totalCount').textContent = total + ' Endpoints';
+    buildCategoryBar(data);
+    renderApis(data);
+  })
+  .catch(e => console.error('Gagal muat API:', e));
 
-        for (const [category, apis] of Object.entries(data)) {
-            content += `
-                <section>
-                    <h2>${category}</h2>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>No</th>
-                                <th>Name</th>
-                                <th>Method</th>
-                                <th>Description</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${apis
-                                .map(
-                                    (api, index) => `
-                                    <tr>
-                                        <td>${index + 1}</td>
-                                        <td>${api.name}</td>
-                                        <td><span class="badge method-${api.method.toLowerCase()}">${api.method}</span></td>
-                                        <td>${api.description || '-'}</td>
-                                        <td>
-                                            <button class="try-btn" onclick="openApiTest(${JSON.stringify(api).replace(/"/g, '&quot;')})">
-                                                Test
-                                            </button>
-                                        </td>
-                                    </tr>`
-                                )
-                                .join('')}
-                        </tbody>
-                    </table>
-                </section>
-            `;
-        }
+function buildCategoryBar(data) {
+  const bar = document.getElementById('categoryBar');
+  const cats = ['Semua', ...Object.keys(data)];
+  bar.innerHTML = cats.map(cat => `
+    <button class="cat-btn ${cat === 'Semua' ? 'active' : ''}" onclick="filterCat('${cat}', this)">${cat}</button>
+  `).join('');
+}
 
-        main.innerHTML = content;
-    })
-    .catch(error => console.error('Error loading API list:', error));
+function filterCat(cat, el) {
+  activeCategory = cat;
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  const filtered = cat === 'Semua' ? allApis : { [cat]: allApis[cat] };
+  renderApis(filtered);
+}
 
-function openApiTest(api) {
-    const modal = document.getElementById('testModal');
-    if (!modal) {
-        createTestModal();
-    }
-    
-    const testModal = document.getElementById('testModal');
-    const formContainer = document.getElementById('formContainer');
-    const responseContainer = document.getElementById('responseContainer');
-    
-    formContainer.innerHTML = '';
-    responseContainer.innerHTML = '';
-    
-    // Build form
-    let form = `
-        <h3>Test: ${api.name}</h3>
-        <div style="background-color: #1a1a1a; padding: 12px; border-radius: 5px; margin-bottom: 15px; border-left: 4px solid #ff6f61;">
-            <p style="margin: 5px 0; color: #999; font-size: 0.9rem;">Endpoint Information</p>
-            <code style="background-color: #2a2a2a; padding: 8px; border-radius: 3px; display: block; margin: 8px 0; color: #00ff00; font-size: 1rem;">${api.method} ${api.action}</code>
-            ${api.description ? `<p style="margin: 5px 0; color: #ccc; font-size: 0.9rem;">${api.description}</p>` : ''}
-        </div>
+function renderApis(data) {
+  const grid = document.getElementById('apiGrid');
+  grid.innerHTML = '';
+
+  Object.entries(data).forEach(([cat, apis]) => {
+    const group = document.createElement('div');
+    group.className = 'card-group';
+    group.innerHTML = `
+      <div class="section-header">
+        <span class="section-title">${cat}</span>
+        <div class="section-line"></div>
+        <span class="section-count">${apis.length}</span>
+      </div>
+      <div class="cards">${apis.map((api, i) => buildCard(api, i + 1)).join('')}</div>
     `;
-    
-    if (api.method === 'POST' && api.params) {
-        form += '<div class="form-group">';
-        api.params.forEach(param => {
-            // Special handling for Brat preset parameter
-            if (param.name === 'preset' && api.name.toLowerCase().includes('brat')) {
-                form += `
-                    <label>${param.name}</label>
-                    <select id="param-${param.name}" class="form-input" onchange="toggleBratColorOptions()">
-                        <option value="bratdeluxe" selected>bratdeluxe (default)</option>
-                        <option value="brat">brat</option>
-                        <option value="custom">custom</option>
-                    </select>
-                `;
-            } else if (param.name === 'bgColor' && api.name.toLowerCase().includes('brat')) {
-                form += `
-                    <div id="bgColor-field" style="display: none;">
-                        <label>${param.name}</label>
-                        <input 
-                            type="text" 
-                            id="param-${param.name}" 
-                            placeholder="e.g., #FF5733 or red"
-                            class="form-input"
-                        >
-                    </div>
-                `;
-            } else if (param.name === 'textColor' && api.name.toLowerCase().includes('brat')) {
-                form += `
-                    <div id="textColor-field" style="display: none;">
-                        <label>${param.name}</label>
-                        <input 
-                            type="text" 
-                            id="param-${param.name}" 
-                            placeholder="e.g., #FFFFFF or white"
-                            class="form-input"
-                        >
-                    </div>
-                `;
-            } else {
-                form += `
-                    <label>${param.name}</label>
-                    <input 
-                        type="${param.type || 'text'}" 
-                        id="param-${param.name}" 
-                        placeholder="${param.example || ''}"
-                        class="form-input"
-                    >
-                `;
-            }
-        });
-        form += '</div>';
-        form += `
-            <button onclick="sendPostRequest('${api.action}', ${JSON.stringify(api.params).replace(/"/g, '&quot;')})">
-                Send Request
-            </button>
-        `;
-    } else if (api.method === 'GET') {
-        form += `
-            <button onclick="window.open('${api.action}', '_blank')">
-                Open in Browser
-            </button>
-        `;
-    }
-    
-    form += '<button onclick="closeTestModal()">Close</button>';
-    
-    formContainer.innerHTML = form;
-    testModal.style.display = 'block';
+    grid.appendChild(group);
+  });
 }
 
-function sendPostRequest(endpoint, params) {
-    const body = {};
-    params.forEach(param => {
-        const element = document.getElementById(`param-${param.name}`);
-        const value = element ? element.value : '';
-        
-        // Only include non-empty values, or required fields (like text, query)
-        if (value || param.name === 'text' || param.name === 'query') {
-            if (value) { // Only add if has value
-                body[param.name] = value;
-            }
-        }
-    });
-    
-    const responseContainer = document.getElementById('responseContainer');
-    responseContainer.innerHTML = '<p>Loading...</p>';
-    
-    fetch(endpoint, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(body)
-    })
-    .then(async res => {
-        const contentType = res.headers.get('content-type');
-        
-        // Handle binary responses (image/png, image/gif)
-        if (contentType && (contentType.includes('image/png') || contentType.includes('image/gif'))) {
-            const blob = await res.blob();
-            const url = URL.createObjectURL(blob);
-            const ext = contentType.includes('png') ? 'png' : 'gif';
-            
-            let html = '<h4>Response:</h4>';
-            html += '<p style="margin-top: 15px;"><strong>Image Generated:</strong></p>';
-            html += `<img src="${url}" style="max-width: 100%; max-height: 400px; border: 1px solid #ddd; border-radius: 5px; margin: 10px 0;">`;
-            html += `<p><a href="${url}" download="generated.${ext}" style="color: #0066cc; cursor: pointer;">📥 Download Image</a></p>`;
-            
-            responseContainer.innerHTML = html;
-            return null;
-        }
-        
-        // Handle JSON responses
-        return res.json();
-    })
-    .then(data => {
-        if (data) { // Only process if it's JSON (not null from image handling)
-            let html = '<h4>Response:</h4>';
-            html += '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
-            responseContainer.innerHTML = html;
-        }
-    })
-    .catch(error => {
-        responseContainer.innerHTML = '<p style="color: red;">Error: ' + error.message + '</p>';
-    });
+function buildCard(api, num) {
+  const badgeClass = api.method === 'GET' ? 'badge-get' : 'badge-post';
+  const endpointShort = api.action.split('?')[0];
+  return `
+    <div class="api-card" onclick="openModal(${JSON.stringify(api).replace(/"/g, '&quot;')})">
+      <div class="card-top">
+        <span class="card-name">${api.name}</span>
+        <span class="method-badge ${badgeClass}">${api.method}</span>
+      </div>
+      <p class="card-desc">${api.description || 'Endpoint API'}</p>
+      <div class="card-endpoint">${endpointShort}</div>
+      <div class="card-footer">
+        <button class="try-btn" onclick="event.stopPropagation(); openModal(${JSON.stringify(api).replace(/"/g, '&quot;')})">Coba &rarr;</button>
+        <span class="card-num">#${String(num).padStart(2, '0')}</span>
+      </div>
+    </div>
+  `;
 }
 
-function createTestModal() {
-    const modal = document.createElement('div');
-    modal.id = 'testModal';
-    modal.className = 'modal';
-    modal.innerHTML = `
-        <div class="modal-content">
-            <div id="formContainer"></div>
-            <div id="responseContainer"></div>
+function openModal(api) {
+  const overlay = document.getElementById('modalOverlay');
+  const content = document.getElementById('modalContent');
+  const badgeClass = api.method === 'GET' ? 'badge-get' : 'badge-post';
+
+  let formHtml = '';
+  if (api.method === 'POST' && api.params) {
+    formHtml = api.params.map(p => {
+      if (p.name === 'preset' && api.name.toLowerCase().includes('brat')) {
+        return `
+          <div class="form-group">
+            <label class="form-label">preset</label>
+            <select id="m-preset" class="form-select" onchange="toggleColorFields()">
+              <option value="bratdeluxe">bratdeluxe (default)</option>
+              <option value="brat">brat</option>
+              <option value="custom">custom</option>
+            </select>
+          </div>
+        `;
+      } else if ((p.name === 'bgColor' || p.name === 'textColor') && api.name.toLowerCase().includes('brat')) {
+        const label = p.name === 'bgColor' ? 'background color' : 'text color';
+        const id = p.name === 'bgColor' ? 'm-bgColor' : 'm-textColor';
+        return `<div class="form-group color-fields" id="field-${p.name}"><label class="form-label">${label}</label><input type="text" id="${id}" class="form-input" placeholder="#FF5733 atau red"></div>`;
+      } else {
+        return `
+          <div class="form-group">
+            <label class="form-label">${p.name}</label>
+            <input type="text" id="m-${p.name}" class="form-input" placeholder="${p.example || 'masukkan ' + p.name}">
+          </div>
+        `;
+      }
+    }).join('');
+    formHtml += `<div class="btn-row"><button class="btn-send" onclick="sendPost('${api.action}', ${JSON.stringify(api.params).replace(/"/g, '&quot;')})">Kirim Request</button></div>`;
+  } else if (api.method === 'GET') {
+    formHtml = `<div class="btn-row"><button class="btn-open" onclick="window.open('${api.action}', '_blank')">Buka di Browser &rarr;</button></div>`;
+  }
+
+  content.innerHTML = `
+    <p class="modal-title">${api.name}</p>
+    <div class="modal-badge-row">
+      <span class="method-badge ${badgeClass}">${api.method}</span>
+      <span class="modal-endpoint">${api.action}</span>
+    </div>
+    ${api.description ? `<p class="modal-desc">${api.description}</p>` : ''}
+    ${formHtml}
+    <div id="responseArea"></div>
+  `;
+
+  overlay.classList.add('open');
+  overlay.onclick = e => { if (e.target === overlay) closeModal(); };
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+}
+
+function toggleColorFields() {
+  const sel = document.getElementById('m-preset');
+  const isCustom = sel && sel.value === 'custom';
+  document.querySelectorAll('.color-fields').forEach(el => {
+    el.classList.toggle('show', isCustom);
+  });
+}
+
+function sendPost(endpoint, params) {
+  const body = {};
+  params.forEach(p => {
+    const id = p.name === 'bgColor' ? 'm-bgColor' : p.name === 'textColor' ? 'm-textColor' : `m-${p.name}`;
+    const el = document.getElementById(id) || document.getElementById(`m-${p.name}`);
+    if (el && el.value.trim()) body[p.name] = el.value.trim();
+  });
+
+  const area = document.getElementById('responseArea');
+  area.innerHTML = `
+    <div class="response-box">
+      <div class="response-header">
+        <span class="response-label">Response</span>
+        <span class="response-status status-loading">Memuat...</span>
+      </div>
+      <div class="response-body">Mengirim request...</div>
+    </div>
+  `;
+
+  fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  })
+  .then(async res => {
+    const ct = res.headers.get('content-type') || '';
+    const statusEl = area.querySelector('.response-status');
+    statusEl.className = 'response-status ' + (res.ok ? 'status-ok' : 'status-err');
+    statusEl.textContent = res.status + ' ' + (res.ok ? 'OK' : 'Error');
+
+    if (ct.includes('image/')) {
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const ext = ct.includes('gif') ? 'gif' : 'png';
+      area.querySelector('.response-body').outerHTML = `
+        <div class="img-preview">
+          <img src="${url}" alt="Result">
+          <br>
+          <a href="${url}" download="result.${ext}" class="img-download">&#8595; Download ${ext.toUpperCase()}</a>
         </div>
-    `;
-    document.body.appendChild(modal);
-    
-    modal.onclick = function(e) {
-        if (e.target === modal) {
-            modal.style.display = 'none';
-        }
-    };
-}
-
-function closeTestModal() {
-    const modal = document.getElementById('testModal');
-    if (modal) modal.style.display = 'none';
-}
-
-function toggleBratColorOptions() {
-    const presetSelect = document.getElementById('param-preset');
-    const bgColorField = document.getElementById('bgColor-field');
-    const textColorField = document.getElementById('textColor-field');
-    const bgColorInput = document.getElementById('param-bgColor');
-    const textColorInput = document.getElementById('param-textColor');
-    
-    if (presetSelect && bgColorField && textColorField) {
-        const isCustom = presetSelect.value === 'custom';
-        bgColorField.style.display = isCustom ? 'block' : 'none';
-        textColorField.style.display = isCustom ? 'block' : 'none';
-        
-        // Clear color values when switching away from custom
-        if (!isCustom) {
-            if (bgColorInput) bgColorInput.value = '';
-            if (textColorInput) textColorInput.value = '';
-        }
+      `;
+      return;
     }
+
+    const json = await res.json();
+    area.querySelector('.response-body').textContent = JSON.stringify(json, null, 2);
+  })
+  .catch(err => {
+    const statusEl = area.querySelector('.response-status');
+    statusEl.className = 'response-status status-err';
+    statusEl.textContent = 'Error';
+    area.querySelector('.response-body').textContent = 'Error: ' + err.message;
+  });
 }

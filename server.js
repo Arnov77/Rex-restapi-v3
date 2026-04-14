@@ -24,8 +24,6 @@ const geminiRoutes = require('./src/core/ai/gemini/gemini.routes');
 // Old routes (for backwards compatibility during migration)
 const bratRoute = require('./src/routes/brat');
 const bratVidRoute = require('./src/routes/bratVid');
-const ytmp3Route = require('./src/routes/ytmp3');
-const ytmp4Route = require('./src/routes/ytmp4');
 const ytplayRoute = require('./src/routes/ytplay');
 const hitamRoute = require('./src/routes/hitam');
 const ttdlRoute = require('./src/routes/tiktok');

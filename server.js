@@ -5,109 +5,58 @@ const dotenv = require('dotenv');
 const path = require('path');
 const fs = require('fs');
 
-// Load environment variables
 dotenv.config();
 
-// Utilities & Middleware
 const logger = require('./src/shared/utils/logger');
 const { errorHandler } = require('./src/shared/middleware/errorHandler');
 const { generalLimiter, apiLimiter, aiLimiter } = require('./src/shared/middleware/rateLimiter');
 const ResponseHandler = require('./src/shared/utils/response');
 
-// Routes
 const youtubeRoutes = require('./src/core/media/youtube/youtube.routes');
 const bratRoutes = require('./src/core/media/brat/brat.routes');
 const tiktokRoutes = require('./src/core/media/tiktok/tiktok.routes');
 const instagramRoutes = require('./src/core/media/instagram/instagram.routes');
 const geminiRoutes = require('./src/core/ai/gemini/gemini.routes');
 
-// Old routes (for backwards compatibility during migration)
-const bratRoute = require('./src/routes/brat');
-const bratVidRoute = require('./src/routes/bratVid');
-const ytmp3Route = require('./src/routes/ytmp3');
-const ytmp4Route = require('./src/routes/ytmp4');
-const ytplayRoute = require('./src/routes/ytplay');
-const hitamRoute = require('./src/routes/hitam');
-const ttdlRoute = require('./src/routes/tiktok');
-const ttmp3Route = require('./src/routes/tiktok-mp3');
-const igdlRoute = require('./src/routes/instagram');
-const mcprofile = require('./src/routes/mcprofile');
+const gdriveRoute = require('./src/core/tools/gdrive/gdrive.routes');
+const quoteRoute = require('./src/core/tools/quote/quote.routes');
+const smemeRoute = require('./src/core/tools/smeme/smeme.routes');
+const promosiRoute = require('./src/core/tools/promosi/promosi.routes');
+const mcprofileRoute = require('./src/core/tools/mcprofile/mcprofile.routes');
 
-// Initialize Express
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Create temp directory
-const tempDir = path.join(__dirname, 'temp');
-if (!fs.existsSync(tempDir)) {
-  fs.mkdirSync(tempDir, { recursive: true });
+function ensureDir(dirname) {
+  const target = path.join(__dirname, dirname);
+  if (!fs.existsSync(target)) {
+    fs.mkdirSync(target, { recursive: true });
+  }
 }
 
-// Create logs directory
-const logsDir = path.join(__dirname, 'logs');
-if (!fs.existsSync(logsDir)) {
-  fs.mkdirSync(logsDir, { recursive: true });
-}
+['temp', 'logs', 'downloads'].forEach(ensureDir);
 
-// Create downloads directory
-const downloadsDir = path.join(__dirname, 'downloads');
-if (!fs.existsSync(downloadsDir)) {
-  fs.mkdirSync(downloadsDir, { recursive: true });
-}
-
-// Middleware
 app.use(cors());
 app.use(morgan('dev'));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/downloads', express.static(path.join(__dirname, 'downloads')));
-app.use('/download', express.static(path.join(__dirname, 'downloads'))); // Alias for cleaner URLs
+app.use('/download', express.static(path.join(__dirname, 'downloads')));
 
-// Global rate limiting
 app.use(generalLimiter);
 
-// ============================================
-// NEW REFACTORED ROUTES (CLEAN ARCHITECTURE)
-// ============================================
-
-// YouTube endpoints
 app.use('/api/youtube', apiLimiter, youtubeRoutes);
-
-// Brat generator endpoints
 app.use('/api/brat', apiLimiter, bratRoutes);
-
-// TikTok endpoints
 app.use('/api/tiktok', apiLimiter, tiktokRoutes);
-
-// Instagram endpoints
 app.use('/api/instagram', apiLimiter, instagramRoutes);
-
-// Gemini/AI endpoints
 app.use('/api/ai/gemini', aiLimiter, geminiRoutes);
+app.use('/api/gdrive', apiLimiter, gdriveRoute);
+app.use('/api/quote', apiLimiter, quoteRoute);
+app.use('/api/smeme', apiLimiter, smemeRoute);
+app.use('/api/promosi', apiLimiter, promosiRoute);
+app.use('/mcapi', apiLimiter, mcprofileRoute);
 
-// ============================================
-// OLD ROUTES (FOR BACKWARDS COMPATIBILITY)
-// TO BE REMOVED AFTER MIGRATION
-// ============================================
-app.use('/api/bratvid', bratVidRoute);
-app.use('/api/ytplay', ytplayRoute);
-app.use('/api/hitam', hitamRoute);
-app.use('/api/tiktok-mp3', ttmp3Route);
-// app.use('/api/facebook', require('./src/routes/facebook')); // DISABLED - browser-based scraping causing crashes
-app.use('/api/gdrive', require('./src/routes/gdrive'));
-app.use('/api/quote', require('./src/routes/quote'));
-app.use('/api/smeme', require('./src/routes/smeme'));
-app.use('/api/promosi', require('./src/routes/promosi'));
-app.use('/mcapi', mcprofile);
-
-// ============================================
-// UTILITY ENDPOINTS
-// ============================================
-
-/**
- * Health Check Endpoint
- */
 app.get('/health', (req, res) => {
   res.json({
     status: 'healthy',
@@ -116,9 +65,6 @@ app.get('/health', (req, res) => {
   });
 });
 
-/**
- * API Status Endpoint
- */
 app.get('/api/status', (req, res) => {
   return ResponseHandler.success(
     res,
@@ -132,42 +78,29 @@ app.get('/api/status', (req, res) => {
   );
 });
 
-// ============================================
-// 404 HANDLER
-// ============================================
 app.use((req, res) => {
   logger.warn(`404 Not Found: ${req.method} ${req.path}`);
-  return ResponseHandler.error(
-    res,
-    'Endpoint not found',
-    404
-  );
+  return ResponseHandler.error(res, 'Endpoint not found', 404);
 });
 
-// ============================================
-// ERROR HANDLER (MUST BE LAST)
-// ============================================
 app.use(errorHandler);
 
-// ============================================
-// START SERVER
-// ============================================
-(async () => {
+async function startServer() {
   try {
-    // Initialize utils if needed
     const utils = require('./src/utils/utils');
     await utils.init();
 
     app.listen(PORT, () => {
-      logger.success(`✅ Server running at http://localhost:${PORT}`);
-      logger.success(`📚 Health check: http://localhost:${PORT}/health`);
+      logger.success(`Server running at http://localhost:${PORT}`);
+      logger.info(`Health check: http://localhost:${PORT}/health`);
       logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
     });
-
   } catch (error) {
-    logger.error(`❌ Failed to start server: ${error.message}`);
+    logger.error(`Failed to start server: ${error.message}`);
     process.exit(1);
   }
-})();
+}
+
+startServer();
 
 module.exports = app;

@@ -1,115 +1,76 @@
 # Rex-RESTAPI
 
-Rex-RESTAPI adalah sebuah REST API yang menyediakan berbagai fitur seperti konversi video, pengunduhan media, dan manipulasi gambar. Proyek ini dirancang untuk mempermudah integrasi layanan API ke dalam aplikasi Anda.
+REST API untuk downloader media, generator gambar, dan utilitas tambahan dengan struktur v2 yang sudah dipisah ke `core`, `shared`, dan route utilitas yang masih aktif.
 
-## Struktur Proyek
+## Endpoint aktif
 
-```
+- `POST /api/youtube/mp3`
+- `POST /api/youtube/mp4`
+- `POST /api/tiktok/download`
+- `POST /api/tiktok/audio`
+- `POST /api/instagram/download`
+- `POST /api/brat/image`
+- `POST /api/brat/video`
+- `POST /api/ai/gemini/generate`
+- `GET|POST /api/gdrive`
+- `GET|POST /api/quote`
+- `GET|POST /api/smeme`
+- `GET|POST /api/promosi`
+- `GET /health`
+- `GET /api/status`
+- `GET /mcapi/*`
+
+Endpoint compatibility lama yang dipakai saat migrasi sudah dibersihkan dari codebase.
+
+## Struktur proyek
+
+```text
 Rex-RESTAPI
-├─ .env                  # File konfigurasi lingkungan
-├─ config.js             # Konfigurasi utama aplikasi
-├─ Dockerfile            # File untuk container Docker
-├─ package.json          # Informasi proyek dan dependensi
-├─ public                # Folder untuk file statis
-│  ├─ css
-│  │  └─ style.css       # Gaya untuk halaman web
-│  ├─ data
-│  │  └─ apis.json       # Data API yang tersedia
-│  ├─ index.html         # Halaman utama
-│  └─ js
-│     └─ script.js       # Skrip JavaScript untuk halaman web
-├─ server.js             # File utama untuk menjalankan server
-└─ src                   # Folder sumber kode
-   ├─ routes             # Rute API
-   │  ├─ brat.js         # Rute untuk fitur 'brat'
-   │  ├─ bratVid.js      # Rute untuk fitur 'bratVid'
-   │  ├─ ytmp3.js        # Rute untuk konversi YouTube ke MP3
-   │  ├─ ytmp4.js        # Rute untuk konversi YouTube ke MP4
-   │  └─ ytplay.js       # Rute untuk memutar video YouTube
-   └─ utils              # Fungsi utilitas
-      └─ utils.js        # Fungsi pendukung aplikasi
+|- public/
+|- src/
+|  |- core/
+|  |  |- ai/gemini/
+|  |  `- media/
+|  |     |- brat/
+|  |     |- instagram/
+|  |     |- tiktok/
+|  |     `- youtube/
+|  |  `- tools/
+|  |     |- gdrive/
+|  |     |- mcprofile/
+|  |     |- promosi/
+|  |     |- quote/
+|  |     `- smeme/
+|  |- shared/
+|  `- utils/
+|- package.json
+`- server.js
 ```
 
-## Fitur
+## Menjalankan aplikasi
 
-- **Konversi YouTube ke MP3/MP4**: Unduh video YouTube dalam format MP3 atau MP4.
-- **Manipulasi Gambar**: Ubah gambar dengan berbagai opsi seperti `hitam` atau `nerd`.
-- **Streaming Video**: Putar video langsung dari YouTube.
-- **API JSON**: Data API tersedia dalam format JSON.
+```bash
+npm install
+node server.js
+```
 
-## Instalasi
+Minimal `.env`:
 
-1. Clone repositori ini:
-   ```bash
-   git clone https://github.com/username/Rex-RESTAPI.git
-   cd Rex-RESTAPI
-   ```
+```env
+PORT=7860
+GEMINI_API_KEY=your_gemini_api_key
+```
 
-2. Instal dependensi:
-   ```bash
-   npm install
-   ```
+## Contoh request
 
-3. Buat file `.env` dan tambahkan konfigurasi berikut:
-   ```
-   PORT=7860
-   GEMINI_API_KEY=your_gemini_api_key
-   ```
+```bash
+curl -X POST http://localhost:7860/api/youtube/mp3 ^
+  -H "Content-Type: application/json" ^
+  -d "{\"query\":\"never gonna give you up\"}"
+```
 
-4. Jalankan server:
-   ```bash
-   node server.js
-   ```
-
-5. Akses API di `http://localhost:7860`.
-
-## Contoh Penggunaan API
-
-### Endpoint: Manipulasi Gambar
-- **URL**: `/api/hitam`
-- **Metode**: `GET`
-- **Parameter**:
-  - `image` (wajib): URL gambar.
-  - `option` (opsional): `nerd` atau `hitam`.
-- **Contoh**:
-  ```
-  http://localhost:7860/api/hitam?image=https://i.ibb.co/jZW6CzK9/images-1.jpg&option=nerd
-  ```
-
-### Endpoint: Konversi YouTube ke MP3
-- **URL**: `/api/ytmp3`
-- **Metode**: `GET`
-- **Parameter**:
-  - `url` (wajib): URL video YouTube.
-- **Contoh**:
-  ```
-  http://localhost:7860/api/ytmp3?url=https://www.youtube.com/watch?v=dQw4w9WgXcQ
-  ```
-
-## Teknologi yang Digunakan
-
-- **Node.js**: Runtime JavaScript untuk server.
-- **Express.js**: Framework untuk membangun REST API.
-- **Axios**: HTTP client untuk melakukan request.
-- **Google Generative AI**: API untuk manipulasi gambar.
-
-## Kontribusi
-
-1. Fork repositori ini.
-2. Buat branch fitur baru:
-   ```bash
-   git checkout -b fitur-baru
-   ```
-3. Commit perubahan Anda:
-   ```bash
-   git commit -m "Menambahkan fitur baru"
-   ```
-4. Push ke branch Anda:
-   ```bash
-   git push origin fitur-baru
-   ```
-5. Buat Pull Request.
-
-## Lisensi
-
-Proyek ini dilisensikan di bawah [MIT License](LICENSE).
+```bash
+curl -X POST http://localhost:7860/api/ai/gemini/generate ^
+  -H "Content-Type: application/json" ^
+  -d "{\"image\":\"https://example.com/image.jpg\",\"option\":\"hitam\"}"
+```

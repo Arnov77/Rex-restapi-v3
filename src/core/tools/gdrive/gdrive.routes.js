@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
-const config = require('../../config');
+const config = require('../../../../config');
 
 // Fungsi bantu untuk ekstrak fileId dari URL Google Drive
 function extractFileId(url) {

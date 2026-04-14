@@ -13,7 +13,6 @@
   "dependencies": {
     "@distube/ytdl-core": "^4.16.12",
     "@google/generative-ai": "^0.24.0",
-    "@vreden/youtube_scraper": "^1.2.7",
     "axios": "^1.12.0",
     "canvas": "^3.1.0",
     "color-name-list": "^14.29.0",

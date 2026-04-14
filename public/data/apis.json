@@ -7,7 +7,7 @@
       "action": "/api/youtube/mp3",
       "description": "Download audio dari YouTube. Masukkan judul lagu atau URL video YouTube.",
       "params": [
-        {"name": "query", "type": "string", "example": "never gonna give you up", "required": true}
+        { "name": "query", "type": "string", "example": "never gonna give you up", "required": true }
       ]
     },
     {
@@ -17,7 +17,7 @@
       "action": "/api/youtube/mp4",
       "description": "Download video dari YouTube dalam format MP4 dengan berbagai resolusi.",
       "params": [
-        {"name": "query", "type": "string", "example": "never gonna give you up official mv", "required": true}
+        { "name": "query", "type": "string", "example": "never gonna give you up official mv", "required": true }
       ]
     },
     {
@@ -27,7 +27,7 @@
       "action": "/api/tiktok/download",
       "description": "Download video TikTok tanpa watermark beserta info akun dan statistik.",
       "params": [
-        {"name": "url", "type": "string", "example": "https://vt.tiktok.com/ZSxxxxxxx/", "required": true}
+        { "name": "url", "type": "string", "example": "https://vt.tiktok.com/ZSxxxxxxx/", "required": true }
       ]
     },
     {
@@ -35,9 +35,9 @@
       "name": "TikTok Audio",
       "method": "POST",
       "action": "/api/tiktok/audio",
-      "description": "Ambil audio/musik dari video TikTok dalam format MP3.",
+      "description": "Ambil audio atau musik dari video TikTok.",
       "params": [
-        {"name": "url", "type": "string", "example": "https://vt.tiktok.com/ZSxxxxxxx/", "required": true}
+        { "name": "url", "type": "string", "example": "https://vt.tiktok.com/ZSxxxxxxx/", "required": true }
       ]
     },
     {
@@ -47,24 +47,18 @@
       "action": "/api/instagram/download",
       "description": "Download foto atau video dari postingan Instagram.",
       "params": [
-        {"name": "url", "type": "string", "example": "https://www.instagram.com/p/xxxxxxxx/", "required": true}
+        { "name": "url", "type": "string", "example": "https://www.instagram.com/p/xxxxxxxx/", "required": true }
       ]
     },
     {
       "id": 6,
       "name": "Google Drive",
-      "method": "GET",
-      "action": "/api/gdrive?url=https://drive.google.com/file/d/1Gz6fjY5GLuFI_jIp1RGYL8MisrKchsfP/view?usp=drivesdk",
-      "description": "Generate link download langsung dari Google Drive. Mendukung semua jenis file.",
-      "params": []
-    },
-    {
-      "id": 7,
-      "name": "Quote Maker",
-      "method": "GET",
-      "action": "/api/quote?name=Anonymous&message=Hidup itu indah jika kita mau bersyukur",
-      "description": "Buat gambar quote WhatsApp style dengan nama dan pesan kustom.",
-      "params": []
+      "method": "POST",
+      "action": "/api/gdrive",
+      "description": "Generate link download langsung dari Google Drive dan ambil metadata file.",
+      "params": [
+        { "name": "url", "type": "string", "example": "https://drive.google.com/file/d/1Gz6fjY5GLuFI_jIp1RGYL8MisrKchsfP/view?usp=drivesdk", "required": true }
+      ]
     }
   ],
   "Image Generator": [
@@ -75,10 +69,10 @@
       "action": "/api/brat/image",
       "description": "Generate gambar brat style. Pilih preset atau atur warna background dan teks sendiri.",
       "params": [
-        {"name": "text", "type": "string", "example": "i am so brat", "required": true},
-        {"name": "preset", "type": "select", "required": false},
-        {"name": "bgColor", "type": "string", "example": "#e4ff3d", "required": false},
-        {"name": "textColor", "type": "string", "example": "#000000", "required": false}
+        { "name": "text", "type": "string", "example": "i am so brat", "required": true },
+        { "name": "preset", "type": "select", "required": false },
+        { "name": "bgColor", "type": "string", "example": "#e4ff3d", "required": false },
+        { "name": "textColor", "type": "string", "example": "#000000", "required": false }
       ]
     },
     {
@@ -88,10 +82,10 @@
       "action": "/api/brat/video",
       "description": "Generate animasi GIF brat style. Teks muncul satu per satu seperti efek mengetik.",
       "params": [
-        {"name": "text", "type": "string", "example": "i am so brat", "required": true},
-        {"name": "preset", "type": "select", "required": false},
-        {"name": "bgColor", "type": "string", "example": "#e4ff3d", "required": false},
-        {"name": "textColor", "type": "string", "example": "#000000", "required": false}
+        { "name": "text", "type": "string", "example": "i am so brat", "required": true },
+        { "name": "preset", "type": "select", "required": false },
+        { "name": "bgColor", "type": "string", "example": "#e4ff3d", "required": false },
+        { "name": "textColor", "type": "string", "example": "#000000", "required": false }
       ]
     },
     {
@@ -101,8 +95,90 @@
       "action": "/api/ai/gemini/generate",
       "description": "Modifikasi gambar karakter anime menggunakan AI Gemini. Ubah jadi 'hitam' atau 'nerd'.",
       "params": [
-        {"name": "image", "type": "string", "example": "https://i.ibb.co/contoh.jpg", "required": true},
-        {"name": "option", "type": "string", "example": "hitam", "required": true}
+        { "name": "image", "type": "string", "example": "https://i.ibb.co/contoh.jpg", "required": true },
+        { "name": "option", "type": "string", "example": "hitam", "required": true }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Quote Maker",
+      "method": "POST",
+      "action": "/api/quote",
+      "description": "Buat gambar quote WhatsApp style dengan nama, pesan, dan avatar opsional.",
+      "params": [
+        { "name": "name", "type": "string", "example": "Anonymous", "required": true },
+        { "name": "message", "type": "string", "example": "Hidup itu indah jika kita mau bersyukur", "required": true },
+        { "name": "avatarUrl", "type": "string", "example": "https://example.com/avatar.jpg", "required": false }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Simple Meme",
+      "method": "POST",
+      "action": "/api/smeme",
+      "description": "Generate meme dari gambar sendiri memakai memegen custom background.",
+      "params": [
+        { "name": "image", "type": "string", "example": "https://www.gstatic.com/webp/gallery/1.png", "required": true },
+        { "name": "top", "type": "string", "example": "TEKS ATAS", "required": false },
+        { "name": "bottom", "type": "string", "example": "TEKS BAWAH", "required": false },
+        { "name": "format", "type": "string", "example": "png", "required": false },
+        { "name": "width", "type": "number", "example": "800", "required": false },
+        { "name": "height", "type": "number", "example": "600", "required": false },
+        { "name": "font", "type": "string", "example": "impact", "required": false },
+        { "name": "color", "type": "string", "example": "white,black", "required": false },
+        { "name": "layout", "type": "string", "example": "top", "required": false }
+      ]
+    }
+  ],
+  "Utilities": [
+    {
+      "id": 1,
+      "name": "Promotion Detector",
+      "method": "POST",
+      "action": "/api/promosi",
+      "description": "Analisis teks untuk mendeteksi apakah mengandung unsur promosi.",
+      "params": [
+        { "name": "text", "type": "string", "example": "Promo spesial join server kami sekarang", "required": true },
+        { "name": "threshold", "type": "number", "example": "70", "required": false }
+      ]
+    }
+  ],
+  "Minecraft": [
+    {
+      "id": 1,
+      "name": "MC Profile",
+      "method": "GET",
+      "action": "/mcapi/profile",
+      "description": "Lookup profil Minecraft Java atau Bedrock berdasarkan username, xuid, atau uuid.",
+      "params": [
+        { "name": "username", "type": "string", "example": "Dream", "required": false },
+        { "name": "edition", "type": "string", "example": "auto", "required": false },
+        { "name": "xuid", "type": "string", "example": "2535469446571234", "required": false },
+        { "name": "uuid", "type": "string", "example": "8667ba71-b85a-4004-af54-457a9734eed7", "required": false }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "MC Skin Redirect",
+      "method": "GET",
+      "action": "/mcapi/profile/:edition/:id/skin",
+      "description": "Redirect ke URL skin Minecraft berdasarkan edition dan id.",
+      "params": [
+        { "name": "edition", "type": "string", "example": "java", "required": true },
+        { "name": "id", "type": "string", "example": "8667ba71-b85a-4004-af54-457a9734eed7", "required": true }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "MC Head Render",
+      "method": "GET",
+      "action": "/mcapi/render/head",
+      "description": "Render avatar kepala Minecraft dari skin URL atau username.",
+      "params": [
+        { "name": "skin", "type": "string", "example": "https://textures.minecraft.net/texture/...", "required": false },
+        { "name": "username", "type": "string", "example": "Dream", "required": false },
+        { "name": "edition", "type": "string", "example": "auto", "required": false },
+        { "name": "size", "type": "number", "example": "100", "required": false }
       ]
     }
   ],

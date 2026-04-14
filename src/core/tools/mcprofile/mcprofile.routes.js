@@ -1,4 +1,4 @@
-// src/routes/mcprofile.js
+// src/core/tools/mcprofile/mcprofile.routes.js
 const express = require("express");
 const axios = require("axios");
 const rateLimit = require("express-rate-limit");

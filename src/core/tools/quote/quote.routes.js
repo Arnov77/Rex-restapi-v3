@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const utils = require('../utils/utils');
-const config = require('../../config');
+const utils = require('../../../utils/utils');
 
 router.all('/', async (req, res) => {
   if (!['GET', 'POST'].includes(req.method)) {

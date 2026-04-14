@@ -24,7 +24,6 @@ const geminiRoutes = require('./src/core/ai/gemini/gemini.routes');
 // Old routes (for backwards compatibility during migration)
 const bratRoute = require('./src/routes/brat');
 const bratVidRoute = require('./src/routes/bratVid');
-const ytplayRoute = require('./src/routes/ytplay');
 const hitamRoute = require('./src/routes/hitam');
 const ttdlRoute = require('./src/routes/tiktok');
 const ttmp3Route = require('./src/routes/tiktok-mp3');
@@ -89,7 +88,6 @@ app.use('/api/ai/gemini', aiLimiter, geminiRoutes);
 // TO BE REMOVED AFTER MIGRATION
 // ============================================
 app.use('/api/bratvid', bratVidRoute);
-app.use('/api/ytplay', ytplayRoute);
 app.use('/api/hitam', hitamRoute);
 app.use('/api/tiktok-mp3', ttmp3Route);
 // app.use('/api/facebook', require('./src/routes/facebook')); // DISABLED - browser-based scraping causing crashes

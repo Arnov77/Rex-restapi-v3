@@ -11,7 +11,6 @@ REST API untuk downloader media, generator gambar, dan utilitas tambahan dengan 
 - `POST /api/instagram/download`
 - `POST /api/brat/image`
 - `POST /api/brat/video`
-- `POST /api/ai/gemini/generate`
 - `GET|POST /api/gdrive`
 - `GET|POST /api/quote`
 - `GET|POST /api/smeme`
@@ -66,11 +65,6 @@ GEMINI_API_KEY=your_gemini_api_key
 ```bash
 curl -X POST http://localhost:7860/api/youtube/mp3 ^
   -H "Content-Type: application/json" ^
-  -d "{\"query\":\"never gonna give you up\"}"
-```
+  -d "{\"query\":\"never gonna give you up\"}""
 
-```bash
-curl -X POST http://localhost:7860/api/ai/gemini/generate ^
-  -H "Content-Type: application/json" ^
-  -d "{\"image\":\"https://example.com/image.jpg\",\"option\":\"hitam\"}"
 ```

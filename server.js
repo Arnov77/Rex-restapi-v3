@@ -16,7 +16,6 @@ const youtubeRoutes = require('./src/core/media/youtube/youtube.routes');
 const bratRoutes = require('./src/core/media/brat/brat.routes');
 const tiktokRoutes = require('./src/core/media/tiktok/tiktok.routes');
 const instagramRoutes = require('./src/core/media/instagram/instagram.routes');
-const geminiRoutes = require('./src/core/ai/gemini/gemini.routes');
 
 const gdriveRoute = require('./src/core/tools/gdrive/gdrive.routes');
 const quoteRoute = require('./src/core/tools/quote/quote.routes');
@@ -50,7 +49,6 @@ app.use('/api/youtube', apiLimiter, youtubeRoutes);
 app.use('/api/brat', apiLimiter, bratRoutes);
 app.use('/api/tiktok', apiLimiter, tiktokRoutes);
 app.use('/api/instagram', apiLimiter, instagramRoutes);
-app.use('/api/ai/gemini', aiLimiter, geminiRoutes);
 app.use('/api/gdrive', apiLimiter, gdriveRoute);
 app.use('/api/quote', apiLimiter, quoteRoute);
 app.use('/api/smeme', apiLimiter, smemeRoute);

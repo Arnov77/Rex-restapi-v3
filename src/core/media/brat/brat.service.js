@@ -13,13 +13,15 @@ fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
 function sanitizeFilename(text, ext) {
   let clean = text
     .toLowerCase()
-    .substring(0, 30) // Limit to 30 chars
+    .substring(0, 20) // Reduce to 20 chars to leave room for timestamp
     .replace(/[^\w\s-]/g, '') // Remove special chars
     .replace(/\s+/g, '-') // Replace spaces with hyphens
     .replace(/-+/g, '-') // Replace multiple hyphens
     .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
   
-  return `${clean}.${ext}`;
+  // Add timestamp for uniqueness
+  const timestamp = Date.now();
+  return `${clean}-${timestamp}.${ext}`;
 }
 
 /**

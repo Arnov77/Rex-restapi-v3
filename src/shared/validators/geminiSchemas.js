@@ -14,10 +14,10 @@ const generateImageSchema = Joi.object({
     }),
 
   option: Joi.string()
-    .valid('nerd', 'hitam')
+    .valid('nerd')
     .required()
     .messages({
-      'any.only': "Option must be 'nerd' or 'hitam'",
+      'any.only': "Option must be 'nerd'",
       'any.required': 'Option parameter is required',
     }),
 });

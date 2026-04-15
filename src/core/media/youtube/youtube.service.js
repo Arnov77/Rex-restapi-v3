@@ -1,4 +1,4 @@
-const { ytsearch } = require('ruhend-scraper');
+const play = require('play-dl');
 const youtubedl = require('youtube-dl-exec');
 const logger = require('../../../shared/utils/logger');
 const { NotFoundError, AppError } = require('../../../shared/utils/errors');
@@ -36,7 +36,7 @@ function sanitizeFilename(title, ext) {
  */
 class YouTubeService {
   /**
-   * Search YouTube for videos
+   * Search YouTube for videos using play-dl
    * @param {string} query - Search query
    * @param {number} limit - Max results (default: 5)
    * @returns {Promise<Object>} Search results with video URLs
@@ -45,31 +45,32 @@ class YouTubeService {
     try {
       logger.info(`[YouTube] Searching for: "${query}"`);
       
-      const { video, channel } = await ytsearch(query);
+      const results = await play.search(query, { limit });
       
-      if (!video || video.length === 0) {
+      if (!results || results.length === 0) {
         throw new NotFoundError('No videos found on YouTube');
       }
 
       // Format results
-      const videos = video
+      const videos = results
+        .filter(v => v.type === 'video') // Only videos, not playlists
         .slice(0, limit)
         .map(v => ({
-          id: this._extractVideoId(v.url),
+          id: v.id,
           title: v.title,
-          url: v.url,
-          thumbnail: v.thumbnail || v.image,
-          duration: v.durationH || 'Unknown',
-          views: v.view || 'Unknown',
-          author: v.channel || 'Unknown',
+          url: `https://youtube.com/watch?v=${v.id}`,
+          thumbnail: v.thumbnail?.url || null,
+          duration: v.durationInSec ? this._formatDuration(v.durationInSec) : 'Unknown',
+          views: v.views ? v.views.toLocaleString() : 'Unknown',
+          author: v.channel?.name || 'Unknown',
           description: v.description || '',
-          publishedTime: v.publishedTime || 'Unknown',
+          uploadedAt: v.uploadedAt || 'Unknown',
         }));
 
       logger.success(`[YouTube] Found ${videos.length} videos`);
       return {
         query,
-        totalResults: video.length,
+        totalResults: videos.length,
         videos,
         note: 'Use the URL with yt-dlp, ffmpeg, or send to client for download',
       };
@@ -159,27 +160,12 @@ class YouTubeService {
       } catch (downloadError) {
         logger.error(`[YouTube] Download failed: ${downloadError.message}`);
         
-        // Return fallback with instructions
-        return {
-          type: 'audio',
-          title: videoInfo?.title || 'Audio',
-          url: videoUrl,
-          videoId: videoInfo?.id || this._extractVideoId(videoUrl),
-          status: 'fallback',
-          message: 'Server download failed. Use these tools to download manually.',
-          downloadTools: {
-            ytDlp: {
-              tool: 'yt-dlp',
-              command: `yt-dlp -f "bestaudio/best" -x --audio-format mp3 "${videoUrl}"`,
-              website: 'https://github.com/yt-dlp/yt-dlp',
-            },
-            youtubeDl: {
-              tool: 'youtube-dl',
-              command: `youtube-dl -x --audio-format mp3 "${videoUrl}"`,
-              website: 'https://github.com/ytdl-org/youtube-dl',
-            },
-          },
-        };
+        // Throw error instead of fallback - REST API must be fully automated
+        const errorMsg = downloadError.message.includes('yt-dlp') 
+          ? 'yt-dlp not found - ensure youtube-dl-exec is properly installed'
+          : `Failed to download: ${downloadError.message}`;
+        
+        throw new AppError(errorMsg, 502);
       }
 
     } catch (error) {
@@ -264,43 +250,15 @@ class YouTubeService {
         };
 
       } catch (downloadError) {
-        logger.error(`[YouTube] Download failed: ${downloadError.message}`);
-        
-        // Return fallback with instructions
-        return {
-          type: 'video',
-          title: videoInfo?.title || 'Video',
-          url: videoUrl,
-          videoId: videoInfo?.id || this._extractVideoId(videoUrl),
-          status: 'fallback',
-          message: 'Server download failed. Use these tools to download manually.',
-          downloadTools: {
-            ytDlp: {
-              tool: 'yt-dlp',
-              command: `yt-dlp -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]" "${videoUrl}"`,
-              website: 'https://github.com/yt-dlp/yt-dlp',
-            },
-            youtubeDl: {
-              tool: 'youtube-dl',
-              command: `youtube-dl -f "best[ext=mp4]" "${videoUrl}"`,
-              website: 'https://github.com/ytdl-org/youtube-dl',
-            },
-          },
-        };
+        const errorMsg = `[YouTube MP4] Download failed: ${downloadError.message}`;
+        logger.error(errorMsg);
+        throw new AppError(errorMsg, 502);
       }
 
     } catch (error) {
       logger.error(`[YouTube MP4] Error: ${error.message}`);
       throw error;
     }
-  }
-
-  /**
-   * Helper: Extract video ID from YouTube URL
-   */
-  _extractVideoId(url) {
-    const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-    return match ? match[1] : null;
   }
 
   /**

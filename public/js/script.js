@@ -18,7 +18,7 @@ let DATA = {};
 let currentApi = null;
 let activeTab = 'docs';
 let selectedPreset = 'bratdeluxe';
-let selectedOption = 'hitam';
+let selectedOption = 'nerd';
 
 // ── Load Data ──
 fetch('data/apis.json')
@@ -155,7 +155,7 @@ function openModal(api) {
   currentApi = api;
   activeTab = 'docs';
   selectedPreset = 'bratdeluxe';
-  selectedOption = 'hitam';
+  selectedOption = 'nerd';
 
   const mc = api.method === 'GET' ? 'm-get' : 'm-post';
   document.getElementById('mName').textContent = api.name;
@@ -244,22 +244,17 @@ function buildDocsTab(api) {
   </div>` : '';
 
   const resExample = buildResponseExample(api);
-  const getBtn = isGet
-    ? `<div style="margin-top:16px"><button class="get-open-btn" onclick="window.open('${api.action}','_blank')">Buka Endpoint di Browser ↗</button></div>`
-    : '';
 
   return `${paramSection}${reqSection}
   <div style="margin-bottom:0">
     <div class="section-sub-label">Contoh Response</div>
     <div class="response-schema">${resExample}</div>
-  </div>
-  ${getBtn}`;
+  </div>`;
 }
 
 // ── Tab: Try It ──
 function buildTryTab(api) {
   const isBrat = api.name.toLowerCase().includes('brat');
-  const isGemini = api.name.toLowerCase().includes('gemini') || api.name.toLowerCase().includes('ai image');
   let fields = '';
 
   if (api.params) {
@@ -304,17 +299,6 @@ function buildTryTab(api) {
           <div class="color-text-wrap"><input type="text" class="form-input" id="f-textColor" value="#000000" placeholder="#000000" oninput="syncP('textColor')"></div>
         </div>
       </div>
-    </div>`;
-  }
-
-  if (isGemini) {
-    extra = `<div class="form-section">
-      <div class="form-label"><span class="form-label-text">option</span><span class="chip-req" style="font-size:10px">wajib</span></div>
-      <div class="preset-row">
-        <div class="preset-btn sel" onclick="selOpt('hitam', this)">hitam</div>
-        <div class="preset-btn" onclick="selOpt('nerd', this)">nerd</div>
-      </div>
-      <input type="hidden" id="f-option" value="hitam">
     </div>`;
   }
 
@@ -434,7 +418,7 @@ function buildSampleBody(api) {
     if (p.required === false) return;
     if (p.example) body[p.name] = p.example;
     else if (p.name === 'preset') body[p.name] = 'bratdeluxe';
-    else if (p.name === 'option') body[p.name] = 'hitam';
+    else if (p.name === 'option') body[p.name] = 'nerd';
     else body[p.name] = `<${p.name}>`;
   });
   return body;
@@ -447,7 +431,7 @@ function buildRequestBodyExample(api) {
     if (p.name === 'bgColor') body[p.name] = '#e4ff3d  (opsional, khusus custom preset)';
     else if (p.name === 'textColor') body[p.name] = '#000000  (opsional)';
     else if (p.name === 'preset') body[p.name] = 'bratdeluxe | brat | custom';
-    else if (p.name === 'option') body[p.name] = 'hitam | nerd';
+    else if (p.name === 'option') body[p.name] = 'nerd';
     else if (p.example) body[p.name] = p.example;
     else body[p.name] = `<${p.name}>`;
   });
@@ -474,7 +458,7 @@ function getParamDesc(name) {
     image: 'URL gambar yang ingin dimodifikasi dengan AI',
     name: 'Nama pengirim pesan',
     message: 'Isi pesan yang akan ditampilkan',
-    option: 'Pilih transformasi AI: hitam atau nerd',
+    option: 'Tipe transformasi AI: nerd (wajib)',
     preset: 'Pilih tema: bratdeluxe (default), brat, atau custom',
     bgColor: 'Hex color background, contoh: #e4ff3d',
     textColor: 'Hex color teks, contoh: #000000',
@@ -533,7 +517,6 @@ function sendReq() {
   }
 
   const isBrat = api.name.toLowerCase().includes('brat');
-  const isGemini = api.name.toLowerCase().includes('gemini') || api.name.toLowerCase().includes('ai image');
 
   if (isBrat) {
     body.preset = selectedPreset;
@@ -543,10 +526,6 @@ function sendReq() {
       if (bg) body.bgColor = bg.value;
       if (tc) body.textColor = tc.value;
     }
-  }
-  if (isGemini) {
-    const opt = document.getElementById('f-option');
-    if (opt) body.option = opt.value;
   }
 
   showLoading();
@@ -558,12 +537,31 @@ function sendReq() {
   })
   .then(async res => {
     const ct = res.headers.get('content-type') || '';
+    const contentDisposition = res.headers.get('content-disposition') || '';
+    
     if (ct.includes('image/')) {
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const ext = ct.includes('gif') ? 'gif' : 'png';
       showImage(url, ext, res.status, ct);
+    } else if (ct.includes('audio/')) {
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const filename = extractFilename(contentDisposition) || 'audio.mp3';
+      showAudio(url, filename, res.status, ct);
+    } else if (ct.includes('video/')) {
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const filename = extractFilename(contentDisposition) || 'video.mp4';
+      showVideo(url, filename, res.status, ct);
+    } else if (ct.includes('application/octet-stream') || contentDisposition.includes('attachment')) {
+      // Generic file download
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const filename = extractFilename(contentDisposition) || 'download';
+      showFileDownload(url, filename, res.status, ct);
     } else {
+      // JSON response
       const json = await res.json();
       showJSON(json, res.status);
     }
@@ -573,6 +571,12 @@ function sendReq() {
     btn.disabled = false;
     btn.textContent = 'Kirim Request ↗';
   });
+}
+
+function extractFilename(contentDisposition) {
+  if (!contentDisposition) return null;
+  const match = contentDisposition.match(/filename[^;=\n]*=(["\']?)([^"'\n]*)\1/);
+  return match ? match[2] : null;
 }
 
 function showLoading() {
@@ -594,10 +598,57 @@ function showImage(url, ext, status, ct) {
   document.getElementById('responseArea').innerHTML = `<div class="response-area">
     <div class="res-bar"><span class="res-label">Response</span><span class="res-status s-ok">${status} OK — ${ct}</span></div>
     <div class="img-result">
-      <img src="${url}" alt="Hasil">
+      <img src="${url}" alt="Hasil" style="max-width:100%;border-radius:8px;">
       <br>
       <a href="${url}" download="result.${ext}" class="img-dl">⬇ Download ${ext.toUpperCase()}</a>
       <div class="img-note">Gunakan URL ini langsung sebagai src di app kamu, atau unduh file-nya.</div>
+    </div>
+  </div>`;
+}
+
+function showAudio(url, filename, status, ct) {
+  document.getElementById('responseArea').innerHTML = `<div class="response-area">
+    <div class="res-bar"><span class="res-label">Response</span><span class="res-status s-ok">${status} OK — ${ct}</span></div>
+    <div class="audio-result">
+      <div style="margin: 16px 0;">
+        <audio controls style="width:100%;max-width:400px;display:block;">
+          <source src="${url}" type="${ct}">
+          Browser Anda tidak mendukung audio player
+        </audio>
+      </div>
+      <a href="${url}" download="${filename}" class="img-dl">⬇ Download ${filename}</a>
+      <div class="img-note">Audio dapat diputar langsung atau diunduh.</div>
+    </div>
+  </div>`;
+}
+
+function showVideo(url, filename, status, ct) {
+  const ext = filename.split('.').pop() || 'mp4';
+  document.getElementById('responseArea').innerHTML = `<div class="response-area">
+    <div class="res-bar"><span class="res-label">Response</span><span class="res-status s-ok">${status} OK — ${ct}</span></div>
+    <div class="video-result">
+      <div style="margin: 16px 0;">
+        <video controls style="width:100%;max-width:100%;border-radius:8px;background:#000;">
+          <source src="${url}" type="${ct}">
+          Browser Anda tidak mendukung video player
+        </video>
+      </div>
+      <a href="${url}" download="${filename}" class="img-dl">⬇ Download ${filename}</a>
+      <div class="img-note">Video dapat diputar langsung atau diunduh tanpa watermark.</div>
+    </div>
+  </div>`;
+}
+
+function showFileDownload(url, filename, status, ct) {
+  document.getElementById('responseArea').innerHTML = `<div class="response-area">
+    <div class="res-bar"><span class="res-label">Response</span><span class="res-status s-ok">${status} OK</span></div>
+    <div class="file-result">
+      <div style="padding:16px;text-align:center;">
+        <div style="font-size:32px;margin-bottom:8px;">📦</div>
+        <div style="font-size:14px;font-weight:500;margin-bottom:16px;">File siap diunduh</div>
+        <a href="${url}" download="${filename}" class="img-dl" style="display:inline-block;">⬇ Download ${filename}</a>
+      </div>
+      <div class="img-note">Klik link di atas untuk mengunduh file.</div>
     </div>
   </div>`;
 }

@@ -51,7 +51,7 @@
       ]
     },
     {
-      "id": 6,
+      "id": 5,
       "name": "Google Drive",
       "method": "POST",
       "action": "/api/gdrive",
@@ -90,17 +90,6 @@
     },
     {
       "id": 3,
-      "name": "AI Image (Gemini)",
-      "method": "POST",
-      "action": "/api/ai/gemini/generate",
-      "description": "Modifikasi gambar karakter anime menggunakan AI Gemini. Ubah jadi 'hitam' atau 'nerd'.",
-      "params": [
-        { "name": "image", "type": "string", "example": "https://i.ibb.co/contoh.jpg", "required": true },
-        { "name": "option", "type": "string", "example": "hitam", "required": true }
-      ]
-    },
-    {
-      "id": 4,
       "name": "Quote Maker",
       "method": "POST",
       "action": "/api/quote",
@@ -112,7 +101,7 @@
       ]
     },
     {
-      "id": 5,
+      "id": 4,
       "name": "Simple Meme",
       "method": "POST",
       "action": "/api/smeme",

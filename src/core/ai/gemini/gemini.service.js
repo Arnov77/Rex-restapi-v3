@@ -1,114 +1,96 @@
 const axios = require('axios');
-const mime = require('mime-types');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const Replicate = require('replicate');
 const logger = require('../../../shared/utils/logger');
 const { AppError, NotFoundError } = require('../../../shared/utils/errors');
 
 /**
- * Gemini AI Service
- * Handles AI image generation and manipulation
+ * Replicate Image Generation Service
+ * Uses Stable Diffusion SDXL to generate anime character images
+ * with style modifications (dark skin or nerd accessories).
  */
-class GeminiService {
+class ReplicateImageService {
   constructor() {
-    this.apiKey = process.env.GEMINI_API_KEY;
-    if (!this.apiKey) {
-      throw new Error('GEMINI_API_KEY is not configured');
+    this.token = process.env.REPLICATE_API_TOKEN;
+    if (!this.token) {
+      throw new Error('REPLICATE_API_TOKEN is not configured');
     }
-    this.genAI = new GoogleGenerativeAI(this.apiKey);
+    this.replicate = new Replicate({
+      auth: this.token,
+    });
+    // Latest SDXL version
+    this.sdxlModel = 'stability-ai/sdxl:7762fd07cf82c948538e41f63f77d685e02b063e37e496e96eefd46c929f9bdc';
   }
 
   /**
-   * Generate modified image using Gemini
-   * @param {string} imageUrl - URL of image to modify
-   * @param {string} option - Modification type ('nerd' or 'hitam')
-   * @returns {Promise<Buffer>} Modified image buffer
+   * Generate nerdy anime image using Replicate SDXL
+   * @param {string} imageUrl - URL of reference image (not used, placeholder parameter)
+   * @param {string} option   - 'nerd'
+   * @returns {Promise<Buffer>} Generated image buffer
    */
   async generateModifiedImage(imageUrl, option) {
+    const validOptions = ['nerd'];
+    if (!validOptions.includes(option)) {
+      throw new NotFoundError("Option must be 'nerd'");
+    }
+
+    logger.info(`[Replicate] Generating anime character — option: ${option}`);
+
+    const prompt = this._getPrompt(option);
+    const negativePrompt = 'blurry, low quality, watermark, distorted, deformed, bad anatomy, poorly drawn';
+
     try {
-      logger.info(`[Gemini] Generating modified image with option: ${option}`);
-
-      // Validate option
-      const validOptions = ['nerd', 'hitam'];
-      if (!validOptions.includes(option)) {
-        throw new NotFoundError("Option must be 'nerd' or 'hitam'");
-      }
-
-      // Download image
-      const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
-      const mimeType = response.headers['content-type'];
-      const buffer = Buffer.from(response.data);
-      const base64 = buffer.toString('base64');
-
-      // Generate prompt based on option
-      const prompt = this._getPrompt(option);
-
-      // Call Gemini API
-      const model = this.genAI.getGenerativeModel({
-        model: 'gemini-2.5-flash-image',
+      const output = await this.replicate.run(this.sdxlModel, {
+        input: {
+          prompt: prompt,
+          negative_prompt: negativePrompt,
+          num_outputs: 1,
+          scheduler: 'K_EULER_ANCESTRAL',
+          num_inference_steps: 50,
+          guidance_scale: 7.5,
+          width: 768,
+          height: 768,
+          seed: Math.floor(Math.random() * 1000000),
+        },
       });
 
-      const generationConfig = {
-        temperature: 1,
-        topP: 0.95,
-        topK: 40,
-        maxOutputTokens: 8192,
-        responseModalities: ['image', 'text'],
-        responseMimeType: 'text/plain',
-      };
+      logger.info(`[Replicate] Image generated successfully — option: ${option}`);
 
-      const result = await model.generateContent({
-        generationConfig,
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              { text: prompt },
-              { inlineData: { mimeType, data: base64 } },
-            ],
-          },
-        ],
-      });
-
-      // Extract image from response
-      const candidates = result.response.candidates;
-      if (!candidates || candidates.length === 0) {
-        throw new AppError('No response from Gemini', 500);
+      // output is an array with image URLs
+      if (!output || !Array.isArray(output) || output.length === 0) {
+        throw new AppError('Failed to generate image - no output from Replicate', 502);
       }
 
-      const part = candidates[0].content.parts.find((p) => p.inlineData);
+      const resultImageUrl = output[0];
+      logger.info(`[Replicate] Downloading generated image...`);
 
-      if (!part) {
-        throw new AppError('Failed to generate image', 500);
-      }
-
-      const resultBuffer = Buffer.from(part.inlineData.data, 'base64');
-
-      logger.success(`[Gemini] Image generated successfully with option: ${option}`);
-      return resultBuffer;
-
-    } catch (error) {
-      logger.error(`[Gemini] Error: ${error.message}`);
-      throw error;
+      const resultResp = await axios.get(resultImageUrl, { responseType: 'arraybuffer' });
+      return Buffer.from(resultResp.data);
+    } catch (err) {
+      if (err instanceof AppError) throw err;
+      logger.error(`[Replicate] Generation failed: ${err.message}`);
+      throw new AppError(`Image generation failed: ${err.message}`, 502);
     }
   }
 
-  /**
-   * Helper: Generate prompt based on option
-   */
+  /** Prompt per opsi */
   _getPrompt(option) {
-    const prompts = {
-      nerd: "Ubah karakter anime ini menjadi terlihat seperti 'nerd'. " +
-            "Tambahkan kacamata besar berwarna hitam, gigi depan besar (gigi kelinci), dan ekspresi wajah kikuk seperti nerd. " +
-            "Selain itu, ubah warna kulitnya menjadi hitam, tapi pertahankan detail, tekstur, dan shading alami agar tetap realistis. " +
-            "Jangan ubah rambut atau pakaian, dan biarkan latar belakang tetap seperti aslinya.",
-      
-      hitam: "Ubah karakter anime ini menjadi memiliki warna kulit hitam. " +
-             "Pertahankan detail, tekstur, dan shading alami agar tetap realistis. " +
-             "Jangan ubah rambut, pakaian, atau latar belakang.",
-    };
+    const baseDescription = 
+      'beautiful anime character, detailed face, expressive eyes, anime style art, ' +
+      'high quality, clean illustration, intricate details, professional animation';
 
-    return prompts[option] || prompts.hitam;
+    const prompts = {
+      nerd:
+        `${baseDescription}. ` +
+        'Nerdy anime character. ' +
+        'Wearing large thick black-framed glasses that cover part of the face. ' +
+        'Exaggerated buck teeth visible in a geeky smile. ' +
+        'Wearing a hoodie or gaming shirt. ' +
+        'Background shows anime posters, manga, books. ' +
+        'Very nerdy otaku appearance. ' +
+        'Professional anime art style illustration',
+    };
+    return prompts[option];
   }
 }
 
-module.exports = new GeminiService();
+module.exports = new ReplicateImageService();

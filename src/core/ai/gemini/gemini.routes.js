@@ -9,7 +9,7 @@ const { asyncHandler } = require('../../../shared/middleware/errorHandler');
  * @route POST /api/ai/gemini/generate
  * @desc Generate modified image using Gemini AI
  * @body {string} image - URL of image to modify (required)
- * @body {string} option - Modification option: 'nerd' or 'hitam' (required)
+ * @body {string} option - Image transformation: 'nerd' only (required)
  * @returns {Object} URL of generated image
  */
 router.post(

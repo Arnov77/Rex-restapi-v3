@@ -36,7 +36,11 @@ async function createGIF(frames) {
         .input(inputPattern)
         .inputFPS(2) // 2 frames per second = 500ms per frame
         .output(outputGif)
-        .outputOptions('-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2') // Ensure even dimensions
+        // Use split+palettegen approach for better quality GIFs
+        .outputOptions([
+          '-vf',
+          'split[p],select=n=1[g];[g]palettegen=reserve_transparent=off[pal];[p][pal]paletteuse=dither=sierra2_4a'
+        ])
         .on('start', (cmd) => {
           logger.info(`[GIF] FFmpeg command: ${cmd}`);
         })

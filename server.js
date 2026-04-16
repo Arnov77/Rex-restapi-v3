@@ -22,6 +22,7 @@ const quoteRoute = require('./src/core/tools/quote/quote.routes');
 const smemeRoute = require('./src/core/tools/smeme/smeme.routes');
 const promosiRoute = require('./src/core/tools/promosi/promosi.routes');
 const mcprofileRoute = require('./src/core/tools/mcprofile/mcprofile.routes');
+const miqRoute = require('./src/core/tools/miq/miq.routes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -53,6 +54,7 @@ app.use('/api/gdrive', apiLimiter, gdriveRoute);
 app.use('/api/quote', apiLimiter, quoteRoute);
 app.use('/api/smeme', apiLimiter, smemeRoute);
 app.use('/api/promosi', apiLimiter, promosiRoute);
+app.use('/api/miq', apiLimiter, miqRoute);
 app.use('/mcapi', apiLimiter, mcprofileRoute);
 
 app.get('/health', (req, res) => {

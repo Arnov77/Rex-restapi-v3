@@ -1,127 +1,140 @@
 const BASE_URL = window.location.origin || 'http://localhost:7860';
 document.getElementById('baseUrl').textContent = BASE_URL;
 
-// ── Clock ──
 function tick() {
-  const t = new Date().toLocaleTimeString('id-ID');
-  const el = document.getElementById('clock');
-  const mel = document.getElementById('mclock');
-  if (el) el.textContent = t;
-  if (mel) mel.textContent = t;
+  const time = new Date().toLocaleTimeString('id-ID');
+  const desktopClock = document.getElementById('clock');
+  const mobileClock = document.getElementById('mclock');
+  if (desktopClock) desktopClock.textContent = time;
+  if (mobileClock) mobileClock.textContent = time;
 }
+
 tick();
 setInterval(tick, 1000);
 
-// ── State ──
-const ICONS = { 'Downloader': '⬇', 'Image Generator': '🎨', 'Status': '🟢' };
+const ICONS = {
+  'Downloader': 'DL',
+  'Image Generator': 'IMG',
+  'Utilities': 'UTIL',
+  'Minecraft': 'MC',
+  'Status': 'OK',
+};
+
 let DATA = {};
 let currentApi = null;
 let activeTab = 'docs';
 let selectedPreset = 'bratdeluxe';
-let selectedOption = 'nerd';
+let selectedOption = 'hitam';
 
-// ── Load Data ──
 fetch('data/apis.json')
-  .then(r => r.json())
-  .then(data => {
+  .then((response) => response.json())
+  .then((data) => {
     DATA = data;
-    const total = Object.values(data).reduce((a, b) => a + b.length, 0);
+    const total = Object.values(data).reduce((sum, apis) => sum + apis.length, 0);
     document.getElementById('totalEp').textContent = total;
     document.getElementById('totalCat').textContent = Object.keys(data).length;
     buildNav(data);
     renderAll(data);
-    document.getElementById('searchInput').addEventListener('input', e => doSearch(e.target.value));
+    document.getElementById('searchInput').addEventListener('input', (event) => doSearch(event.target.value));
   });
 
-// ── Navigation ──
 function buildNav(data) {
   const nav = document.getElementById('navItems');
-  const total = Object.values(data).reduce((a, b) => a + b.length, 0);
+  const total = Object.values(data).reduce((sum, apis) => sum + apis.length, 0);
   let html = `<a class="nav-item active" onclick="showAll(this)" href="#">
-    <span class="nav-icon">🏠</span><span>Semua</span>
+    <span class="nav-icon">ALL</span><span>Semua</span>
     <span class="nav-count">${total}</span>
   </a>`;
-  Object.entries(data).forEach(([cat, apis]) => {
-    const icon = ICONS[cat] || '📦';
-    html += `<a class="nav-item" onclick="showCat('${cat}', this)" href="#${slugify(cat)}">
-      <span class="nav-icon">${icon}</span><span>${cat}</span>
+
+  Object.entries(data).forEach(([category, apis]) => {
+    const icon = ICONS[category] || 'API';
+    html += `<a class="nav-item" onclick="showCat('${category}', this)" href="#${slugify(category)}">
+      <span class="nav-icon">${icon}</span><span>${category}</span>
       <span class="nav-count">${apis.length}</span>
     </a>`;
   });
+
   nav.innerHTML = html;
 }
 
-function slugify(s) { return s.toLowerCase().replace(/\s+/g, '-'); }
+function slugify(value) {
+  return value.toLowerCase().replace(/\s+/g, '-');
+}
 
-function showAll(el) {
-  setActive(el);
+function showAll(element) {
+  setActive(element);
   document.getElementById('activeTitle').textContent = 'Semua Endpoint';
   renderAll(DATA);
-  if (window.innerWidth <= 768) closeMobileMenu(); // <--- Menutup menu di HP
+  if (window.innerWidth <= 768) closeMobileMenu();
 }
 
-function showCat(cat, el) {
-  setActive(el);
-  document.getElementById('activeTitle').textContent = cat;
-  document.getElementById('mainContent').innerHTML = renderSection(cat, DATA[cat]);
-  setTimeout(() => document.getElementById(slugify(cat))?.scrollIntoView({ behavior: 'smooth' }), 50);
-  if (window.innerWidth <= 768) closeMobileMenu(); // <--- Menutup menu di HP
+function showCat(category, element) {
+  setActive(element);
+  document.getElementById('activeTitle').textContent = category;
+  document.getElementById('mainContent').innerHTML = renderSection(category, DATA[category]);
+  setTimeout(() => document.getElementById(slugify(category))?.scrollIntoView({ behavior: 'smooth' }), 50);
+  if (window.innerWidth <= 768) closeMobileMenu();
 }
 
-function setActive(el) {
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  if (el) el.classList.add('active');
+function setActive(element) {
+  document.querySelectorAll('.nav-item').forEach((item) => item.classList.remove('active'));
+  if (element) element.classList.add('active');
 }
 
-function doSearch(q) {
-  if (!q.trim()) { renderAll(DATA); return; }
-  const low = q.toLowerCase();
+function doSearch(query) {
+  if (!query.trim()) {
+    renderAll(DATA);
+    return;
+  }
+
+  const normalized = query.toLowerCase();
   const filtered = {};
-  Object.entries(DATA).forEach(([cat, apis]) => {
-    const m = apis.filter(a =>
-      a.name.toLowerCase().includes(low) ||
-      (a.description || '').toLowerCase().includes(low) ||
-      a.action.toLowerCase().includes(low)
+
+  Object.entries(DATA).forEach(([category, apis]) => {
+    const matches = apis.filter((api) =>
+      api.name.toLowerCase().includes(normalized) ||
+      (api.description || '').toLowerCase().includes(normalized) ||
+      api.action.toLowerCase().includes(normalized)
     );
-    if (m.length) filtered[cat] = m;
+    if (matches.length) filtered[category] = matches;
   });
+
   renderAll(filtered);
 }
 
-// ── Render Cards ──
 function renderAll(data) {
   document.getElementById('mainContent').innerHTML = Object.entries(data)
-    .map(([cat, apis]) => renderSection(cat, apis))
+    .map(([category, apis]) => renderSection(category, apis))
     .join('');
 }
 
-function renderSection(cat, apis) {
-  const icon = ICONS[cat] || '📦';
-  return `<div class="section" id="${slugify(cat)}">
+function renderSection(category, apis) {
+  const icon = ICONS[category] || 'API';
+  return `<div class="section" id="${slugify(category)}">
     <div class="section-head">
       <div class="section-icon">${icon}</div>
       <div class="section-info">
-        <div class="title">${cat}</div>
-        <div class="sub">Klik endpoint untuk dokumentasi &amp; uji coba</div>
+        <div class="title">${category}</div>
+        <div class="sub">Klik endpoint untuk dokumentasi dan uji coba</div>
       </div>
       <div class="ep-count">${apis.length} endpoints</div>
     </div>
-    ${apis.map(api => renderCard(api)).join('')}
+    ${apis.map((api) => renderCard(api)).join('')}
   </div>`;
 }
 
 function renderCard(api) {
-  const mc = api.method === 'GET' ? 'm-get' : 'm-post';
+  const methodClass = api.method === 'GET' ? 'm-get' : 'm-post';
   const path = api.action.split('?')[0];
   return `<div class="api-card" onclick="openModal(${esc(api)})">
     <div class="card-row">
-      <span class="mtag ${mc}">${api.method}</span>
+      <span class="mtag ${methodClass}">${api.method}</span>
       <div class="card-info">
         <div class="card-title">${api.name}</div>
         <div class="card-desc">${api.description || ''}</div>
         <div class="card-path">${path}</div>
       </div>
-      <button class="test-btn" onclick="event.stopPropagation(); openModal(${esc(api)})">Buka ↗</button>
+      <button class="test-btn" onclick="event.stopPropagation(); openModal(${esc(api)})">Buka</button>
     </div>
     <div class="params-chips">${buildChips(api)}</div>
   </div>`;
@@ -129,46 +142,42 @@ function renderCard(api) {
 
 function buildChips(api) {
   if (!api.params || api.params.length === 0) {
-    if (api.method === 'GET' && api.action.includes('?')) {
-      return api.action.split('?')[1].split('&').map(p => {
-        const k = p.split('=')[0];
-        return `<div class="chip"><span class="chip-name">${k}</span><span class="chip-type">string</span><span class="chip-opt">query</span></div>`;
-      }).join('');
-    }
     return '<span class="no-params">Tidak ada parameter</span>';
   }
-  return api.params.map(p => {
-    const badge = p.required === false
-      ? `<span class="chip-opt">opsional</span>`
-      : `<span class="chip-req">wajib</span>`;
-    const typeBadge = p.type === 'select'
-      ? `<span class="chip-sel">select</span>`
-      : `<span class="chip-type">${p.type || 'string'}</span>`;
-    return `<div class="chip"><span class="chip-name">${p.name}</span>${typeBadge}${badge}</div>`;
+
+  return api.params.map((param) => {
+    const requiredBadge = param.required === false
+      ? '<span class="chip-opt">opsional</span>'
+      : '<span class="chip-req">wajib</span>';
+    const typeBadge = param.type === 'select'
+      ? '<span class="chip-sel">select</span>'
+      : `<span class="chip-type">${param.type || 'string'}</span>`;
+    return `<div class="chip"><span class="chip-name">${param.name}</span>${typeBadge}${requiredBadge}</div>`;
   }).join('');
 }
 
-function esc(obj) { return JSON.stringify(obj).replace(/"/g, '&quot;'); }
+function esc(object) {
+  return JSON.stringify(object).replace(/"/g, '&quot;');
+}
 
-// ── Modal ──
 function openModal(api) {
   currentApi = api;
   activeTab = 'docs';
   selectedPreset = 'bratdeluxe';
-  selectedOption = 'nerd';
+  selectedOption = 'hitam';
 
-  const mc = api.method === 'GET' ? 'm-get' : 'm-post';
+  const methodClass = api.method === 'GET' ? 'm-get' : 'm-post';
   document.getElementById('mName').textContent = api.name;
-  const mm = document.getElementById('mMethod');
-  mm.textContent = api.method;
-  mm.className = 'mtag ' + mc;
+  const methodTag = document.getElementById('mMethod');
+  methodTag.textContent = api.method;
+  methodTag.className = `mtag ${methodClass}`;
   document.getElementById('mPath').textContent = api.action.split('?')[0];
   document.getElementById('mDesc').textContent = api.description || '';
 
   buildTabs(api);
   document.getElementById('overlay').classList.add('open');
-  document.getElementById('overlay').onclick = e => {
-    if (e.target === document.getElementById('overlay')) closeModal();
+  document.getElementById('overlay').onclick = (event) => {
+    if (event.target === document.getElementById('overlay')) closeModal();
   };
 }
 
@@ -180,56 +189,52 @@ function closeModal() {
 function buildTabs(api) {
   const isGet = api.method === 'GET';
   const tabs = isGet ? ['docs'] : ['docs', 'try', 'code'];
-  const labels = { docs: '📄 Dokumentasi', try: '▶ Coba Langsung', code: '</> Kode Integrasi' };
-  document.getElementById('tabRow').innerHTML = tabs.map(t =>
-    `<div class="tab ${t === activeTab ? 'active' : ''}" onclick="switchTab('${t}')">${labels[t]}</div>`
+  const labels = { docs: 'Dokumentasi', try: 'Coba Langsung', code: 'Kode Integrasi' };
+  document.getElementById('tabRow').innerHTML = tabs.map((tab) =>
+    `<div class="tab ${tab === activeTab ? 'active' : ''}" onclick="switchTab('${tab}')">${labels[tab]}</div>`
   ).join('');
   renderTabBody(api, activeTab);
 }
 
-function switchTab(t) {
-  activeTab = t;
+function switchTab(tab) {
+  activeTab = tab;
   buildTabs(currentApi);
 }
 
 function renderTabBody(api, tab) {
   const body = document.getElementById('tabBody');
   if (tab === 'docs') body.innerHTML = buildDocsTab(api);
-  else if (tab === 'try') body.innerHTML = buildTryTab(api);
-  else if (tab === 'code') body.innerHTML = buildCodeTab(api);
+  if (tab === 'try') body.innerHTML = buildTryTab(api);
+  if (tab === 'code') body.innerHTML = buildCodeTab(api);
 }
 
-// ── Tab: Dokumentasi ──
 function buildDocsTab(api) {
   const isGet = api.method === 'GET';
+  const supportsFile = (api.params || []).some((param) => param.type === 'file');
   let paramSection = '';
 
   if (api.params && api.params.length > 0) {
-    const rows = api.params.map(p => {
-      const req = p.required === false
+    const rows = api.params.map((param) => {
+      const required = param.required === false
         ? '<span class="popt">opsional</span>'
         : '<span class="preq">wajib</span>';
-      const typeStr = p.type === 'select' ? 'select (string)' : (p.type || 'string');
-      const desc = getParamDesc(p.name, api);
-      const example = p.example ? `<div class="pexample">Contoh: ${p.example}</div>` : '';
+      const type = param.type === 'select' ? 'select (string)' : (param.type || 'string');
+      const description = getParamDesc(param.name);
+      const example = param.example ? `<div class="pexample">Contoh: ${param.example}</div>` : '';
       return `<tr>
-        <td><span class="pname">${p.name}</span></td>
-        <td><span class="ptype-badge">${typeStr}</span></td>
-        <td>${req}</td>
-        <td><span class="pdesc">${desc}</span>${example}</td>
+        <td><span class="pname">${param.name}</span></td>
+        <td><span class="ptype-badge">${type}</span></td>
+        <td>${required}</td>
+        <td><span class="pdesc">${description}</span>${example}</td>
       </tr>`;
     }).join('');
+
     paramSection = `<div style="margin-bottom:18px">
       <div class="section-sub-label">Parameter</div>
       <table class="param-table">
         <thead><tr><th>Nama</th><th>Tipe</th><th>Status</th><th>Keterangan</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
-    </div>`;
-  } else if (isGet && api.action.includes('?')) {
-    paramSection = `<div style="margin-bottom:18px">
-      <div class="section-sub-label">Query Parameters</div>
-      <div class="info-box">Parameter sudah tertanam di URL. Gunakan endpoint langsung di browser.</div>
     </div>`;
   } else {
     paramSection = `<div style="margin-bottom:18px">
@@ -238,38 +243,46 @@ function buildDocsTab(api) {
   }
 
   const reqBody = buildRequestBodyExample(api);
+  const requestLabel = supportsFile ? 'Request Body (multipart/form-data atau JSON)' : 'Request Body (JSON)';
   const reqSection = reqBody ? `<div style="margin-bottom:18px">
-    <div class="section-sub-label">Request Body (JSON)</div>
+    <div class="section-sub-label">${requestLabel}</div>
     <div class="response-schema">${reqBody}</div>
   </div>` : '';
 
-  const resExample = buildResponseExample(api);
+  const responseExample = buildResponseExample(api);
+  const getBtn = isGet
+    ? `<div style="margin-top:16px"><button class="get-open-btn" onclick="window.open('${api.action}','_blank')">Buka Endpoint di Browser</button></div>`
+    : '';
 
   return `${paramSection}${reqSection}
   <div style="margin-bottom:0">
     <div class="section-sub-label">Contoh Response</div>
-    <div class="response-schema">${resExample}</div>
-  </div>`;
+    <div class="response-schema">${responseExample}</div>
+  </div>
+  ${getBtn}`;
 }
 
-// ── Tab: Try It ──
 function buildTryTab(api) {
   const isBrat = api.name.toLowerCase().includes('brat');
+  const isGemini = api.name.toLowerCase().includes('gemini');
   let fields = '';
 
   if (api.params) {
-    api.params.forEach(p => {
-      if (isBrat && (p.name === 'bgColor' || p.name === 'textColor' || p.name === 'preset')) return;
-      const req = p.required === false
-        ? `<span class="chip-opt" style="font-size:10px">opsional</span>`
-        : `<span class="chip-req" style="font-size:10px">wajib</span>`;
-      const hint = p.example || `masukkan ${p.name}`;
-      const inputType = (p.name === 'url' || p.name === 'image') ? 'url' : 'text';
-      const desc = getParamDesc(p.name, api);
+    api.params.forEach((param) => {
+      if (isBrat && ['bgColor', 'textColor', 'preset'].includes(param.name)) return;
+
+      const required = param.required === false
+        ? '<span class="chip-opt" style="font-size:10px">opsional</span>'
+        : '<span class="chip-req" style="font-size:10px">wajib</span>';
+      const hint = param.example || `masukkan ${param.name}`;
+      const inputType = param.type === 'file'
+        ? 'file'
+        : ['url', 'image', 'avatarUrl', 'skin'].includes(param.name) ? 'url' : 'text';
+      const description = getParamDesc(param.name);
       fields += `<div class="form-section">
-        <div class="form-label"><span class="form-label-text">${p.name}</span>${req}</div>
-        <input type="${inputType}" class="form-input" id="f-${p.name}" placeholder="${hint}">
-        ${desc ? `<div class="form-hint">${desc}</div>` : ''}
+        <div class="form-label"><span class="form-label-text">${param.name}</span>${required}</div>
+        <input type="${inputType}" class="form-input" id="f-${param.name}" ${inputType === 'file' ? 'accept="image/*"' : `placeholder="${hint}"`}>
+        ${description ? `<div class="form-hint">${description}</div>` : ''}
       </div>`;
     });
   }
@@ -302,57 +315,125 @@ function buildTryTab(api) {
     </div>`;
   }
 
+  if (isGemini) {
+    extra = `<div class="form-section">
+      <div class="form-label"><span class="form-label-text">option</span><span class="chip-req" style="font-size:10px">wajib</span></div>
+      <div class="preset-row">
+        <div class="preset-btn sel" onclick="selOpt('hitam', this)">hitam</div>
+        <div class="preset-btn" onclick="selOpt('nerd', this)">nerd</div>
+      </div>
+      <input type="hidden" id="f-option" value="hitam">
+    </div>`;
+  }
+
   return `${fields}${extra}
   <div class="modal-actions">
     <button class="btn-cancel" onclick="closeModal()">Tutup</button>
-    <button class="btn-primary" id="sendBtn" onclick="sendReq()">Kirim Request ↗</button>
+    <button class="btn-primary" id="sendBtn" onclick="sendReq()">Kirim Request</button>
   </div>
   <div id="responseArea"></div>`;
 }
 
-// ── Tab: Code ──
 function buildCodeTab(api) {
   const endpoint = api.action.split('?')[0];
   const sampleBody = buildSampleBody(api);
-  const bodyStr = JSON.stringify(sampleBody, null, 2);
+  const bodyString = JSON.stringify(sampleBody, null, 2);
+  const isGet = api.method === 'GET';
+  const supportsFile = (api.params || []).some((param) => param.type === 'file');
 
-  const curl = `curl -X POST ${BASE_URL}${endpoint} \\
+  const curl = supportsFile
+    ? `curl -X POST ${BASE_URL}${endpoint} \\
+  -F "text=contoh quote" \\
+  -F "author=Anonymous" \\
+  -F "avatar=@avatar.png"`
+    : isGet
+    ? `curl "${BASE_URL}${endpoint}"`
+    : `curl -X POST ${BASE_URL}${endpoint} \\
   -H "Content-Type: application/json" \\
   -d '${JSON.stringify(sampleBody)}'`;
 
-  const fetchCode = `const response = await fetch('${BASE_URL}${endpoint}', {
+  const fetchCode = supportsFile
+    ? `const form = new FormData();
+form.append('text', 'contoh quote');
+form.append('author', 'Anonymous');
+form.append('avatar', fileInput.files[0]);
+
+const response = await fetch('${BASE_URL}${endpoint}', {
   method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(${bodyStr})
+  body: form
 });
 
+const blob = await response.blob();`
+    : isGet
+    ? `const response = await fetch('${BASE_URL}${endpoint}');
 const contentType = response.headers.get('content-type');
 if (contentType && contentType.includes('image/')) {
-  // Response berupa gambar (brat, dll)
   const blob = await response.blob();
   const url = URL.createObjectURL(blob);
   document.querySelector('img').src = url;
 } else {
-  // Response JSON
+  const data = await response.json();
+  console.log(data);
+}`
+    : `const response = await fetch('${BASE_URL}${endpoint}', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(${bodyString})
+});
+
+const contentType = response.headers.get('content-type');
+if (contentType && contentType.includes('image/')) {
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  document.querySelector('img').src = url;
+} else {
   const data = await response.json();
   console.log(data);
 }`;
 
-  const axiosCode = `import axios from 'axios';
+  const axiosCode = supportsFile
+    ? `import axios from 'axios';
 
-// Untuk endpoint yang return gambar:
-const res = await axios.post('${BASE_URL}${endpoint}',
-  ${bodyStr},
-  { responseType: 'arraybuffer' }
-);
-const blob = new Blob([res.data], { type: res.headers['content-type'] });
-const url = URL.createObjectURL(blob);
+const form = new FormData();
+form.append('text', 'contoh quote');
+form.append('author', 'Anonymous');
+form.append('avatar', fileInput.files[0]);
 
-// Untuk endpoint yang return JSON:
-// const res = await axios.post('${BASE_URL}${endpoint}', ${JSON.stringify(sampleBody)});
-// console.log(res.data);`;
+const res = await axios.post('${BASE_URL}${endpoint}', form, {
+  headers: { 'Content-Type': 'multipart/form-data' },
+  responseType: 'arraybuffer'
+});
+console.log(res.data);`
+    : isGet
+    ? `import axios from 'axios';
 
-  const pythonCode = `import requests
+const res = await axios.get('${BASE_URL}${endpoint}');
+console.log(res.data);`
+    : `import axios from 'axios';
+
+const res = await axios.post('${BASE_URL}${endpoint}', ${bodyString}, {
+  responseType: 'arraybuffer'
+});
+console.log(res.data);`;
+
+  const pythonCode = supportsFile
+    ? `import requests
+
+with open('avatar.png', 'rb') as avatar_file:
+    response = requests.post(
+        '${BASE_URL}${endpoint}',
+        data={'text': 'contoh quote', 'author': 'Anonymous'},
+        files={'avatar': avatar_file}
+    )
+
+print(response.headers.get('Content-Type'))`
+    : isGet
+    ? `import requests
+
+response = requests.get('${BASE_URL}${endpoint}')
+print(response.headers.get('Content-Type'))
+print(response.content[:20])`
+    : `import requests
 
 response = requests.post(
     '${BASE_URL}${endpoint}',
@@ -360,14 +441,8 @@ response = requests.post(
     headers={'Content-Type': 'application/json'}
 )
 
-# Jika response gambar (brat, dll):
-if 'image' in response.headers.get('Content-Type', ''):
-    with open('output.png', 'wb') as f:
-        f.write(response.content)
-    print('Gambar disimpan!')
-else:
-    data = response.json()
-    print(data)`;
+print(response.headers.get('Content-Type'))
+print(response.content[:20])`;
 
   return `<div class="code-tabs">
     <div class="ctab active" onclick="switchCode('curl', this)">cURL</div>
@@ -378,20 +453,15 @@ else:
   <div id="code-curl" class="code-block">${escHtml(curl)}<button class="copy-btn" onclick="copyCode('code-curl')">Copy</button></div>
   <div id="code-fetch" class="code-block" style="display:none">${escHtml(fetchCode)}<button class="copy-btn" onclick="copyCode('code-fetch')">Copy</button></div>
   <div id="code-axios" class="code-block" style="display:none">${escHtml(axiosCode)}<button class="copy-btn" onclick="copyCode('code-axios')">Copy</button></div>
-  <div id="code-python" class="code-block" style="display:none">${escHtml(pythonCode)}<button class="copy-btn" onclick="copyCode('code-python')">Copy</button></div>
-  <div style="margin-top:14px" class="info-box">
-    <span style="font-family:var(--mono);font-size:10px;color:var(--tx3);display:block;margin-bottom:4px">CATATAN</span>
-    Endpoint <code style="font-family:var(--mono);color:var(--accent);font-size:11px">${endpoint}</code>
-    mengembalikan data binary image/png (atau image/gif untuk video). Tangani response sebagai buffer, bukan JSON.
-  </div>`;
+  <div id="code-python" class="code-block" style="display:none">${escHtml(pythonCode)}<button class="copy-btn" onclick="copyCode('code-python')">Copy</button></div>`;
 }
 
-function switchCode(lang, el) {
-  document.querySelectorAll('.ctab').forEach(t => t.classList.remove('active'));
-  el.classList.add('active');
-  ['curl', 'fetch', 'axios', 'python'].forEach(l => {
-    const block = document.getElementById('code-' + l);
-    if (block) block.style.display = l === lang ? 'block' : 'none';
+function switchCode(language, element) {
+  document.querySelectorAll('.ctab').forEach((tab) => tab.classList.remove('active'));
+  element.classList.add('active');
+  ['curl', 'fetch', 'axios', 'python'].forEach((lang) => {
+    const block = document.getElementById(`code-${lang}`);
+    if (block) block.style.display = lang === language ? 'block' : 'none';
   });
 }
 
@@ -399,184 +469,373 @@ function copyCode(id) {
   const block = document.getElementById(id);
   const text = block.innerText.replace(/^Copy$|^Copied!$/gm, '').trim();
   navigator.clipboard.writeText(text).then(() => {
-    const btn = block.querySelector('.copy-btn');
-    btn.textContent = 'Copied!';
-    btn.classList.add('copied');
-    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1800);
+    const button = block.querySelector('.copy-btn');
+    button.textContent = 'Copied!';
+    button.classList.add('copied');
+    setTimeout(() => {
+      button.textContent = 'Copy';
+      button.classList.remove('copied');
+    }, 1800);
   });
 }
 
-function escHtml(s) {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+function escHtml(value) {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-// ── Helpers ──
 function buildSampleBody(api) {
   if (!api.params) return {};
   const body = {};
-  api.params.forEach(p => {
-    if (p.required === false) return;
-    if (p.example) body[p.name] = p.example;
-    else if (p.name === 'preset') body[p.name] = 'bratdeluxe';
-    else if (p.name === 'option') body[p.name] = 'nerd';
-    else body[p.name] = `<${p.name}>`;
+  api.params.forEach((param) => {
+    if (param.required === false) return;
+    if (param.example !== undefined) {
+      if (param.type === 'boolean') {
+        body[param.name] = String(param.example).toLowerCase() === 'true';
+      } else if (param.type === 'number') {
+        body[param.name] = Number(param.example);
+      } else {
+        body[param.name] = param.example;
+      }
+      return;
+    }
+    if (param.name === 'preset') body[param.name] = 'bratdeluxe';
+    else if (param.name === 'option') body[param.name] = 'hitam';
+    else body[param.name] = `<${param.name}>`;
   });
   return body;
 }
 
 function buildRequestBodyExample(api) {
   if (!api.params || api.params.length === 0 || api.method === 'GET') return null;
+  const supportsFile = api.params.some((param) => param.type === 'file');
+
+  if (supportsFile) {
+    const fields = api.params.map((param) => {
+      if (param.type === 'file') return `${param.name}: <binary image file>`;
+      if (param.name === 'option') return `${param.name}: hitam | nerd`;
+      if (param.type === 'boolean' && param.example !== undefined) return `${param.name}: ${String(param.example).toLowerCase()}`;
+      if (param.type === 'number' && param.example !== undefined) return `${param.name}: ${Number(param.example)}`;
+      if (param.example !== undefined) return `${param.name}: ${param.example}`;
+      return `${param.name}: <${param.name}>`;
+    });
+    return fields.join('\n');
+  }
+
   const body = {};
-  api.params.forEach(p => {
-    if (p.name === 'bgColor') body[p.name] = '#e4ff3d  (opsional, khusus custom preset)';
-    else if (p.name === 'textColor') body[p.name] = '#000000  (opsional)';
-    else if (p.name === 'preset') body[p.name] = 'bratdeluxe | brat | custom';
-    else if (p.name === 'option') body[p.name] = 'nerd';
-    else if (p.example) body[p.name] = p.example;
-    else body[p.name] = `<${p.name}>`;
+  api.params.forEach((param) => {
+    if (param.name === 'bgColor') body[param.name] = '#e4ff3d (opsional, khusus custom preset)';
+    else if (param.name === 'textColor') body[param.name] = '#000000 (opsional)';
+    else if (param.name === 'preset') body[param.name] = 'bratdeluxe | brat | custom';
+    else if (param.name === 'option') body[param.name] = 'hitam | nerd';
+    else if (param.type === 'boolean' && param.example !== undefined) body[param.name] = String(param.example).toLowerCase() === 'true';
+    else if (param.type === 'number' && param.example !== undefined) body[param.name] = Number(param.example);
+    else if (param.example !== undefined) body[param.name] = param.example;
+    else body[param.name] = `<${param.name}>`;
   });
   return JSON.stringify(body, null, 2);
 }
 
 function buildResponseExample(api) {
-  const isBrat = api.name.toLowerCase().includes('brat');
-  const isYT = api.action.includes('youtube');
-  const isTikTok = api.action.includes('tiktok');
-  const isIG = api.action.includes('instagram');
-  if (isBrat) return `// Content-Type: image/png\n// Untuk Brat GIF  : image/gif\n\n[Binary Image Buffer]`;
-  if (isYT) return JSON.stringify({ success: true, statusCode: 200, message: 'MP3 download link generated', data: { title: 'Nama Video', download: 'http://localhost:7860/download/nama-video.mp3', format: 'audio/mpeg', fileSize: '3.2 MB', duration: '3 menit, 32 detik', author: 'Channel Name' } }, null, 2);
-  if (isTikTok) return JSON.stringify({ success: true, statusCode: 200, data: { title: 'Judul Video', author: { name: 'Nama', username: '@username' }, media: { video: { nowm: 'https://...', hd: 'https://...' } } } }, null, 2);
-  if (isIG) return JSON.stringify({ success: true, statusCode: 200, data: { downloadLinks: [{ url: 'https://...', type: 'video' }], count: 1 } }, null, 2);
+  const action = api.action;
+  if (action.includes('/api/brat/') || action.includes('/api/quote') || action.includes('/api/smeme') || action.includes('/api/miq/') || action === '/mcapi/render/head') {
+    return 'Content-Type: image/png\n\n[Binary image response]';
+  }
+  if (action.includes('/api/youtube/mp3')) {
+    return JSON.stringify({
+      success: true,
+      statusCode: 200,
+      message: 'MP3 download link generated',
+      data: {
+        title: 'Never Gonna Give You Up',
+        download: `${BASE_URL}/download/never-gonna-give-you-up.mp3`,
+        format: 'audio/mpeg',
+        fileSize: '3.20 MB',
+        duration: '3 menit, 32 detik',
+        author: 'Rick Astley'
+      },
+      timestamp: '2026-04-18T10:00:00.000Z'
+    }, null, 2);
+  }
+  if (action.includes('/api/youtube/mp4')) {
+    return JSON.stringify({
+      success: true,
+      statusCode: 200,
+      message: 'MP4 download link generated',
+      data: {
+        title: 'Never Gonna Give You Up',
+        download: `${BASE_URL}/download/never-gonna-give-you-up.mp4`,
+        format: 'video/mp4',
+        fileSize: '12.40 MB',
+        duration: '3 menit, 32 detik',
+        quality: '720p'
+      },
+      timestamp: '2026-04-18T10:00:00.000Z'
+    }, null, 2);
+  }
+  if (action.includes('/api/tiktok/')) {
+    return JSON.stringify({
+      success: true,
+      statusCode: 200,
+      message: 'TikTok video data fetched successfully',
+      data: {
+        title: 'Contoh video TikTok',
+        author: {
+          name: 'Nama Kreator',
+          username: '@username'
+        },
+        media: {
+          video: {
+            nowm: 'https://example.com/video-nowm.mp4',
+            hd: 'https://example.com/video-hd.mp4'
+          },
+          audio: 'https://example.com/audio.mp3'
+        }
+      },
+      timestamp: '2026-04-18T10:00:00.000Z'
+    }, null, 2);
+  }
+  if (action.includes('/api/instagram/download')) {
+    return JSON.stringify({
+      success: true,
+      statusCode: 200,
+      message: 'Instagram content fetched successfully',
+      data: {
+        downloadLinks: [
+          {
+            url: 'https://example.com/instagram-media.mp4',
+            type: 'video'
+          }
+        ],
+        count: 1
+      },
+      timestamp: '2026-04-18T10:00:00.000Z'
+    }, null, 2);
+  }
+  if (action.includes('/api/gdrive')) {
+    return JSON.stringify({
+      status: 200,
+      creator: 'Arnov',
+      result: {
+        data: 'https://drive.google.com/uc?export=download&id=...',
+        fileName: 'example.zip',
+        fileSize: '1024.00 KB',
+        mimetype: 'application/zip'
+      }
+    }, null, 2);
+  }
+  if (action.includes('/api/promosi')) {
+    return JSON.stringify({
+      status: 200,
+      creator: 'Arnov',
+      result: {
+        percentage: 88,
+        isPromotion: true,
+        reason: 'Mengandung ajakan promosi dan penawaran yang jelas.'
+      }
+    }, null, 2);
+  }
+  if (action === '/mcapi/profile') {
+    return JSON.stringify({
+      ok: true,
+      data: {
+        edition: 'java',
+        username: 'Dream',
+        id: '8667ba71-b85a-4004-af54-457a9734eed7',
+        linked: false,
+        textures: {
+          skin: 'https://textures.minecraft.net/texture/...'
+        },
+        java: {
+          uuid: '8667ba71-b85a-4004-af54-457a9734eed7',
+          username: 'Dream'
+        }
+      }
+    }, null, 2);
+  }
+  if (action.includes('/mcapi/profile/:edition/:id/skin')) {
+    return 'HTTP/1.1 302 Found\nLocation: https://textures.minecraft.net/texture/...';
+  }
+  if (action === '/health') {
+    return JSON.stringify({
+      status: 'healthy',
+      timestamp: '2026-04-18T10:00:00.000Z',
+      uptime: 1234.56
+    }, null, 2);
+  }
+  if (action === '/api/status') {
+    return JSON.stringify({
+      success: true,
+      statusCode: 200,
+      message: 'API is running',
+      data: {
+        version: '2.0.0',
+        environment: 'development',
+        uptime: 1234
+      },
+      timestamp: '2026-04-18T10:00:00.000Z'
+    }, null, 2);
+  }
   return JSON.stringify({ success: true, statusCode: 200, message: 'Success', data: {}, timestamp: '2026-04-10T00:00:00.000Z' }, null, 2);
 }
 
 function getParamDesc(name) {
-  const descs = {
-    text: 'Teks yang akan ditampilkan di gambar',
+  const descriptions = {
+    text: 'Teks utama yang akan ditampilkan',
     url: 'URL lengkap termasuk https://',
-    query: 'Judul video/lagu atau URL YouTube langsung',
-    image: 'URL gambar yang ingin dimodifikasi dengan AI',
-    name: 'Nama pengirim pesan',
-    message: 'Isi pesan yang akan ditampilkan',
-    option: 'Tipe transformasi AI: nerd (wajib)',
-    preset: 'Pilih tema: bratdeluxe (default), brat, atau custom',
-    bgColor: 'Hex color background, contoh: #e4ff3d',
-    textColor: 'Hex color teks, contoh: #000000',
+    query: 'Judul video atau URL YouTube langsung',
+    image: 'URL gambar sumber',
+    name: 'Nama pengirim quote',
+    message: 'Isi quote atau pesan',
+    author: 'Nama yang ditampilkan pada quote',
+    avatar: 'File gambar avatar opsional',
+    avatarUrl: 'URL gambar avatar publik opsional',
+    option: 'Pilih transformasi AI: hitam atau nerd',
+    color: 'Untuk Make It A Quote gunakan true atau false. Untuk smeme isi warna teks seperti white,black',
+    preset: 'Pilih tema: bratdeluxe, brat, atau custom',
+    bgColor: 'Warna latar dalam format hex, contoh: #e4ff3d',
+    textColor: 'Warna teks dalam format hex, contoh: #000000',
+    top: 'Teks bagian atas meme',
+    bottom: 'Teks bagian bawah meme',
+    format: 'Format output: png, jpg, gif, atau webp',
+    width: 'Lebar output gambar',
+    height: 'Tinggi output gambar',
+    font: 'Font memegen, contoh: impact',
+    layout: 'Posisi layout teks, contoh: top',
+    threshold: 'Ambang minimum untuk menandai teks sebagai promosi',
+    username: 'Username Minecraft Java atau Bedrock',
+    edition: 'Mode pencarian: auto, java, atau bedrock',
+    xuid: 'Xbox User ID untuk akun Bedrock',
+    uuid: 'UUID akun Minecraft Java',
+    skin: 'URL skin Minecraft',
+    size: 'Ukuran hasil render kepala',
+    id: 'UUID Java atau identifier Bedrock sesuai endpoint',
   };
-  return descs[name] || '';
+  return descriptions[name] || '';
 }
 
-// ── Preset & Color ──
-function selPreset(v, el) {
-  selectedPreset = v;
-  document.querySelectorAll('.preset-btn').forEach(b => {
-    if (!b.getAttribute('onclick').includes('selOpt')) b.classList.remove('sel');
+function selPreset(value, element) {
+  selectedPreset = value;
+  document.querySelectorAll('.preset-btn').forEach((button) => {
+    if (!button.getAttribute('onclick').includes('selOpt')) button.classList.remove('sel');
   });
-  el.classList.add('sel');
-  const cw = document.getElementById('colorWrap');
-  if (cw) cw.style.display = v === 'custom' ? 'block' : 'none';
+  element.classList.add('sel');
+  const colorWrap = document.getElementById('colorWrap');
+  if (colorWrap) colorWrap.style.display = value === 'custom' ? 'block' : 'none';
 }
 
-function selOpt(v, el) {
-  selectedOption = v;
-  document.querySelectorAll('.preset-btn').forEach(b => {
-    if (b.getAttribute('onclick').includes('selOpt')) b.classList.remove('sel');
+function selOpt(value, element) {
+  selectedOption = value;
+  document.querySelectorAll('.preset-btn').forEach((button) => {
+    if (button.getAttribute('onclick').includes('selOpt')) button.classList.remove('sel');
   });
-  el.classList.add('sel');
-  const hi = document.getElementById('f-option');
-  if (hi) hi.value = v;
+  element.classList.add('sel');
+  const hiddenInput = document.getElementById('f-option');
+  if (hiddenInput) hiddenInput.value = value;
 }
 
 function syncC(name) {
-  const p = document.getElementById(`f-${name}-pick`);
-  const t = document.getElementById(`f-${name}`);
-  if (p && t) t.value = p.value;
+  const picker = document.getElementById(`f-${name}-pick`);
+  const text = document.getElementById(`f-${name}`);
+  if (picker && text) text.value = picker.value;
 }
 
 function syncP(name) {
-  const t = document.getElementById(`f-${name}`);
-  const p = document.getElementById(`f-${name}-pick`);
-  if (p && t && /^#[0-9a-fA-F]{6}$/.test(t.value)) p.value = t.value;
+  const text = document.getElementById(`f-${name}`);
+  const picker = document.getElementById(`f-${name}-pick`);
+  if (picker && text && /^#[0-9a-fA-F]{6}$/.test(text.value)) picker.value = text.value;
 }
 
-// ── Send Request ──
 function sendReq() {
   if (!currentApi) return;
   const api = currentApi;
-  const btn = document.getElementById('sendBtn');
-  btn.disabled = true;
-  btn.textContent = 'Mengirim...';
+  const button = document.getElementById('sendBtn');
+  button.disabled = true;
+  button.textContent = 'Mengirim...';
 
   const body = {};
   if (api.params) {
-    api.params.forEach(p => {
-      if (p.name === 'bgColor' || p.name === 'textColor' || p.name === 'preset') return;
-      const el = document.getElementById(`f-${p.name}`);
-      if (el && el.value.trim()) body[p.name] = el.value.trim();
+    api.params.forEach((param) => {
+      if (['bgColor', 'textColor', 'preset'].includes(param.name)) return;
+      const input = document.getElementById(`f-${param.name}`);
+      if (!input) return;
+      if (param.type === 'file') return;
+      if (!input.value.trim()) return;
+
+      if (param.type === 'boolean') {
+        body[param.name] = input.value.trim().toLowerCase() === 'true';
+      } else if (param.type === 'number') {
+        body[param.name] = Number(input.value.trim());
+      } else {
+        body[param.name] = input.value.trim();
+      }
     });
   }
 
   const isBrat = api.name.toLowerCase().includes('brat');
+  const isGemini = api.name.toLowerCase().includes('gemini');
+  const hasFile = (api.params || []).some((param) => param.type === 'file' && document.getElementById(`f-${param.name}`)?.files?.length);
 
   if (isBrat) {
     body.preset = selectedPreset;
     if (selectedPreset === 'custom') {
       const bg = document.getElementById('f-bgColor');
-      const tc = document.getElementById('f-textColor');
+      const textColor = document.getElementById('f-textColor');
       if (bg) body.bgColor = bg.value;
-      if (tc) body.textColor = tc.value;
+      if (textColor) body.textColor = textColor.value;
     }
+  }
+
+  if (isGemini) {
+    const option = document.getElementById('f-option');
+    if (option) body.option = option.value;
   }
 
   showLoading();
 
-  fetch(api.action, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  })
-  .then(async res => {
-    const ct = res.headers.get('content-type') || '';
-    const contentDisposition = res.headers.get('content-disposition') || '';
-    
-    if (ct.includes('image/')) {
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const ext = ct.includes('gif') ? 'gif' : 'png';
-      showImage(url, ext, res.status, ct);
-    } else if (ct.includes('audio/')) {
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const filename = extractFilename(contentDisposition) || 'audio.mp3';
-      showAudio(url, filename, res.status, ct);
-    } else if (ct.includes('video/')) {
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const filename = extractFilename(contentDisposition) || 'video.mp4';
-      showVideo(url, filename, res.status, ct);
-    } else if (ct.includes('application/octet-stream') || contentDisposition.includes('attachment')) {
-      // Generic file download
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const filename = extractFilename(contentDisposition) || 'download';
-      showFileDownload(url, filename, res.status, ct);
-    } else {
-      // JSON response
-      const json = await res.json();
-      showJSON(json, res.status);
-    }
-  })
-  .catch(err => showError(err.message))
-  .finally(() => {
-    btn.disabled = false;
-    btn.textContent = 'Kirim Request ↗';
-  });
-}
+  const requestOptions = { method: api.method };
 
-function extractFilename(contentDisposition) {
-  if (!contentDisposition) return null;
-  const match = contentDisposition.match(/filename[^;=\n]*=(["\']?)([^"'\n]*)\1/);
-  return match ? match[2] : null;
+  if (api.method !== 'GET') {
+    if (hasFile) {
+      const form = new FormData();
+      Object.entries(body).forEach(([key, value]) => form.append(key, value));
+      (api.params || [])
+        .filter((param) => param.type === 'file')
+        .forEach((param) => {
+          const input = document.getElementById(`f-${param.name}`);
+          if (input?.files?.[0]) form.append(param.name, input.files[0]);
+        });
+      requestOptions.body = form;
+    } else {
+      requestOptions.headers = { 'Content-Type': 'application/json' };
+      requestOptions.body = JSON.stringify(body);
+    }
+  }
+
+  fetch(api.action, requestOptions)
+    .then(async (response) => {
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('image/')) {
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const ext = contentType.includes('gif') ? 'gif' : 'png';
+        showImage(url, ext, response.status, contentType);
+        return;
+      }
+
+      if (contentType.includes('application/json')) {
+        const json = await response.json();
+        showJSON(json, response.status);
+        return;
+      }
+
+      const text = await response.text();
+      showError(text || 'Response tidak dikenali');
+    })
+    .catch((error) => showError(error.message))
+    .finally(() => {
+      button.disabled = false;
+      button.textContent = 'Kirim Request';
+    });
 }
 
 function showLoading() {
@@ -594,73 +853,25 @@ function showJSON(json, status) {
   </div>`;
 }
 
-function showImage(url, ext, status, ct) {
+function showImage(url, ext, status, contentType) {
   document.getElementById('responseArea').innerHTML = `<div class="response-area">
-    <div class="res-bar"><span class="res-label">Response</span><span class="res-status s-ok">${status} OK — ${ct}</span></div>
+    <div class="res-bar"><span class="res-label">Response</span><span class="res-status s-ok">${status} OK - ${contentType}</span></div>
     <div class="img-result">
-      <img src="${url}" alt="Hasil" style="max-width:100%;border-radius:8px;">
+      <img src="${url}" alt="Hasil">
       <br>
-      <a href="${url}" download="result.${ext}" class="img-dl">⬇ Download ${ext.toUpperCase()}</a>
-      <div class="img-note">Gunakan URL ini langsung sebagai src di app kamu, atau unduh file-nya.</div>
+      <a href="${url}" download="result.${ext}" class="img-dl">Download ${ext.toUpperCase()}</a>
+      <div class="img-note">Gunakan hasil ini untuk preview atau unduh filenya langsung.</div>
     </div>
   </div>`;
 }
 
-function showAudio(url, filename, status, ct) {
-  document.getElementById('responseArea').innerHTML = `<div class="response-area">
-    <div class="res-bar"><span class="res-label">Response</span><span class="res-status s-ok">${status} OK — ${ct}</span></div>
-    <div class="audio-result">
-      <div style="margin: 16px 0;">
-        <audio controls style="width:100%;max-width:400px;display:block;">
-          <source src="${url}" type="${ct}">
-          Browser Anda tidak mendukung audio player
-        </audio>
-      </div>
-      <a href="${url}" download="${filename}" class="img-dl">⬇ Download ${filename}</a>
-      <div class="img-note">Audio dapat diputar langsung atau diunduh.</div>
-    </div>
-  </div>`;
-}
-
-function showVideo(url, filename, status, ct) {
-  const ext = filename.split('.').pop() || 'mp4';
-  document.getElementById('responseArea').innerHTML = `<div class="response-area">
-    <div class="res-bar"><span class="res-label">Response</span><span class="res-status s-ok">${status} OK — ${ct}</span></div>
-    <div class="video-result">
-      <div style="margin: 16px 0;">
-        <video controls style="width:100%;max-width:100%;border-radius:8px;background:#000;">
-          <source src="${url}" type="${ct}">
-          Browser Anda tidak mendukung video player
-        </video>
-      </div>
-      <a href="${url}" download="${filename}" class="img-dl">⬇ Download ${filename}</a>
-      <div class="img-note">Video dapat diputar langsung atau diunduh tanpa watermark.</div>
-    </div>
-  </div>`;
-}
-
-function showFileDownload(url, filename, status, ct) {
-  document.getElementById('responseArea').innerHTML = `<div class="response-area">
-    <div class="res-bar"><span class="res-label">Response</span><span class="res-status s-ok">${status} OK</span></div>
-    <div class="file-result">
-      <div style="padding:16px;text-align:center;">
-        <div style="font-size:32px;margin-bottom:8px;">📦</div>
-        <div style="font-size:14px;font-weight:500;margin-bottom:16px;">File siap diunduh</div>
-        <a href="${url}" download="${filename}" class="img-dl" style="display:inline-block;">⬇ Download ${filename}</a>
-      </div>
-      <div class="img-note">Klik link di atas untuk mengunduh file.</div>
-    </div>
-  </div>`;
-}
-
-function showError(msg) {
+function showError(message) {
   document.getElementById('responseArea').innerHTML = `<div class="response-area">
     <div class="res-bar"><span class="res-label">Response</span><span class="res-status s-err">Error</span></div>
-    <div class="res-body">Error: ${msg}</div>
+    <div class="res-body">Error: ${message}</div>
   </div>`;
 }
 
-// ── Mobile Sidebar Menu ──
 const mobileMenuBtn = document.getElementById('mobileMenuBtn');
 const sidebar = document.getElementById('sidebar');
 const mobileOverlay = document.getElementById('mobileOverlay');
@@ -668,7 +879,9 @@ const mobileOverlay = document.getElementById('mobileOverlay');
 function closeMobileMenu() {
   sidebar.classList.remove('open');
   mobileOverlay.classList.remove('active');
-  setTimeout(() => mobileOverlay.style.display = 'none', 300);
+  setTimeout(() => {
+    mobileOverlay.style.display = 'none';
+  }, 300);
 }
 
 function toggleMobileMenu() {
@@ -678,7 +891,6 @@ function toggleMobileMenu() {
   } else {
     sidebar.classList.add('open');
     mobileOverlay.style.display = 'block';
-    // Timeout sedikit agar animasi CSS berjalan
     setTimeout(() => mobileOverlay.classList.add('active'), 10);
   }
 }

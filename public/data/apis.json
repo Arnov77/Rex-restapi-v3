@@ -51,11 +51,11 @@
       ]
     },
     {
-      "id": 5,
+      "id": 6,
       "name": "Google Drive",
       "method": "POST",
       "action": "/api/gdrive",
-      "description": "Generate link download langsung dari Google Drive dan ambil metadata file.",
+      "description": "Ambil link download langsung dari Google Drive beserta info file.",
       "params": [
         { "name": "url", "type": "string", "example": "https://drive.google.com/file/d/1Gz6fjY5GLuFI_jIp1RGYL8MisrKchsfP/view?usp=drivesdk", "required": true }
       ]
@@ -67,7 +67,7 @@
       "name": "Brat Image",
       "method": "POST",
       "action": "/api/brat/image",
-      "description": "Generate gambar brat style. Pilih preset atau atur warna background dan teks sendiri.",
+      "description": "Buat gambar bergaya brat. Bisa pakai preset atau atur warna sendiri.",
       "params": [
         { "name": "text", "type": "string", "example": "i am so brat", "required": true },
         { "name": "preset", "type": "select", "required": false },
@@ -80,7 +80,7 @@
       "name": "Brat GIF",
       "method": "POST",
       "action": "/api/brat/video",
-      "description": "Generate animasi GIF brat style. Teks muncul satu per satu seperti efek mengetik.",
+      "description": "Buat GIF bergaya brat dengan animasi teks bertahap.",
       "params": [
         { "name": "text", "type": "string", "example": "i am so brat", "required": true },
         { "name": "preset", "type": "select", "required": false },
@@ -90,10 +90,21 @@
     },
     {
       "id": 3,
+      "name": "AI Image (Gemini)",
+      "method": "POST",
+      "action": "/api/ai/gemini/generate",
+      "description": "Modifikasi gambar karakter anime menggunakan AI Gemini. Ubah jadi 'hitam' atau 'nerd'.",
+      "params": [
+        { "name": "image", "type": "string", "example": "https://i.ibb.co/contoh.jpg", "required": true },
+        { "name": "option", "type": "string", "example": "hitam", "required": true }
+      ]
+    },
+    {
+      "id": 4,
       "name": "Quote Maker",
       "method": "POST",
       "action": "/api/quote",
-      "description": "Buat gambar quote WhatsApp style dengan nama, pesan, dan avatar opsional.",
+      "description": "Buat gambar quote bergaya chat WhatsApp dengan nama, pesan, dan avatar opsional.",
       "params": [
         { "name": "name", "type": "string", "example": "Anonymous", "required": true },
         { "name": "message", "type": "string", "example": "Hidup itu indah jika kita mau bersyukur", "required": true },
@@ -101,11 +112,11 @@
       ]
     },
     {
-      "id": 4,
+      "id": 5,
       "name": "Simple Meme",
       "method": "POST",
       "action": "/api/smeme",
-      "description": "Generate meme dari gambar sendiri memakai memegen custom background.",
+      "description": "Buat meme dari gambar sendiri dengan teks atas dan bawah.",
       "params": [
         { "name": "image", "type": "string", "example": "https://www.gstatic.com/webp/gallery/1.png", "required": true },
         { "name": "top", "type": "string", "example": "TEKS ATAS", "required": false },
@@ -116,6 +127,20 @@
         { "name": "font", "type": "string", "example": "impact", "required": false },
         { "name": "color", "type": "string", "example": "white,black", "required": false },
         { "name": "layout", "type": "string", "example": "top", "required": false }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Make It A Quote",
+      "method": "POST",
+      "action": "/api/miq/generate",
+      "description": "Buat quote bergaya Discord dengan avatar dari file atau URL gambar publik.",
+      "params": [
+        { "name": "text", "type": "string", "example": "Hidup tidak harus sempurna untuk bisa disyukuri.", "required": true },
+        { "name": "author", "type": "string", "example": "Anonymous", "required": false },
+        { "name": "avatar", "type": "file", "required": false },
+        { "name": "avatarUrl", "type": "string", "example": "https://example.com/avatar.jpg", "required": false },
+        { "name": "color", "type": "boolean", "example": "true", "required": false }
       ]
     }
   ],
@@ -138,7 +163,7 @@
       "name": "MC Profile",
       "method": "GET",
       "action": "/mcapi/profile",
-      "description": "Lookup profil Minecraft Java atau Bedrock berdasarkan username, xuid, atau uuid.",
+      "description": "Lihat profil Minecraft Java atau Bedrock berdasarkan username, XUID, atau UUID.",
       "params": [
         { "name": "username", "type": "string", "example": "Dream", "required": false },
         { "name": "edition", "type": "string", "example": "auto", "required": false },
@@ -151,7 +176,7 @@
       "name": "MC Skin Redirect",
       "method": "GET",
       "action": "/mcapi/profile/:edition/:id/skin",
-      "description": "Redirect ke URL skin Minecraft berdasarkan edition dan id.",
+      "description": "Arahkan ke URL skin Minecraft berdasarkan edition dan ID.",
       "params": [
         { "name": "edition", "type": "string", "example": "java", "required": true },
         { "name": "id", "type": "string", "example": "8667ba71-b85a-4004-af54-457a9734eed7", "required": true }
@@ -162,7 +187,7 @@
       "name": "MC Head Render",
       "method": "GET",
       "action": "/mcapi/render/head",
-      "description": "Render avatar kepala Minecraft dari skin URL atau username.",
+      "description": "Buat render kepala Minecraft dari skin URL atau username.",
       "params": [
         { "name": "skin", "type": "string", "example": "https://textures.minecraft.net/texture/...", "required": false },
         { "name": "username", "type": "string", "example": "Dream", "required": false },
@@ -185,7 +210,7 @@
       "name": "API Status",
       "method": "GET",
       "action": "/api/status",
-      "description": "Lihat versi API, environment, dan info runtime server.",
+      "description": "Lihat versi API dan informasi singkat tentang server.",
       "params": []
     }
   ]

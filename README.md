@@ -15,6 +15,7 @@ REST API untuk downloader media, generator gambar, dan utilitas tambahan dengan 
 - `GET|POST /api/quote`
 - `GET|POST /api/smeme`
 - `GET|POST /api/promosi`
+- `POST /api/miq/generate`
 - `GET /health`
 - `GET /api/status`
 - `GET /mcapi/*`
@@ -37,6 +38,7 @@ Rex-RESTAPI
 |  |  `- tools/
 |  |     |- gdrive/
 |  |     |- mcprofile/
+|  |     |- miq/
 |  |     |- promosi/
 |  |     |- quote/
 |  |     `- smeme/
@@ -58,7 +60,10 @@ Minimal `.env`:
 ```env
 PORT=7860
 GEMINI_API_KEY=your_gemini_api_key
+DISCORD_WEBHOOK_URL=your_discord_webhook_url
 ```
+
+`DISCORD_WEBHOOK_URL` dipakai oleh endpoint MIQ jika client mengirim file `avatar`. File akan di-upload dulu ke Discord webhook untuk mendapatkan URL CDN yang diterima oleh upstream MIQ.
 
 ## Contoh request
 

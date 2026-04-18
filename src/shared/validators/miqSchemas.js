@@ -20,6 +20,21 @@ const miqSchemas = {
       .messages({
         'string.max': 'Author name must not exceed 100 characters',
       }),
+    avatarUrl: Joi.string()
+      .optional()
+      .trim()
+      .uri()
+      .custom((value, helpers) => {
+        const { protocol } = new URL(value);
+        if (protocol !== 'https:') {
+          return helpers.error('avatar.https');
+        }
+        return value;
+      })
+      .messages({
+        'string.uri': 'Avatar URL must be a valid URL',
+        'avatar.https': 'Avatar URL must use HTTPS',
+      }),
     color: Joi.boolean()
       .optional()
       .default(false)

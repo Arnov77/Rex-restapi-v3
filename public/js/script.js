@@ -219,7 +219,7 @@ function buildDocsTab(api) {
         ? '<span class="popt">opsional</span>'
         : '<span class="preq">wajib</span>';
       const type = param.type === 'select' ? 'select (string)' : (param.type || 'string');
-      const description = getParamDesc(param.name);
+      const description = param.description || getParamDesc(param.name);
       const example = param.example ? `<div class="pexample">Contoh: ${param.example}</div>` : '';
       return `<tr>
         <td><span class="pname">${param.name}</span></td>
@@ -278,7 +278,7 @@ function buildTryTab(api) {
       const inputType = param.type === 'file'
         ? 'file'
         : ['url', 'image', 'avatarUrl', 'skin'].includes(param.name) ? 'url' : 'text';
-      const description = getParamDesc(param.name);
+      const description = param.description || getParamDesc(param.name);
       fields += `<div class="form-section">
         <div class="form-label"><span class="form-label-text">${param.name}</span>${required}</div>
         <input type="${inputType}" class="form-input" id="f-${param.name}" ${inputType === 'file' ? 'accept="image/*"' : `placeholder="${hint}"`}>

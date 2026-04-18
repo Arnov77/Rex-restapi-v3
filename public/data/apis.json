@@ -125,7 +125,7 @@
         { "name": "width", "type": "number", "example": "800", "required": false },
         { "name": "height", "type": "number", "example": "600", "required": false },
         { "name": "font", "type": "string", "example": "impact", "required": false },
-        { "name": "color", "type": "string", "example": "white,black", "required": false },
+        { "name": "color", "type": "string", "example": "white,black", "required": false, "description": "Warna teks meme, contoh: white,black" },
         { "name": "layout", "type": "string", "example": "top", "required": false }
       ]
     },
@@ -140,7 +140,7 @@
         { "name": "author", "type": "string", "example": "Anonymous", "required": false },
         { "name": "avatar", "type": "file", "required": false },
         { "name": "avatarUrl", "type": "string", "example": "https://example.com/avatar.jpg", "required": false },
-        { "name": "color", "type": "boolean", "example": "true", "required": false }
+        { "name": "color", "type": "boolean", "example": "true", "required": false, "description": "Aktifkan warna pada quote: true atau false" }
       ]
     }
   ],

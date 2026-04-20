@@ -14,6 +14,7 @@ setInterval(tick, 1000);
 
 const ICONS = {
   'Downloader': 'DL',
+  'Sticker': 'STK',      // ← NEW
   'Image Generator': 'IMG',
   'Utilities': 'UTIL',
   'Minecraft': 'MC',
@@ -265,6 +266,7 @@ function buildDocsTab(api) {
 function buildTryTab(api) {
   const isBrat = api.name.toLowerCase().includes('brat');
   const isGemini = api.name.toLowerCase().includes('gemini');
+  const isTelegramSticker = api.action.includes('/api/telegram/sticker');
   let fields = '';
 
   if (api.params) {
@@ -326,6 +328,21 @@ function buildTryTab(api) {
     </div>`;
   }
 
+  if (isTelegramSticker) {
+    extra = `<div class="form-section">
+      <div class="form-label"><span class="form-label-text">format</span><span class="chip-opt" style="font-size:10px">opsional</span></div>
+      <div class="preset-row">
+        <div class="preset-btn sel" onclick="selFormat('png', this)">png</div>
+        <div class="preset-btn" onclick="selFormat('jpg', this)">jpg</div>
+        <div class="preset-btn" onclick="selFormat('gif', this)">gif</div>
+        <div class="preset-btn" onclick="selFormat('webp', this)">webp</div>
+        <div class="preset-btn" onclick="selFormat('wa', this)">wa ⭐</div>
+      </div>
+      <input type="hidden" id="f-format" value="png">
+      <div class="form-hint">Format "wa" = output siap kirim sebagai stiker WhatsApp (512×512 WebP/GIF).</div>
+    </div>`;
+  }
+
   return `${fields}${extra}
   <div class="modal-actions">
     <button class="btn-cancel" onclick="closeModal()">Tutup</button>
@@ -340,20 +357,75 @@ function buildCodeTab(api) {
   const bodyString = JSON.stringify(sampleBody, null, 2);
   const isGet = api.method === 'GET';
   const supportsFile = (api.params || []).some((param) => param.type === 'file');
+  const isTelegramSticker = endpoint.includes('/api/telegram/sticker');
 
-  const curl = supportsFile
-    ? `curl -X POST ${BASE_URL}${endpoint} \\
+  let curl, fetchCode, axiosCode, pythonCode;
+
+  if (isTelegramSticker) {
+    curl = `# Menggunakan file_id (butuh bot token)
+curl -X POST ${BASE_URL}${endpoint} \\
+  -H "Content-Type: application/json" \\
+  -d '{"fileId":"CAACAgIAAxkBAAEK...","format":"wa"}' \\
+  --output sticker.webp
+
+# Menggunakan URL langsung
+curl -X POST ${BASE_URL}${endpoint} \\
+  -H "Content-Type: application/json" \\
+  -d '{"url":"https://example.com/sticker.webp","format":"png"}' \\
+  --output sticker.png`;
+
+    fetchCode = `// Konversi stiker Telegram → format WA (baileys example)
+const res = await fetch('${BASE_URL}${endpoint}', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ fileId: 'CAACAgIAAxkBAAEK...', format: 'wa' })
+});
+const buffer = Buffer.from(await res.arrayBuffer());
+
+// Kirim sebagai stiker WhatsApp (baileys)
+await sock.sendMessage(jid, { sticker: buffer });
+
+// Kirim sebagai stiker WhatsApp (whatsapp-web.js)
+const { MessageMedia } = require('whatsapp-web.js');
+const media = new MessageMedia(res.headers.get('content-type'), buffer.toString('base64'));
+await client.sendMessage(chatId, media, { sendMediaAsSticker: true });`;
+
+    axiosCode = `import axios from 'axios';
+
+// Konversi stiker Telegram → PNG / JPG / GIF / WebP / WA
+const res = await axios.post('${BASE_URL}${endpoint}', {
+  fileId: 'CAACAgIAAxkBAAEK...',  // atau: url: 'https://...'
+  botToken: 'OPTIONAL_TOKEN',     // hapus jika sudah set di .env
+  format: 'wa',                   // png | jpg | gif | webp | wa
+}, { responseType: 'arraybuffer' });
+
+const buffer = Buffer.from(res.data);
+// res.headers['content-type'] → image/webp atau image/gif
+// res.headers['x-sticker-type'] → webp | tgs | webm`;
+
+    pythonCode = `import requests
+
+# Download stiker dan simpan
+r = requests.post(
+    '${BASE_URL}${endpoint}',
+    json={
+        'fileId': 'CAACAgIAAxkBAAEK...',
+        'format': 'wa',   # png | jpg | gif | webp | wa
+    },
+    timeout=60
+)
+
+ext = r.headers.get('content-type', '').split('/')[-1] or 'png'
+with open(f'sticker.{ext}', 'wb') as f:
+    f.write(r.content)
+
+print('Tipe stiker:', r.headers.get('x-sticker-type'))`;
+  } else if (supportsFile) {
+    curl = `curl -X POST ${BASE_URL}${endpoint} \\
   -F "text=contoh quote" \\
   -F "author=Anonymous" \\
-  -F "avatar=@avatar.png"`
-    : isGet
-    ? `curl "${BASE_URL}${endpoint}"`
-    : `curl -X POST ${BASE_URL}${endpoint} \\
-  -H "Content-Type: application/json" \\
-  -d '${JSON.stringify(sampleBody)}'`;
-
-  const fetchCode = supportsFile
-    ? `const form = new FormData();
+  -F "avatar=@avatar.png"`;
+    fetchCode = `const form = new FormData();
 form.append('text', 'contoh quote');
 form.append('author', 'Anonymous');
 form.append('avatar', fileInput.files[0]);
@@ -362,37 +434,8 @@ const response = await fetch('${BASE_URL}${endpoint}', {
   method: 'POST',
   body: form
 });
-
-const blob = await response.blob();`
-    : isGet
-    ? `const response = await fetch('${BASE_URL}${endpoint}');
-const contentType = response.headers.get('content-type');
-if (contentType && contentType.includes('image/')) {
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  document.querySelector('img').src = url;
-} else {
-  const data = await response.json();
-  console.log(data);
-}`
-    : `const response = await fetch('${BASE_URL}${endpoint}', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(${bodyString})
-});
-
-const contentType = response.headers.get('content-type');
-if (contentType && contentType.includes('image/')) {
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  document.querySelector('img').src = url;
-} else {
-  const data = await response.json();
-  console.log(data);
-}`;
-
-  const axiosCode = supportsFile
-    ? `import axios from 'axios';
+const blob = await response.blob();`;
+    axiosCode = `import axios from 'axios';
 
 const form = new FormData();
 form.append('text', 'contoh quote');
@@ -402,22 +445,8 @@ form.append('avatar', fileInput.files[0]);
 const res = await axios.post('${BASE_URL}${endpoint}', form, {
   headers: { 'Content-Type': 'multipart/form-data' },
   responseType: 'arraybuffer'
-});
-console.log(res.data);`
-    : isGet
-    ? `import axios from 'axios';
-
-const res = await axios.get('${BASE_URL}${endpoint}');
-console.log(res.data);`
-    : `import axios from 'axios';
-
-const res = await axios.post('${BASE_URL}${endpoint}', ${bodyString}, {
-  responseType: 'arraybuffer'
-});
-console.log(res.data);`;
-
-  const pythonCode = supportsFile
-    ? `import requests
+});`;
+    pythonCode = `import requests
 
 with open('avatar.png', 'rb') as avatar_file:
     response = requests.post(
@@ -425,24 +454,42 @@ with open('avatar.png', 'rb') as avatar_file:
         data={'text': 'contoh quote', 'author': 'Anonymous'},
         files={'avatar': avatar_file}
     )
-
-print(response.headers.get('Content-Type'))`
-    : isGet
-    ? `import requests
-
+print(response.headers.get('Content-Type'))`;
+  } else if (isGet) {
+    curl = `curl "${BASE_URL}${endpoint}"`;
+    fetchCode = `const response = await fetch('${BASE_URL}${endpoint}');
+const data = await response.json();
+console.log(data);`;
+    axiosCode = `import axios from 'axios';
+const res = await axios.get('${BASE_URL}${endpoint}');
+console.log(res.data);`;
+    pythonCode = `import requests
 response = requests.get('${BASE_URL}${endpoint}')
-print(response.headers.get('Content-Type'))
-print(response.content[:20])`
-    : `import requests
+print(response.json())`;
+  } else {
+    curl = `curl -X POST ${BASE_URL}${endpoint} \\
+  -H "Content-Type: application/json" \\
+  -d '${JSON.stringify(sampleBody)}'`;
+    fetchCode = `const response = await fetch('${BASE_URL}${endpoint}', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(${bodyString})
+});
+const data = await response.json();
+console.log(data);`;
+    axiosCode = `import axios from 'axios';
+
+const res = await axios.post('${BASE_URL}${endpoint}', ${bodyString});
+console.log(res.data);`;
+    pythonCode = `import requests
 
 response = requests.post(
     '${BASE_URL}${endpoint}',
     json=${JSON.stringify(sampleBody, null, 4).replace(/"/g, "'")},
     headers={'Content-Type': 'application/json'}
 )
-
-print(response.headers.get('Content-Type'))
-print(response.content[:20])`;
+print(response.json())`;
+  }
 
   return `<div class="code-tabs">
     <div class="ctab active" onclick="switchCode('curl', this)">cURL</div>
@@ -508,6 +555,16 @@ function buildSampleBody(api) {
 function buildRequestBodyExample(api) {
   if (!api.params || api.params.length === 0 || api.method === 'GET') return null;
   const supportsFile = api.params.some((param) => param.type === 'file');
+  const isTelegramSticker = api.action.includes('/api/telegram/sticker');
+
+  if (isTelegramSticker) {
+    return JSON.stringify({
+      fileId: 'CAACAgIAAxkBAAEK... (gunakan salah satu)',
+      url: 'https://... (atau ini)',
+      botToken: '123456:ABC... (opsional)',
+      format: 'wa  ← png | jpg | gif | webp | wa',
+    }, null, 2);
+  }
 
   if (supportsFile) {
     const fields = api.params.map((param) => {
@@ -537,143 +594,41 @@ function buildRequestBodyExample(api) {
 
 function buildResponseExample(api) {
   const action = api.action;
+  if (action.includes('/api/telegram/sticker')) {
+    return `Content-Type: image/webp   (static → format wa/webp)\nContent-Type: image/gif    (animated TGS atau WebM)\nContent-Type: image/png    (format png)\nX-Sticker-Type: webp | tgs | webm\n\n[Binary image response — langsung bisa dipakai sebagai Buffer]`;
+  }
   if (action.includes('/api/brat/') || action.includes('/api/quote') || action.includes('/api/smeme') || action.includes('/api/miq/') || action === '/mcapi/render/head') {
     return 'Content-Type: image/png\n\n[Binary image response]';
   }
   if (action.includes('/api/youtube/mp3')) {
-    return JSON.stringify({
-      success: true,
-      statusCode: 200,
-      message: 'MP3 download link generated',
-      data: {
-        title: 'Never Gonna Give You Up',
-        download: `${BASE_URL}/download/never-gonna-give-you-up.mp3`,
-        format: 'audio/mpeg',
-        fileSize: '3.20 MB',
-        duration: '3 menit, 32 detik',
-        author: 'Rick Astley'
-      },
-      timestamp: '2026-04-18T10:00:00.000Z'
-    }, null, 2);
+    return JSON.stringify({ success: true, statusCode: 200, message: 'MP3 download link generated', data: { title: 'Never Gonna Give You Up', download: `${BASE_URL}/download/never-gonna-give-you-up.mp3`, format: 'audio/mpeg', fileSize: '3.20 MB', duration: '3 menit, 32 detik', author: 'Rick Astley' }, timestamp: '2026-04-18T10:00:00.000Z' }, null, 2);
   }
   if (action.includes('/api/youtube/mp4')) {
-    return JSON.stringify({
-      success: true,
-      statusCode: 200,
-      message: 'MP4 download link generated',
-      data: {
-        title: 'Never Gonna Give You Up',
-        download: `${BASE_URL}/download/never-gonna-give-you-up.mp4`,
-        format: 'video/mp4',
-        fileSize: '12.40 MB',
-        duration: '3 menit, 32 detik',
-        quality: '720p'
-      },
-      timestamp: '2026-04-18T10:00:00.000Z'
-    }, null, 2);
+    return JSON.stringify({ success: true, statusCode: 200, message: 'MP4 download link generated', data: { title: 'Never Gonna Give You Up', download: `${BASE_URL}/download/never-gonna-give-you-up.mp4`, format: 'video/mp4', fileSize: '12.40 MB', duration: '3 menit, 32 detik', quality: '720p' }, timestamp: '2026-04-18T10:00:00.000Z' }, null, 2);
   }
   if (action.includes('/api/tiktok/')) {
-    return JSON.stringify({
-      success: true,
-      statusCode: 200,
-      message: 'TikTok video data fetched successfully',
-      data: {
-        title: 'Contoh video TikTok',
-        author: {
-          name: 'Nama Kreator',
-          username: '@username'
-        },
-        media: {
-          video: {
-            nowm: 'https://example.com/video-nowm.mp4',
-            hd: 'https://example.com/video-hd.mp4'
-          },
-          audio: 'https://example.com/audio.mp3'
-        }
-      },
-      timestamp: '2026-04-18T10:00:00.000Z'
-    }, null, 2);
+    return JSON.stringify({ success: true, statusCode: 200, message: 'TikTok video data fetched successfully', data: { title: 'Contoh video TikTok', author: { name: 'Nama Kreator', username: '@username' }, media: { video: { nowm: 'https://example.com/video-nowm.mp4', hd: 'https://example.com/video-hd.mp4' }, audio: 'https://example.com/audio.mp3' } }, timestamp: '2026-04-18T10:00:00.000Z' }, null, 2);
   }
   if (action.includes('/api/instagram/download')) {
-    return JSON.stringify({
-      success: true,
-      statusCode: 200,
-      message: 'Instagram content fetched successfully',
-      data: {
-        downloadLinks: [
-          {
-            url: 'https://example.com/instagram-media.mp4',
-            type: 'video'
-          }
-        ],
-        count: 1
-      },
-      timestamp: '2026-04-18T10:00:00.000Z'
-    }, null, 2);
+    return JSON.stringify({ success: true, statusCode: 200, message: 'Instagram content fetched successfully', data: { downloadLinks: [{ url: 'https://example.com/instagram-media.mp4', type: 'video' }], count: 1 }, timestamp: '2026-04-18T10:00:00.000Z' }, null, 2);
   }
   if (action.includes('/api/gdrive')) {
-    return JSON.stringify({
-      status: 200,
-      creator: 'Arnov',
-      result: {
-        data: 'https://drive.google.com/uc?export=download&id=...',
-        fileName: 'example.zip',
-        fileSize: '1024.00 KB',
-        mimetype: 'application/zip'
-      }
-    }, null, 2);
+    return JSON.stringify({ status: 200, creator: 'Arnov', result: { data: 'https://drive.google.com/uc?export=download&id=...', fileName: 'example.zip', fileSize: '1024.00 KB', mimetype: 'application/zip' } }, null, 2);
   }
   if (action.includes('/api/promosi')) {
-    return JSON.stringify({
-      status: 200,
-      creator: 'Arnov',
-      result: {
-        percentage: 88,
-        isPromotion: true,
-        reason: 'Mengandung ajakan promosi dan penawaran yang jelas.'
-      }
-    }, null, 2);
+    return JSON.stringify({ status: 200, creator: 'Arnov', result: { percentage: 88, isPromotion: true, reason: 'Mengandung ajakan promosi dan penawaran yang jelas.' } }, null, 2);
   }
   if (action === '/mcapi/profile') {
-    return JSON.stringify({
-      ok: true,
-      data: {
-        edition: 'java',
-        username: 'Dream',
-        id: '8667ba71-b85a-4004-af54-457a9734eed7',
-        linked: false,
-        textures: {
-          skin: 'https://textures.minecraft.net/texture/...'
-        },
-        java: {
-          uuid: '8667ba71-b85a-4004-af54-457a9734eed7',
-          username: 'Dream'
-        }
-      }
-    }, null, 2);
+    return JSON.stringify({ ok: true, data: { edition: 'java', username: 'Dream', id: '8667ba71-b85a-4004-af54-457a9734eed7', linked: false, textures: { skin: 'https://textures.minecraft.net/texture/...' }, java: { uuid: '8667ba71-b85a-4004-af54-457a9734eed7', username: 'Dream' } } }, null, 2);
   }
   if (action.includes('/mcapi/profile/:edition/:id/skin')) {
     return 'HTTP/1.1 302 Found\nLocation: https://textures.minecraft.net/texture/...';
   }
   if (action === '/health') {
-    return JSON.stringify({
-      status: 'healthy',
-      timestamp: '2026-04-18T10:00:00.000Z',
-      uptime: 1234.56
-    }, null, 2);
+    return JSON.stringify({ status: 'healthy', timestamp: '2026-04-18T10:00:00.000Z', uptime: 1234.56 }, null, 2);
   }
   if (action === '/api/status') {
-    return JSON.stringify({
-      success: true,
-      statusCode: 200,
-      message: 'API is running',
-      data: {
-        version: '2.0.0',
-        environment: 'development',
-        uptime: 1234
-      },
-      timestamp: '2026-04-18T10:00:00.000Z'
-    }, null, 2);
+    return JSON.stringify({ success: true, statusCode: 200, message: 'API is running', data: { version: '2.0.0', environment: 'development', uptime: 1234 }, timestamp: '2026-04-18T10:00:00.000Z' }, null, 2);
   }
   return JSON.stringify({ success: true, statusCode: 200, message: 'Success', data: {}, timestamp: '2026-04-10T00:00:00.000Z' }, null, 2);
 }
@@ -696,7 +651,7 @@ function getParamDesc(name) {
     textColor: 'Warna teks dalam format hex, contoh: #000000',
     top: 'Teks bagian atas meme',
     bottom: 'Teks bagian bawah meme',
-    format: 'Format output: png, jpg, gif, atau webp',
+    format: 'Format output: png, jpg, gif, webp, atau wa (WhatsApp sticker)',
     width: 'Lebar output gambar',
     height: 'Tinggi output gambar',
     font: 'Font memegen, contoh: impact',
@@ -709,6 +664,8 @@ function getParamDesc(name) {
     skin: 'URL skin Minecraft',
     size: 'Ukuran hasil render kepala',
     id: 'UUID Java atau identifier Bedrock sesuai endpoint',
+    fileId: 'Telegram file_id — dapatkan dari @RawDataBot atau via getUpdates di bot kamu',
+    botToken: 'Token bot Telegram (opsional jika env TELEGRAM_BOT_TOKEN sudah diset)',
   };
   return descriptions[name] || '';
 }
@@ -716,7 +673,8 @@ function getParamDesc(name) {
 function selPreset(value, element) {
   selectedPreset = value;
   document.querySelectorAll('.preset-btn').forEach((button) => {
-    if (!button.getAttribute('onclick').includes('selOpt')) button.classList.remove('sel');
+    if (!button.getAttribute('onclick').includes('selOpt') && !button.getAttribute('onclick').includes('selFormat'))
+      button.classList.remove('sel');
   });
   element.classList.add('sel');
   const colorWrap = document.getElementById('colorWrap');
@@ -730,6 +688,15 @@ function selOpt(value, element) {
   });
   element.classList.add('sel');
   const hiddenInput = document.getElementById('f-option');
+  if (hiddenInput) hiddenInput.value = value;
+}
+
+function selFormat(value, element) {
+  document.querySelectorAll('.preset-btn').forEach((button) => {
+    if (button.getAttribute('onclick').includes('selFormat')) button.classList.remove('sel');
+  });
+  element.classList.add('sel');
+  const hiddenInput = document.getElementById('f-format');
   if (hiddenInput) hiddenInput.value = value;
 }
 
@@ -752,10 +719,12 @@ function sendReq() {
   button.disabled = true;
   button.textContent = 'Mengirim...';
 
+  const isTelegramSticker = api.action.includes('/api/telegram/sticker');
   const body = {};
+
   if (api.params) {
     api.params.forEach((param) => {
-      if (['bgColor', 'textColor', 'preset'].includes(param.name)) return;
+      if (['bgColor', 'textColor', 'preset', 'format'].includes(param.name)) return;
       const input = document.getElementById(`f-${param.name}`);
       if (!input) return;
       if (param.type === 'file') return;
@@ -790,6 +759,11 @@ function sendReq() {
     if (option) body.option = option.value;
   }
 
+  if (isTelegramSticker) {
+    const fmt = document.getElementById('f-format');
+    if (fmt) body.format = fmt.value;
+  }
+
   showLoading();
 
   const requestOptions = { method: api.method };
@@ -817,17 +791,15 @@ function sendReq() {
       if (contentType.includes('image/')) {
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
-        const ext = contentType.includes('gif') ? 'gif' : 'png';
+        const ext = contentType.includes('gif') ? 'gif' : contentType.includes('webp') ? 'webp' : 'png';
         showImage(url, ext, response.status, contentType);
         return;
       }
-
       if (contentType.includes('application/json')) {
         const json = await response.json();
         showJSON(json, response.status);
         return;
       }
-
       const text = await response.text();
       showError(text || 'Response tidak dikenali');
     })
@@ -879,9 +851,7 @@ const mobileOverlay = document.getElementById('mobileOverlay');
 function closeMobileMenu() {
   sidebar.classList.remove('open');
   mobileOverlay.classList.remove('active');
-  setTimeout(() => {
-    mobileOverlay.style.display = 'none';
-  }, 300);
+  setTimeout(() => { mobileOverlay.style.display = 'none'; }, 300);
 }
 
 function toggleMobileMenu() {

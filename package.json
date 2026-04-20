@@ -25,6 +25,7 @@
     "gifencoder": "^2.0.1",
     "image-size": "^2.0.2",
     "joi": "^17.11.0",
+    "lottie-web": "^5.13.0",
     "majidapi": "^1.0.45",
     "makeitaquote": "^8.0.1",
     "mime-types": "^2.1.35",

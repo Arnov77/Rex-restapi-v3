@@ -61,6 +61,45 @@
       ]
     }
   ],
+  "Sticker": [
+    {
+      "id": 1,
+      "name": "Telegram → Stiker WA",
+      "method": "POST",
+      "action": "/api/telegram/sticker",
+      "description": "Download dan konversi stiker Telegram ke PNG, JPG, GIF, WebP, atau format stiker WhatsApp (512×512). Mendukung tiga tipe stiker Telegram: static WebP, animasi TGS (Lottie), dan video WebM. Gunakan format 'wa' untuk output siap kirim ke bot WhatsApp (baileys/whatsapp-web.js).",
+      "params": [
+        {
+          "name": "fileId",
+          "type": "string",
+          "example": "CAACAgIAAxkBAAEKxxxxxXXXX",
+          "required": false,
+          "description": "Telegram file_id stiker. Dapatkan dari Telegram bot via getUpdates atau forward stiker ke @RawDataBot."
+        },
+        {
+          "name": "url",
+          "type": "string",
+          "example": "https://api.telegram.org/file/bot<token>/stickers/file_0.webp",
+          "required": false,
+          "description": "URL langsung ke file stiker (alternatif fileId). Salah satu dari fileId atau url wajib diisi."
+        },
+        {
+          "name": "botToken",
+          "type": "string",
+          "example": "123456789:AAxxxxxxxxxxxxxxxx",
+          "required": false,
+          "description": "Token bot Telegram. Opsional — gunakan env TELEGRAM_BOT_TOKEN jika tidak diisi di sini."
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "example": "wa",
+          "required": false,
+          "description": "Format output: png, jpg, gif, webp, atau wa. Format 'wa' = 512×512 WebP (static) / GIF (animasi) — siap untuk bot WhatsApp. Default: png."
+        }
+      ]
+    }
+  ],
   "Image Generator": [
     {
       "id": 1,

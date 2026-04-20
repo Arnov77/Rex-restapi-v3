@@ -31,4 +31,14 @@ router.post(
   asyncHandler((req, res, next) => telegramController.downloadSticker(req, res, next))
 );
 
+/**
+ * @route POST /api/telegram/sticker-pack
+ * @desc  Ambil semua daftar stiker dari sebuah Pack Telegram
+ * @body {string} url - Contoh: "https://t.me/addstickers/KOSHAKIEBANIYE"
+ */
+router.post(
+  '/sticker-pack',
+  asyncHandler((req, res, next) => telegramController.getStickerPack(req, res, next))
+);
+
 module.exports = router;

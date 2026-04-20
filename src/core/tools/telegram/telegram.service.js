@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const zlib = require('zlib');
 const { promisify } = require('util');
+const { PassThrough } = require('stream'); // Ditambahkan untuk Stream WebM
 const fluent = require('fluent-ffmpeg');
 const logger = require('../../../shared/utils/logger');
 const { AppError, NotFoundError, ValidationError } = require('../../../shared/utils/errors');
@@ -12,44 +13,37 @@ const { createGIF } = require('../../../utils/gif');
 
 const gunzip = promisify(zlib.gunzip);
 
-const DOWNLOAD_DIR = path.join(__dirname, '../../../../downloads');
-fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
+// Cache global untuk stiker
+const stickerCache = new Map();
+const MAX_CACHE_SIZE = 200; // Maksimal simpan 200 hasil di RAM agar tidak berat
 
-/**
- * Supported output formats and their metadata
- */
+// Browser instance global (Shared Browser)
+let globalBrowser = null;
+async function getSharedBrowser() {
+  if (!globalBrowser) {
+    logger.info('[Telegram] Initializing shared browser instance...');
+    globalBrowser = await getBrowser();
+  }
+  return globalBrowser;
+}
+
 const FORMAT_META = {
   png:  { mime: 'image/png',  ext: 'png'  },
   jpg:  { mime: 'image/jpeg', ext: 'jpg'  },
   jpeg: { mime: 'image/jpeg', ext: 'jpg'  },
   gif:  { mime: 'image/gif',  ext: 'gif'  },
   webp: { mime: 'image/webp', ext: 'webp' },
-  wa:   { mime: 'image/webp', ext: 'webp' }, // WhatsApp sticker optimised
+  wa:   { mime: 'image/webp', ext: 'webp' }, 
 };
 
-/**
- * Telegram Sticker Service
- *
- * Supports three Telegram sticker types:
- *   • Static  (.webp) — converted with sharp
- *   • Animated (.tgs) — gzip-compressed Lottie JSON, rendered via Playwright
- *   • Video  (.webm)  — video sticker, converted with ffmpeg
- *
- * Format "wa" → 512×512 WebP (static) or animated GIF sized 512×512 (animated).
- * Most WhatsApp bot libraries (baileys, whatsapp-web.js) accept GIF for animated stickers.
- */
 class TelegramStickerService {
+
   // ─── Telegram API ────────────────────────────────────────────────────────────
 
-  /**
-   * Call Telegram getFile API and return the CDN download URL + file path.
-   */
   async getTelegramFileUrl(fileId, botToken) {
     const token = botToken || process.env.TELEGRAM_BOT_TOKEN;
     if (!token) {
-      throw new ValidationError(
-        'Bot token diperlukan. Set env TELEGRAM_BOT_TOKEN atau kirim param botToken.'
-      );
+      throw new ValidationError('Bot token diperlukan. Set env TELEGRAM_BOT_TOKEN atau kirim param botToken.');
     }
 
     let res;
@@ -94,12 +88,19 @@ class TelegramStickerService {
     }
   }
 
-  // ─── Type detection ───────────────────────────────────────────────────────────
+// ─── Type detection ───────────────────────────────────────────────────────────
 
-  detectStickerType(filePath, contentType) {
+  detectStickerType(buffer, filePath, contentType) {
+    if (buffer && buffer.length >= 4) {
+      if (buffer[0] === 0x1F && buffer[1] === 0x8B) return 'tgs';
+      
+      if (buffer[0] === 0x1A && buffer[1] === 0x45 && buffer[2] === 0xDF && buffer[3] === 0xA3) return 'webm';
+    }
+
     const ext = path.extname((filePath || '').split('?')[0]).toLowerCase();
     if (ext === '.tgs') return 'tgs';
     if (ext === '.webm' || (contentType || '').includes('video')) return 'webm';
+    
     return 'webp';
   }
 
@@ -116,18 +117,13 @@ class TelegramStickerService {
           .jpeg({ quality: 90 })
           .toBuffer();
         break;
-
       case 'gif':
-        // Sharp ≥0.31 supports GIF output for static images
         result = await sharp(buffer).gif().toBuffer();
         break;
-
       case 'webp':
         result = await sharp(buffer).webp({ quality: 90, effort: 4 }).toBuffer();
         break;
-
       case 'wa':
-        // WhatsApp sticker: 512×512 WebP, transparent bg preserved
         result = await sharp(buffer)
           .resize(512, 512, {
             fit: 'contain',
@@ -136,7 +132,6 @@ class TelegramStickerService {
           .webp({ quality: 80, effort: 6 })
           .toBuffer();
         break;
-
       case 'png':
       default:
         result = await sharp(buffer).png().toBuffer();
@@ -149,8 +144,6 @@ class TelegramStickerService {
   // ─── Convert: TGS (animated Lottie) ─────────────────────────────────────────
 
   async convertTgs(tgsBuffer, format) {
-    logger.info('[Telegram] Decompressing TGS...');
-
     let lottieJson;
     try {
       const raw = await gunzip(tgsBuffer);
@@ -159,7 +152,6 @@ class TelegramStickerService {
       throw new AppError('File TGS tidak valid: gagal dekompresi atau parse JSON.', 400);
     }
 
-    // Single-frame outputs
     if (format === 'png' || format === 'jpg' || format === 'jpeg') {
       const frameBuf = await this._renderLottieFrame(lottieJson, 0);
       if (format === 'jpg' || format === 'jpeg') {
@@ -173,23 +165,21 @@ class TelegramStickerService {
     }
 
     if (format === 'webp') {
-      // Static WebP of frame 0
       const frameBuf = await this._renderLottieFrame(lottieJson, 0);
       const webpBuf = await sharp(frameBuf).webp({ quality: 85 }).toBuffer();
       return { buffer: webpBuf, ...FORMAT_META.webp };
     }
 
-    // GIF / wa → render all frames and build animated GIF
-    logger.info('[Telegram] Rendering all Lottie frames...');
     const frames = await this._renderLottieAllFrames(lottieJson);
     const gifBuf = await createGIF(frames);
     return { buffer: gifBuf, ...FORMAT_META.gif };
   }
 
+  // OPTIMASI: Gunakan shared browser, cukup newPage (buka tab) lalu close tab
   async _renderLottieFrame(lottieJson, frameNumber) {
-    const browser = await getBrowser();
+    const browser = await getSharedBrowser();
+    const page = await browser.newPage();
     try {
-      const page = await browser.newPage();
       await page.setViewportSize({ width: 512, height: 512 });
       await page.setContent(this._buildLottieHtml(lottieJson), { waitUntil: 'domcontentloaded' });
       await page.waitForFunction(() => window.animReady, { timeout: 12_000 });
@@ -199,40 +189,36 @@ class TelegramStickerService {
       const el = await page.$('#lottie-canvas');
       return await el.screenshot({ omitBackground: true, type: 'png' });
     } finally {
-      await browser.close();
+      await page.close(); // Tutup tab-nya saja, BUKAN browser-nya
     }
   }
 
-  async _renderLottieAllFrames(lottieJson, maxFrames = 32) {
-    const browser = await getBrowser();
+async _renderLottieAllFrames(lottieJson, maxFrames = 60) { // <-- Limit dinaikkan ke 60 frame
+    const browser = await getSharedBrowser();
+    const page = await browser.newPage();
     try {
-      const page = await browser.newPage();
       await page.setViewportSize({ width: 512, height: 512 });
       await page.setContent(this._buildLottieHtml(lottieJson), { waitUntil: 'domcontentloaded' });
       await page.waitForFunction(() => window.animReady, { timeout: 12_000 });
 
       const totalFrames = await page.evaluate(() => Math.floor(window.anim.totalFrames));
-      const step = Math.max(1, Math.floor(totalFrames / maxFrames));
+      // Dengan maxFrames 60, lebih sedikit frame yang di-skip sehingga animasi jauh lebih mulus
+      const step = Math.max(1, Math.floor(totalFrames / maxFrames)); 
       const el = await page.$('#lottie-canvas');
       const frames = [];
 
-      logger.info(`[Telegram] Total Lottie frames: ${totalFrames}, step: ${step}`);
-
       for (let f = 0; f < totalFrames; f += step) {
         await page.evaluate((frame) => window.anim.goToAndStop(frame, true), f);
-        await page.waitForTimeout(40);
+        await page.waitForTimeout(20); // <-- Waktu tunggu dipercepat agar rendering lebih ngebut
         frames.push(await el.screenshot({ omitBackground: true, type: 'png' }));
       }
-
-      logger.success(`[Telegram] Captured ${frames.length} frames from Lottie`);
       return frames;
     } finally {
-      await browser.close();
+      await page.close(); 
     }
   }
 
   _buildLottieHtml(lottieJson) {
-    // Load lottie.min.js from node_modules — no CDN required
     const possiblePaths = [
       path.join(__dirname, '../../../../node_modules/lottie-web/build/player/lottie.min.js'),
     ];
@@ -241,22 +227,16 @@ class TelegramStickerService {
       if (fs.existsSync(p)) { lottieScript = fs.readFileSync(p, 'utf-8'); break; }
     }
     if (!lottieScript) {
-      throw new AppError(
-        'lottie-web tidak ditemukan. Jalankan: npm install lottie-web', 500
-      );
+      throw new AppError('lottie-web tidak ditemukan. Jalankan: npm install lottie-web', 500);
     }
 
     const jsonStr = JSON.stringify(lottieJson);
     return `<!DOCTYPE html>
-<html>
-<head>
-<style>
+<html><head><style>
   *{margin:0;padding:0;box-sizing:border-box}
   html,body{width:512px;height:512px;background:transparent;overflow:hidden}
   #lottie-canvas{width:512px;height:512px}
-</style>
-</head>
-<body>
+</style></head><body>
 <div id="lottie-canvas"></div>
 <script>${lottieScript}</script>
 <script>
@@ -272,100 +252,134 @@ try{
   });
   window.anim.addEventListener('DOMLoaded',()=>{window.animReady=true;});
 }catch(e){window.animReady=true;}
-</script>
-</body>
-</html>`;
+</script></body></html>`;
   }
 
   // ─── Convert: WebM (video sticker) ────────────────────────────────────────────
-
+  // OPTIMASI: Pipa data langsung via stream tanpa Write File I/O
   async convertWebm(buffer, format) {
-    const tmpId = Date.now();
-    const tmpIn = path.join(DOWNLOAD_DIR, `tmp-${tmpId}.webm`);
-    fs.writeFileSync(tmpIn, buffer);
-
-    try {
-      switch (format) {
-        case 'png':
-        case 'jpg':
-        case 'jpeg':
-          return await this._extractWebmFrame(tmpIn, format);
-
-        case 'webp':
-        case 'wa':
-        case 'gif':
-        default:
-          const gifBuf = await this._webmToGif(tmpIn);
-          return { buffer: gifBuf, ...FORMAT_META.gif };
-      }
-    } finally {
-      try { fs.unlinkSync(tmpIn); } catch {}
+    switch (format) {
+      case 'png':
+      case 'jpg':
+      case 'jpeg':
+        return await this._extractWebmFrameStream(buffer, format);
+      case 'webp':
+      case 'wa':
+      case 'gif':
+      default:
+        const gifBuf = await this._webmToGifStream(buffer);
+        return { buffer: gifBuf, ...FORMAT_META.gif };
     }
   }
 
-  async _extractWebmFrame(inputPath, format) {
+  async _extractWebmFrameStream(buffer, format) {
     return new Promise((resolve, reject) => {
       const isjpg = format === 'jpg' || format === 'jpeg';
-      const outputPath = inputPath.replace('.webm', isjpg ? '.jpg' : '.png');
+      const outFormat = 'image2';
+      const vcodec = isjpg ? 'mjpeg' : 'png';
 
-      fluent(inputPath)
-        .outputOptions(['-vframes', '1'])
-        .output(outputPath)
-        .on('end', () => {
-          try {
-            const buf = fs.readFileSync(outputPath);
-            fs.unlinkSync(outputPath);
-            resolve({ buffer: buf, ...(isjpg ? FORMAT_META.jpg : FORMAT_META.png) });
-          } catch (err) { reject(err); }
-        })
+      const inputStream = new PassThrough();
+      inputStream.end(buffer);
+
+      const bufs = [];
+      const outputStream = new PassThrough();
+      outputStream.on('data', (chunk) => bufs.push(chunk));
+      outputStream.on('end', () => {
+          const finalBuf = Buffer.concat(bufs);
+          resolve({ buffer: finalBuf, ...(isjpg ? FORMAT_META.jpg : FORMAT_META.png) });
+      });
+      outputStream.on('error', reject);
+
+      fluent(inputStream)
+        .inputFormat('webm')
+        .outputOptions(['-vframes 1', `-f ${outFormat}`, `-c:v ${vcodec}`])
         .on('error', (err) => reject(new AppError(`ffmpeg frame extract: ${err.message}`, 500)))
-        .run();
+        .pipe(outputStream, { end: true });
     });
   }
 
-  async _webmToGif(inputPath) {
+async _webmToGifStream(buffer) {
     return new Promise((resolve, reject) => {
-      const outputPath = inputPath.replace('.webm', '.gif');
+      const inputStream = new PassThrough();
+      inputStream.end(buffer);
 
-      fluent(inputPath)
-        .output(outputPath)
+      const bufs = [];
+      const outputStream = new PassThrough();
+      outputStream.on('data', (chunk) => bufs.push(chunk));
+      outputStream.on('end', () => resolve(Buffer.concat(bufs)));
+      outputStream.on('error', reject);
+
+      fluent(inputStream)
+        .inputFormat('webm')
+        .outputFormat('gif')
         .outputOptions([
-          '-vf', [
-            'scale=512:512:force_original_aspect_ratio=decrease',
-            'pad=512:512:(ow-iw)/2:(oh-ih)/2:color=black@0',
-          ].join(','),
-          '-loop', '0',
-          '-r', '15',
+          // Perbaikan kualitas GIF dengan palettegen dan frame rate 30fps
+          '-vf fps=30,scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=black@0',
+          '-loop 0',
+          '-r 30', // <-- INI KUNCI UTAMA KESMOOTHAN (30 Frame per second)
         ])
-        .on('end', () => {
-          try {
-            const buf = fs.readFileSync(outputPath);
-            fs.unlinkSync(outputPath);
-            resolve(buf);
-          } catch (err) { reject(err); }
-        })
         .on('error', (err) => reject(new AppError(`ffmpeg webm→gif: ${err.message}`, 500)))
-        .run();
+        .pipe(outputStream, { end: true });
     });
+  }
+
+  // ─── Get Sticker Pack ────────────────────────────────────────────────────────
+
+  async getStickerSet(packNameOrUrl, botToken) {
+    const token = botToken || process.env.TELEGRAM_BOT_TOKEN;
+    if (!token) {
+      throw new ValidationError('Bot token diperlukan. Set env TELEGRAM_BOT_TOKEN.');
+    }
+
+    // Kalau user masukin full URL (https://t.me/addstickers/NamaPack), kita ambil namanya aja
+    let packName = packNameOrUrl.replace('https://t.me/addstickers/', '').split('/')[0].trim();
+
+    try {
+      const res = await axios.get(`https://api.telegram.org/bot${token}/getStickerSet`, {
+        params: { name: packName },
+        timeout: 10_000,
+      });
+
+      if (!res.data?.ok) throw new NotFoundError('Sticker pack tidak ditemukan.');
+
+      const pack = res.data.result;
+      
+      // Susun ulang datanya biar rapi saat dikirim ke frontend
+      return {
+        title: pack.title,
+        name: pack.name,
+        isAnimated: pack.is_animated,
+        isVideo: pack.is_video,
+        totalStickers: pack.stickers.length,
+        stickers: pack.stickers.map((s) => ({
+          fileId: s.file_id,
+          emoji: s.emoji,
+        })),
+      };
+    } catch (err) {
+      if (err.response?.status === 400) {
+         throw new NotFoundError('Nama Sticker Pack tidak valid atau tidak ditemukan.');
+      }
+      throw new AppError(`Gagal mengambil data pack: ${err.message}`, 502);
+    }
   }
 
   // ─── Main entry point ─────────────────────────────────────────────────────────
 
-  /**
-   * Process a Telegram sticker end-to-end.
-   * @param {Object} params
-   * @param {string} [params.fileId]   - Telegram file_id
-   * @param {string} [params.url]      - Direct URL to sticker file
-   * @param {string} [params.botToken] - Override bot token
-   * @param {string} [params.format]   - Output format: png|jpg|gif|webp|wa (default: png)
-   * @returns {{ buffer: Buffer, mime: string, ext: string, stickerType: string }}
-   */
   async processSticker({ fileId, url, botToken, format = 'png' }) {
     const fmt = format.toLowerCase();
     if (!FORMAT_META[fmt]) {
       throw new ValidationError(`Format tidak didukung: ${format}. Pilih: png, jpg, gif, webp, wa`);
     }
 
+    // 1. Cek dari Cache dulu
+    const cacheKey = `${fileId || url}-${fmt}`;
+    if (stickerCache.has(cacheKey)) {
+      logger.info(`[Telegram] Mengambil dari CACHE: ${cacheKey}`);
+      return stickerCache.get(cacheKey);
+    }
+
+    // 2. Kalau tidak ada di cache, download & proses
     let fileUrl, filePath;
 
     if (url) {
@@ -380,9 +394,9 @@ try{
     }
 
     const { buffer, contentType } = await this.downloadFile(fileUrl);
-    const stickerType = this.detectStickerType(filePath, contentType);
+    const stickerType = this.detectStickerType(buffer, filePath, contentType);
 
-    logger.info(`[Telegram] Type: ${stickerType} → format: ${fmt}`);
+    logger.info(`[Telegram] Proses Baru Type: ${stickerType} → format: ${fmt}`);
 
     let result;
     switch (stickerType) {
@@ -391,7 +405,16 @@ try{
       default:      result = await this.convertWebp(buffer, fmt);  break;
     }
 
-    return { ...result, stickerType };
+    const finalResult = { ...result, stickerType };
+
+    // 3. Simpan ke Cache (Rotasi jika sudah lebih dari 200 item agar RAM aman)
+    if (stickerCache.size >= MAX_CACHE_SIZE) {
+      const firstKey = stickerCache.keys().next().value;
+      stickerCache.delete(firstKey);
+    }
+    stickerCache.set(cacheKey, finalResult);
+
+    return finalResult;
   }
 }
 

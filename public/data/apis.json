@@ -61,45 +61,48 @@
       ]
     }
   ],
-  "Sticker": [
+"Sticker": [
     {
       "id": 1,
-      "name": "Telegram → Stiker WA",
+      "name": "Get Sticker Pack",
+      "method": "POST",
+      "action": "/api/telegram/sticker-pack",
+      "description": "Ambil seluruh daftar stiker dari sebuah Telegram Sticker Pack. Endpoint ini mengembalikan data JSON berisi info pack dan daftar fileId stiker yang siap diunduh.",
+      "params": [
+        {
+          "name": "url",
+          "type": "string",
+          "example": "https://t.me/addstickers/KOSHAKIEBANIYE",
+          "required": true,
+          "description": "URL atau link dari Telegram Sticker Pack."
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Convert & Download Sticker",
       "method": "POST",
       "action": "/api/telegram/sticker",
-      "description": "Download dan konversi stiker Telegram ke PNG, JPG, GIF, WebP, atau format stiker WhatsApp (512×512). Mendukung tiga tipe stiker Telegram: static WebP, animasi TGS (Lottie), dan video WebM. Gunakan format 'wa' untuk output siap kirim ke bot WhatsApp (baileys/whatsapp-web.js).",
+      "description": "Unduh dan konversi stiker Telegram menjadi gambar statis atau animasi. Mendukung konversi langsung ke format stiker WhatsApp.",
       "params": [
         {
           "name": "fileId",
           "type": "string",
           "example": "CAACAgIAAxkBAAEKxxxxxXXXX",
-          "required": false,
-          "description": "Telegram file_id stiker. Dapatkan dari Telegram bot via getUpdates atau forward stiker ke @RawDataBot."
-        },
-        {
-          "name": "url",
-          "type": "string",
-          "example": "https://api.telegram.org/file/bot<token>/stickers/file_0.webp",
-          "required": false,
-          "description": "URL langsung ke file stiker (alternatif fileId). Salah satu dari fileId atau url wajib diisi."
-        },
-        {
-          "name": "botToken",
-          "type": "string",
-          "example": "123456789:AAxxxxxxxxxxxxxxxx",
-          "required": false,
-          "description": "Token bot Telegram. Opsional — gunakan env TELEGRAM_BOT_TOKEN jika tidak diisi di sini."
+          "required": true,
+          "description": "ID unik stiker Telegram (file_id). Dapatkan lewat endpoint Get Sticker Pack, atau forward stiker incaranmu ke bot Telegram @RawDataBot."
         },
         {
           "name": "format",
           "type": "string",
           "example": "wa",
           "required": false,
-          "description": "Format output: png, jpg, gif, webp, atau wa. Format 'wa' = 512×512 WebP (static) / GIF (animasi) — siap untuk bot WhatsApp. Default: png."
+          "description": "Pilihan format output: png, jpg, gif, webp, atau wa (format khusus stiker WhatsApp)."
         }
       ]
     }
   ],
+
   "Image Generator": [
     {
       "id": 1,

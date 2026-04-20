@@ -29,6 +29,30 @@ class TelegramStickerController {
       next(error);
     }
   }
+
+  async getStickerPack(req, res, next) {
+    try {
+      const { url, packName, botToken } = req.body;
+      const target = url || packName;
+
+      if (!target) {
+        return res.status(400).json({ error: 'Sediakan parameter url atau packName' });
+      }
+
+      const packData = await telegramService.getStickerSet(target, botToken);
+      
+      // Kirim respons dalam bentuk JSON (bukan buffer gambar)
+      return res.status(200).json({
+        success: true,
+        message: 'Data sticker pack berhasil diambil',
+        data: packData
+      });
+
+    } catch (error) {
+      logger.error(`[Telegram Controller] getStickerPack: ${error.message}`);
+      next(error);
+    }
+  }
 }
 
 module.exports = new TelegramStickerController();

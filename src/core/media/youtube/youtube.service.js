@@ -46,12 +46,12 @@ function sanitizeFilename(title, ext) {
 function getBaseOptions(cookiePath) {
   const opts = {
     addHeader: [
-      'User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      'Accept-Language:en-US,en;q=0.9',
+      'User-Agent: com.google.ios.youtube/19.14.3 (iPhone16,2; iOS 17_4_1; Scale/3.00)',
+      'Accept-Language: en-US,en;q=0.9',
     ],
     // ✅ FIX: 'web' client works reliably on cloud; removed 'default' which caused
     // "Requested format is not available" on some videos
-    extractorArgs: 'youtube:player_client=web',
+    extractorArgs: 'youtube:player_client=ios',
     geoBypass: true,
     retries: 5,
     fragmentRetries: 5,
@@ -208,7 +208,7 @@ class YouTubeService {
         const outputBase = path.join(DOWNLOAD_DIR, cleanFilename.replace(/\.mp4$/, ''));
 
         const downloadParams = {
-          format: 'bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio/best[ext=mp4]/best',
+          format: 'bestvideo+bestaudio/best',
           mergeOutputFormat: 'mp4',
           output: outputBase,
           quiet: false,

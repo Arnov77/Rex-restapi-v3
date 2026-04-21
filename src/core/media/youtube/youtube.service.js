@@ -65,6 +65,25 @@ function getBaseOptions(cookiePath) {
   return opts;
 }
 
+async function getBestProxy() {
+  try {
+    const response = await axios.get('https://raw.githubusercontent.com/proxifly/free-proxy-list/main/proxies/protocols/socks5/data.json');
+    const samples = response.data.sort(() => 0.5 - Math.random()).slice(0, 5);
+    
+    for (const p of samples) {
+      const proxyUrl = `socks5://${p.ip}:${p.port}`;
+      try {
+        // Test singkat ke youtube
+        await axios.get('https://www.youtube.com', { 
+          httpsAgent: new SocksProxyAgent(proxyUrl), 
+          timeout: 5000 
+        });
+        return proxyUrl;
+      } catch (e) { continue; }
+    }
+  } catch (e) { return null; }
+}
+
 class YouTubeService {
   async searchVideos(query, limit = 5) {
     try {
@@ -159,48 +178,67 @@ class YouTubeService {
   }
 
   async downloadMp4(query, baseUrl = 'http://localhost:3000') {
-    let cookiePath = null;
-    try {
-      logger.info(`[YouTube] Fetching MP4 for: ${query}`);
-      if (!hasCookies()) logger.warn('[YouTube] No cookies — set YOUTUBE_COOKIES_B64 for cloud servers');
-
-      let videoUrl = query;
-      let videoInfo = null;
-      if (!query.includes('youtube.com') && !query.includes('youtu.be')) {
-        const sr = await this.searchVideos(query, 1);
-        if (!sr.videos.length) throw new NotFoundError('Video not found');
-        videoInfo = sr.videos[0];
-        videoUrl = videoInfo.url;
-      }
-
-      logger.info(`[YouTube] Downloading MP4 from: ${videoUrl}`);
-      cookiePath = writeCookieToTmp();
-      const baseOpts = getBaseOptions(cookiePath);
-
-      let videoMetadata = {};
+      let cookiePath = null;
       try {
-        const metadata = await youtubedl(videoUrl, { ...baseOpts, dumpJson: true, quiet: true });
-        videoMetadata = typeof metadata === 'string' ? JSON.parse(metadata) : metadata;
-      } catch (e) {
-        logger.warn(`[YouTube] Metadata fetch failed: ${e.message}`);
-      }
+        logger.info(`[YouTube] Fetching MP4 for: ${query}`);
+        if (!hasCookies()) logger.warn('[YouTube] No cookies — set YOUTUBE_COOKIES_B64 for cloud servers');
 
-      const cleanFilename = sanitizeFilename(videoMetadata.title || videoInfo?.title || 'video', 'mp4');
-      const outputBase = path.join(DOWNLOAD_DIR, cleanFilename.replace(/\.mp4$/, ''));
+        let videoUrl = query;
+        let videoInfo = null;
+        if (!query.includes('youtube.com') && !query.includes('youtu.be')) {
+          const sr = await this.searchVideos(query, 1);
+          if (!sr.videos.length) throw new NotFoundError('Video not found');
+          videoInfo = sr.videos[0];
+          videoUrl = videoInfo.url;
+        }
 
-      await youtubedl(videoUrl, {
-        ...baseOpts,
-        // ✅ FIX: Multi-level format fallback chain.
-        // Level 1: best native mp4 video + m4a audio (no re-encode needed)
-        // Level 2: any mp4 that's already muxed
-        // Level 3: absolute best available (may be webm, will get converted)
-        format: 'bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio/best[ext=mp4]/best',
-        mergeOutputFormat: 'mp4',
-        output: outputBase,
-        quiet: false,
-        // Stream copy — no re-encode, faster and avoids ffmpeg arg issues
-        postprocessorArgs: 'ffmpeg:-c:v copy -c:a aac',
-      });
+        logger.info(`[YouTube] Downloading MP4 from: ${videoUrl}`);
+        cookiePath = writeCookieToTmp();
+        const baseOpts = getBaseOptions(cookiePath);
+
+        let videoMetadata = {};
+        try {
+          const metadata = await youtubedl(videoUrl, { ...baseOpts, dumpJson: true, quiet: true });
+          videoMetadata = typeof metadata === 'string' ? JSON.parse(metadata) : metadata;
+        } catch (e) {
+          logger.warn(`[YouTube] Metadata fetch failed: ${e.message}`);
+        }
+
+        const cleanFilename = sanitizeFilename(videoMetadata.title || videoInfo?.title || 'video', 'mp4');
+        const outputBase = path.join(DOWNLOAD_DIR, cleanFilename.replace(/\.mp4$/, ''));
+
+        const downloadParams = {
+          format: 'bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio/best[ext=mp4]/best',
+          mergeOutputFormat: 'mp4',
+          output: outputBase,
+          quiet: false,
+          postprocessorArgs: 'ffmpeg:-c:v copy -c:a aac',
+        };
+
+        try {
+          // PERCOBAAN 1: Tanpa Proxy
+          await youtubedl(videoUrl, { ...baseOpts, ...downloadParams });
+        } catch (error) {
+          // PERCOBAAN 2: Jika diblokir, coba pakai Proxy Tercepat
+          if (this._isBotBlock(error.message)) {
+            logger.warn('[YouTube] Terdeteksi blokir, mencoba mencari proxy...');
+            const bestProxy = await getBestProxy(); // Fungsi tester yang kita buat tadi
+
+            if (bestProxy) {
+              logger.info(`[YouTube] Retrying download with proxy: ${bestProxy}`);
+              await youtubedl(videoUrl, { 
+                ...baseOpts, 
+                ...downloadParams, 
+                proxy: bestProxy,
+                socketTimeout: 30 // Tambah timeout karena proxy gratis lambat
+              });
+            } else {
+              throw error; // Jika tidak ada proxy hidup, lempar error asli
+            }
+          } else {
+            throw error;
+          }
+        }
 
       const filepath = this._findOutputFile(outputBase, ['mp4', 'mkv', 'webm']);
       if (!filepath) throw new AppError('Video file was not created', 502);
@@ -222,7 +260,7 @@ class YouTubeService {
     } catch (error) {
       logger.error(`[YouTube MP4] Error: ${error.message}`);
       if (this._isBotBlock(error.message)) {
-        throw new AppError('YouTube is blocking this server. Set YOUTUBE_COOKIES_B64 with valid browser cookies.', 403);
+        throw new AppError('YouTube is blocking this server even with proxy. Refresh cookies.', 403);
       }
       throw new AppError(`Download failed: ${error.message}`, 502);
     } finally {

@@ -251,11 +251,14 @@ class YouTubeService {
 
       try {
         await youtubedl(videoUrl, {
-          format: 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]',
+          // Fallback chain: coba format terbaik dulu, kalau gagal turun ke yg lebih simple
+          format: 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best',
           mergeOutputFormat: 'mp4',
           output: filepath.replace(/\.mp4$/, ''),
           quiet: false,
           noWarnings: true,
+          // Kalau merge butuh re-encode (misal webm → mp4)
+          postprocessorArgs: ['-c:v', 'libx264', '-c:a', 'aac'],
           ...cookieOpts,
         });
 

@@ -2,6 +2,7 @@ const play = require('play-dl');
 const youtubedl = require('youtube-dl-exec');
 const logger = require('../../../shared/utils/logger');
 const { NotFoundError, AppError } = require('../../../shared/utils/errors');
+const cookiePath = '/etc/secrets/cookies.txt';
 const fs = require('fs-extra');
 const path = require('path');
 
@@ -138,7 +139,8 @@ class YouTubeService {
           output: filepath.replace(/.mp3$/, ''),
           quiet: false,
           noWarnings: true,
-          cookies: path.join(process.cwd(), '.secret/cookies.txt'),
+          cookies: cookiePath,
+          userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         });
 
         // Get file size
@@ -231,7 +233,8 @@ class YouTubeService {
           output: filepath.replace(/.mp4$/, ''),
           quiet: false,
           noWarnings: true,
-          cookies: path.join(process.cwd(), '.secret/cookies.txt'),
+          cookies: cookiePath,
+          userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         });
 
         // Get file size

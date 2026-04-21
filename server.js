@@ -23,10 +23,15 @@ const smemeRoute = require('./src/core/tools/smeme/smeme.routes');
 const promosiRoute = require('./src/core/tools/promosi/promosi.routes');
 const mcprofileRoute = require('./src/core/tools/mcprofile/mcprofile.routes');
 const miqRoute = require('./src/core/tools/miq/miq.routes');
-const telegramRoute = require('./src/core/tools/telegram/telegram.routes'); // ← NEW
+const telegramRoute = require('./src/core/tools/telegram/telegram.routes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// ✅ FIX: Trust proxy — required when running behind Render/Railway/Nginx reverse proxy.
+// Without this, express-rate-limit throws ERR_ERL_UNEXPECTED_X_FORWARDED_FOR.
+// '1' means trust the first proxy hop (the Render load balancer).
+app.set('trust proxy', 1);
 
 function ensureDir(dirname) {
   const target = path.join(__dirname, dirname);
@@ -56,7 +61,7 @@ app.use('/api/quote', apiLimiter, quoteRoute);
 app.use('/api/smeme', apiLimiter, smemeRoute);
 app.use('/api/promosi', apiLimiter, promosiRoute);
 app.use('/api/miq', apiLimiter, miqRoute);
-app.use('/api/telegram', apiLimiter, telegramRoute); // ← NEW
+app.use('/api/telegram', apiLimiter, telegramRoute);
 app.use('/mcapi', apiLimiter, mcprofileRoute);
 
 app.get('/health', (req, res) => {

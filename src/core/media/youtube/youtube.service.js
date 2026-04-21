@@ -138,6 +138,7 @@ class YouTubeService {
           output: filepath.replace(/.mp3$/, ''),
           quiet: false,
           noWarnings: true,
+          cookies: path.join(process.cwd(), '.secret/cookies.txt'),
         });
 
         // Get file size
@@ -230,6 +231,7 @@ class YouTubeService {
           output: filepath.replace(/.mp4$/, ''),
           quiet: false,
           noWarnings: true,
+          cookies: path.join(process.cwd(), '.secret/cookies.txt'),
         });
 
         // Get file size

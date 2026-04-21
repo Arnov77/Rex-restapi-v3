@@ -23,7 +23,7 @@ function writeCookieToTmp() {
 
   const tmpPath = `/tmp/ck_${randomUUID()}.txt`;
   const decoded = Buffer.from(b64, 'base64').toString('utf-8');
-  fs.writeFileSync(tmpPath, decoded, { mode: 0o600 }); // hanya owner yg bisa baca
+  fs.writeFileSync(tmpPath, decoded, { mode: 0o600 });
   return tmpPath;
 }
 
@@ -38,21 +38,39 @@ function cleanupCookies(tmpPath) {
 }
 
 /**
- * Sanitize filename from video title
+ * Sanitize filename from video title — strict mode for Windows & Linux.
+ * Uses a UUID fallback prefix so temp merge files never collide.
+ *
  * @param {string} title - Video title
  * @param {string} ext - File extension (mp3, mp4)
  * @returns {string} Clean filename
  */
 function sanitizeFilename(title, ext) {
   let clean = title
-    .toLowerCase()
+    // Remove Windows-invalid characters: \ / : * ? " < > |
+    .replace(/[\\/:*?"<>|]/g, '')
+    // Remove non-printable / control chars
+    .replace(/[\x00-\x1f\x7f]/g, '')
+    // Keep only alphanumeric, spaces, hyphens, underscores
     .replace(/[^\w\s-]/g, '')
+    // Replace whitespace runs with a single hyphen
     .replace(/\s+/g, '-')
+    // Collapse multiple hyphens
     .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
+    // Strip leading/trailing hyphens
+    .replace(/^-+|-+$/g, '')
+    .trim()
+    .toLowerCase();
 
-  clean = clean.substring(0, 50);
-  return `${clean}.${ext}`;
+  // Guarantee at least something
+  if (!clean) clean = 'media';
+
+  // Limit length (leave room for UUID prefix + extension)
+  clean = clean.substring(0, 40);
+
+  // Prepend short UUID segment so yt-dlp temp files (.part, .webm, etc.) never clash
+  const uid = randomUUID().split('-')[0]; // 8 chars
+  return `${uid}-${clean}.${ext}`;
 }
 
 /**
@@ -131,7 +149,6 @@ class YouTubeService {
 
       logger.info(`[YouTube] Downloading MP3 from: ${videoUrl}`);
 
-      // Tulis cookie ke tmp (null kalau env var tidak di-set)
       cookiePath = writeCookieToTmp();
       const cookieOpts = cookiePath ? { cookies: cookiePath } : {};
 
@@ -152,18 +169,26 @@ class YouTubeService {
 
       const videoTitle = videoMetadata.title || videoInfo?.title || 'audio';
       const cleanFilename = sanitizeFilename(videoTitle, 'mp3');
-      const filepath = path.join(DOWNLOAD_DIR, cleanFilename);
+
+      // Pass output path WITHOUT extension — yt-dlp appends .mp3 automatically
+      const outputBase = path.join(DOWNLOAD_DIR, cleanFilename.replace(/\.mp3$/, ''));
 
       try {
         await youtubedl(videoUrl, {
           extractAudio: true,
           audioFormat: 'mp3',
           audioQuality: '192',
-          output: filepath.replace(/\.mp3$/, ''),
+          output: outputBase,
           quiet: false,
           noWarnings: true,
           ...cookieOpts,
         });
+
+        // Verify the file was actually created
+        const filepath = outputBase + '.mp3';
+        if (!fs.existsSync(filepath)) {
+          throw new AppError('MP3 file was not created after download', 502);
+        }
 
         const stats = fs.statSync(filepath);
         const fileSize = Math.round(stats.size / 1024) + ' KB';
@@ -195,7 +220,6 @@ class YouTubeService {
       logger.error(`[YouTube MP3] Error: ${error.message}`);
       throw error;
     } finally {
-      // Cookie SELALU dihapus, sukses maupun gagal
       cleanupCookies(cookiePath);
     }
   }
@@ -226,7 +250,6 @@ class YouTubeService {
 
       logger.info(`[YouTube] Downloading MP4 from: ${videoUrl}`);
 
-      // Tulis cookie ke tmp (null kalau env var tidak di-set)
       cookiePath = writeCookieToTmp();
       const cookieOpts = cookiePath ? { cookies: cookiePath } : {};
 
@@ -247,29 +270,40 @@ class YouTubeService {
 
       const videoTitle = videoMetadata.title || videoInfo?.title || 'video';
       const cleanFilename = sanitizeFilename(videoTitle, 'mp4');
-      const filepath = path.join(DOWNLOAD_DIR, cleanFilename);
+
+      // Pass output WITHOUT extension — yt-dlp appends .mp4 itself
+      const outputBase = path.join(DOWNLOAD_DIR, cleanFilename.replace(/\.mp4$/, ''));
 
       try {
         await youtubedl(videoUrl, {
-          // Fallback chain: coba format terbaik dulu, kalau gagal turun ke yg lebih simple
-          format: 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best',
+          // Try best mp4+m4a first, then fall back to any best
+          format: 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
           mergeOutputFormat: 'mp4',
-          output: filepath.replace(/\.mp4$/, ''),
+          output: outputBase,
           quiet: false,
           noWarnings: true,
-          // Kalau merge butuh re-encode (misal webm → mp4)
-          postprocessorArgs: ['-c:v', 'libx264', '-c:a', 'aac'],
+          // FIX: postprocessorArgs must be a STRING with 'ffmpeg:' prefix,
+          // NOT an array — youtube-dl-exec passes it as-is to yt-dlp CLI
+          postprocessorArgs: 'ffmpeg:-c:v copy -c:a aac',
           ...cookieOpts,
         });
 
+        // yt-dlp may produce outputBase.mp4 or outputBase.mkv depending on merge
+        // Find whichever file actually got created
+        const filepath = this._findOutputFile(outputBase, ['mp4', 'mkv', 'webm']);
+        if (!filepath) {
+          throw new AppError('Video file was not created after download', 502);
+        }
+
         const stats = fs.statSync(filepath);
         const fileSize = Math.round(stats.size / (1024 * 1024) * 100) / 100 + ' MB';
+        const actualFilename = path.basename(filepath);
 
-        logger.success(`[YouTube] MP4 ready: ${cleanFilename}`);
+        logger.success(`[YouTube] MP4 ready: ${actualFilename}`);
 
         return {
           title: videoMetadata.title || videoInfo?.title || 'Video',
-          download: `${baseUrl}/download/${cleanFilename}`,
+          download: `${baseUrl}/download/${actualFilename}`,
           format: 'video/mp4',
           fileSize,
           duration: videoMetadata.duration
@@ -290,9 +324,22 @@ class YouTubeService {
       logger.error(`[YouTube MP4] Error: ${error.message}`);
       throw error;
     } finally {
-      // Cookie SELALU dihapus, sukses maupun gagal
       cleanupCookies(cookiePath);
     }
+  }
+
+  /**
+   * Helper: Find the actual output file yt-dlp created (tries multiple extensions)
+   * @param {string} base - Path without extension
+   * @param {string[]} exts - Extensions to try, in priority order
+   * @returns {string|null} Full path if found, null otherwise
+   */
+  _findOutputFile(base, exts = ['mp4', 'mkv', 'webm']) {
+    for (const ext of exts) {
+      const candidate = `${base}.${ext}`;
+      if (fs.existsSync(candidate)) return candidate;
+    }
+    return null;
   }
 
   /**

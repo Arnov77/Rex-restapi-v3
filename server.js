@@ -9,7 +9,7 @@ dotenv.config();
 
 const logger = require('./src/shared/utils/logger');
 const { errorHandler } = require('./src/shared/middleware/errorHandler');
-const { generalLimiter, apiLimiter, aiLimiter } = require('./src/shared/middleware/rateLimiter');
+const { generalLimiter, apiLimiter } = require('./src/shared/middleware/rateLimiter');
 const ResponseHandler = require('./src/shared/utils/response');
 
 const youtubeRoutes = require('./src/core/media/youtube/youtube.routes');
@@ -28,9 +28,8 @@ const telegramRoute = require('./src/core/tools/telegram/telegram.routes');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ✅ FIX: Trust proxy — required when running behind Render/Railway/Nginx reverse proxy.
-// Without this, express-rate-limit throws ERR_ERL_UNEXPECTED_X_FORWARDED_FOR.
-// '1' means trust the first proxy hop (the Render load balancer).
+// Trust the first proxy hop when running behind services like Render or Railway.
+// This prevents express-rate-limit from rejecting proxied requests.
 app.set('trust proxy', 1);
 
 function ensureDir(dirname) {
@@ -65,11 +64,15 @@ app.use('/api/telegram', apiLimiter, telegramRoute);
 app.use('/mcapi', apiLimiter, mcprofileRoute);
 
 app.get('/health', (req, res) => {
-  res.json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-  });
+  return ResponseHandler.success(
+    res,
+    {
+      status: 'healthy',
+      uptime: process.uptime(),
+    },
+    'Health check passed',
+    200
+  );
 });
 
 app.get('/api/status', (req, res) => {

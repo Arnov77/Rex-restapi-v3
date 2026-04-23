@@ -13,12 +13,12 @@ tick();
 setInterval(tick, 1000);
 
 const ICONS = {
-  'Downloader': 'DL',
-  'Sticker': 'STK',      // ← NEW
+  Downloader: 'DL',
+  Sticker: 'STK',
   'Image Generator': 'IMG',
-  'Utilities': 'UTIL',
-  'Minecraft': 'MC',
-  'Status': 'OK',
+  Utilities: 'UTIL',
+  Minecraft: 'MC',
+  Status: 'OK',
 };
 
 let DATA = {};
@@ -36,12 +36,15 @@ fetch('data/apis.json')
     document.getElementById('totalCat').textContent = Object.keys(data).length;
     buildNav(data);
     renderAll(data);
-    document.getElementById('searchInput').addEventListener('input', (event) => doSearch(event.target.value));
+    document.getElementById('searchInput').addEventListener('input', (event) => {
+      doSearch(event.target.value);
+    });
   });
 
 function buildNav(data) {
   const nav = document.getElementById('navItems');
   const total = Object.values(data).reduce((sum, apis) => sum + apis.length, 0);
+
   let html = `<a class="nav-item active" onclick="showAll(this)" href="#">
     <span class="nav-icon">ALL</span><span>Semua</span>
     <span class="nav-count">${total}</span>
@@ -73,7 +76,9 @@ function showCat(category, element) {
   setActive(element);
   document.getElementById('activeTitle').textContent = category;
   document.getElementById('mainContent').innerHTML = renderSection(category, DATA[category]);
-  setTimeout(() => document.getElementById(slugify(category))?.scrollIntoView({ behavior: 'smooth' }), 50);
+  setTimeout(() => {
+    document.getElementById(slugify(category))?.scrollIntoView({ behavior: 'smooth' });
+  }, 50);
   if (window.innerWidth <= 768) closeMobileMenu();
 }
 
@@ -97,6 +102,7 @@ function doSearch(query) {
       (api.description || '').toLowerCase().includes(normalized) ||
       api.action.toLowerCase().includes(normalized)
     );
+
     if (matches.length) filtered[category] = matches;
   });
 
@@ -127,6 +133,7 @@ function renderSection(category, apis) {
 function renderCard(api) {
   const methodClass = api.method === 'GET' ? 'm-get' : 'm-post';
   const path = api.action.split('?')[0];
+
   return `<div class="api-card" onclick="openModal(${esc(api)})">
     <div class="card-row">
       <span class="mtag ${methodClass}">${api.method}</span>
@@ -169,9 +176,11 @@ function openModal(api) {
 
   const methodClass = api.method === 'GET' ? 'm-get' : 'm-post';
   document.getElementById('mName').textContent = api.name;
+
   const methodTag = document.getElementById('mMethod');
   methodTag.textContent = api.method;
   methodTag.className = `mtag ${methodClass}`;
+
   document.getElementById('mPath').textContent = api.action.split('?')[0];
   document.getElementById('mDesc').textContent = api.description || '';
 
@@ -190,10 +199,16 @@ function closeModal() {
 function buildTabs(api) {
   const isGet = api.method === 'GET';
   const tabs = isGet ? ['docs'] : ['docs', 'try', 'code'];
-  const labels = { docs: 'Dokumentasi', try: 'Coba Langsung', code: 'Kode Integrasi' };
+  const labels = {
+    docs: 'Dokumentasi',
+    try: 'Coba Langsung',
+    code: 'Kode Integrasi',
+  };
+
   document.getElementById('tabRow').innerHTML = tabs.map((tab) =>
     `<div class="tab ${tab === activeTab ? 'active' : ''}" onclick="switchTab('${tab}')">${labels[tab]}</div>`
   ).join('');
+
   renderTabBody(api, activeTab);
 }
 
@@ -212,8 +227,8 @@ function renderTabBody(api, tab) {
 function buildDocsTab(api) {
   const isGet = api.method === 'GET';
   const supportsFile = (api.params || []).some((param) => param.type === 'file');
-  let paramSection = '';
 
+  let paramSection = '';
   if (api.params && api.params.length > 0) {
     const rows = api.params.map((param) => {
       const required = param.required === false
@@ -222,6 +237,7 @@ function buildDocsTab(api) {
       const type = param.type === 'select' ? 'select (string)' : (param.type || 'string');
       const description = param.description || getParamDesc(param.name);
       const example = param.example ? `<div class="pexample">Contoh: ${param.example}</div>` : '';
+
       return `<tr>
         <td><span class="pname">${param.name}</span></td>
         <td><span class="ptype-badge">${type}</span></td>
@@ -266,9 +282,9 @@ function buildDocsTab(api) {
 function buildTryTab(api) {
   const isBrat = api.name.toLowerCase().includes('brat');
   const isGemini = api.name.toLowerCase().includes('gemini');
-  const isTelegramSticker = api.action.includes('/api/telegram/sticker');
-  let fields = '';
+  const isTelegramSticker = api.action === '/api/telegram/sticker';
 
+  let fields = '';
   if (api.params) {
     api.params.forEach((param) => {
       if (isBrat && ['bgColor', 'textColor', 'preset'].includes(param.name)) return;
@@ -281,6 +297,7 @@ function buildTryTab(api) {
         ? 'file'
         : ['url', 'image', 'avatarUrl', 'skin'].includes(param.name) ? 'url' : 'text';
       const description = param.description || getParamDesc(param.name);
+
       fields += `<div class="form-section">
         <div class="form-label"><span class="form-label-text">${param.name}</span>${required}</div>
         <input type="${inputType}" class="form-input" id="f-${param.name}" ${inputType === 'file' ? 'accept="image/*"' : `placeholder="${hint}"`}>
@@ -290,6 +307,7 @@ function buildTryTab(api) {
   }
 
   let extra = '';
+
   if (isBrat) {
     extra = `<div class="form-section">
       <div class="form-label"><span class="form-label-text">preset</span><span class="chip-opt" style="font-size:10px">opsional</span></div>
@@ -336,10 +354,10 @@ function buildTryTab(api) {
         <div class="preset-btn" onclick="selFormat('jpg', this)">jpg</div>
         <div class="preset-btn" onclick="selFormat('gif', this)">gif</div>
         <div class="preset-btn" onclick="selFormat('webp', this)">webp</div>
-        <div class="preset-btn" onclick="selFormat('wa', this)">wa ⭐</div>
+        <div class="preset-btn" onclick="selFormat('wa', this)">wa *</div>
       </div>
       <input type="hidden" id="f-format" value="png">
-      <div class="form-hint">Format "wa" = output siap kirim sebagai stiker WhatsApp (512×512 WebP/GIF).</div>
+      <div class="form-hint">Format "wa" cocok untuk stiker WhatsApp dalam ukuran 512x512.</div>
     </div>`;
   }
 
@@ -357,12 +375,16 @@ function buildCodeTab(api) {
   const bodyString = JSON.stringify(sampleBody, null, 2);
   const isGet = api.method === 'GET';
   const supportsFile = (api.params || []).some((param) => param.type === 'file');
-  const isTelegramSticker = endpoint.includes('/api/telegram/sticker');
+  const isTelegramSticker = endpoint === '/api/telegram/sticker';
+  const isTelegramStickerPack = endpoint === '/api/telegram/sticker-pack';
 
-  let curl, fetchCode, axiosCode, pythonCode;
+  let curl;
+  let fetchCode;
+  let axiosCode;
+  let pythonCode;
 
   if (isTelegramSticker) {
-    curl = `# Menggunakan file_id (butuh bot token)
+    curl = `# Menggunakan file_id
 curl -X POST ${BASE_URL}${endpoint} \\
   -H "Content-Type: application/json" \\
   -d '{"fileId":"CAACAgIAAxkBAAEK...","format":"wa"}' \\
@@ -374,43 +396,33 @@ curl -X POST ${BASE_URL}${endpoint} \\
   -d '{"url":"https://example.com/sticker.webp","format":"png"}' \\
   --output sticker.png`;
 
-    fetchCode = `// Konversi stiker Telegram → format WA (baileys example)
+    fetchCode = `// Konversi stiker Telegram ke format WA
 const res = await fetch('${BASE_URL}${endpoint}', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ fileId: 'CAACAgIAAxkBAAEK...', format: 'wa' })
 });
-const buffer = Buffer.from(await res.arrayBuffer());
-
-// Kirim sebagai stiker WhatsApp (baileys)
-await sock.sendMessage(jid, { sticker: buffer });
-
-// Kirim sebagai stiker WhatsApp (whatsapp-web.js)
-const { MessageMedia } = require('whatsapp-web.js');
-const media = new MessageMedia(res.headers.get('content-type'), buffer.toString('base64'));
-await client.sendMessage(chatId, media, { sendMediaAsSticker: true });`;
+const buffer = Buffer.from(await res.arrayBuffer());`;
 
     axiosCode = `import axios from 'axios';
 
-// Konversi stiker Telegram → PNG / JPG / GIF / WebP / WA
 const res = await axios.post('${BASE_URL}${endpoint}', {
-  fileId: 'CAACAgIAAxkBAAEK...',  // atau: url: 'https://...'
-  botToken: 'OPTIONAL_TOKEN',     // hapus jika sudah set di .env
-  format: 'wa',                   // png | jpg | gif | webp | wa
+  fileId: 'CAACAgIAAxkBAAEK...',
+  botToken: 'OPTIONAL_TOKEN',
+  format: 'wa'
 }, { responseType: 'arraybuffer' });
 
 const buffer = Buffer.from(res.data);
-// res.headers['content-type'] → image/webp atau image/gif
-// res.headers['x-sticker-type'] → webp | tgs | webm`;
+// res.headers['content-type'] -> image/webp atau image/gif
+// res.headers['x-sticker-type'] -> webp | tgs | webm`;
 
     pythonCode = `import requests
 
-# Download stiker dan simpan
 r = requests.post(
     '${BASE_URL}${endpoint}',
     json={
         'fileId': 'CAACAgIAAxkBAAEK...',
-        'format': 'wa',   # png | jpg | gif | webp | wa
+        'format': 'wa'
     },
     timeout=60
 )
@@ -420,11 +432,39 @@ with open(f'sticker.{ext}', 'wb') as f:
     f.write(r.content)
 
 print('Tipe stiker:', r.headers.get('x-sticker-type'))`;
+  } else if (isTelegramStickerPack) {
+    curl = `curl -X POST ${BASE_URL}${endpoint} \\
+  -H "Content-Type: application/json" \\
+  -d '{"url":"https://t.me/addstickers/KOSHAKIEBANIYE"}'`;
+
+    fetchCode = `const response = await fetch('${BASE_URL}${endpoint}', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ url: 'https://t.me/addstickers/KOSHAKIEBANIYE' })
+});
+const data = await response.json();
+console.log(data);`;
+
+    axiosCode = `import axios from 'axios';
+
+const res = await axios.post('${BASE_URL}${endpoint}', {
+  url: 'https://t.me/addstickers/KOSHAKIEBANIYE'
+});
+console.log(res.data);`;
+
+    pythonCode = `import requests
+
+response = requests.post(
+    '${BASE_URL}${endpoint}',
+    json={'url': 'https://t.me/addstickers/KOSHAKIEBANIYE'}
+)
+print(response.json())`;
   } else if (supportsFile) {
     curl = `curl -X POST ${BASE_URL}${endpoint} \\
   -F "text=contoh quote" \\
   -F "author=Anonymous" \\
   -F "avatar=@avatar.png"`;
+
     fetchCode = `const form = new FormData();
 form.append('text', 'contoh quote');
 form.append('author', 'Anonymous');
@@ -435,6 +475,7 @@ const response = await fetch('${BASE_URL}${endpoint}', {
   body: form
 });
 const blob = await response.blob();`;
+
     axiosCode = `import axios from 'axios';
 
 const form = new FormData();
@@ -446,6 +487,7 @@ const res = await axios.post('${BASE_URL}${endpoint}', form, {
   headers: { 'Content-Type': 'multipart/form-data' },
   responseType: 'arraybuffer'
 });`;
+
     pythonCode = `import requests
 
 with open('avatar.png', 'rb') as avatar_file:
@@ -470,6 +512,7 @@ print(response.json())`;
     curl = `curl -X POST ${BASE_URL}${endpoint} \\
   -H "Content-Type: application/json" \\
   -d '${JSON.stringify(sampleBody)}'`;
+
     fetchCode = `const response = await fetch('${BASE_URL}${endpoint}', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
@@ -477,10 +520,12 @@ print(response.json())`;
 });
 const data = await response.json();
 console.log(data);`;
+
     axiosCode = `import axios from 'axios';
 
 const res = await axios.post('${BASE_URL}${endpoint}', ${bodyString});
 console.log(res.data);`;
+
     pythonCode = `import requests
 
 response = requests.post(
@@ -506,6 +551,7 @@ print(response.json())`;
 function switchCode(language, element) {
   document.querySelectorAll('.ctab').forEach((tab) => tab.classList.remove('active'));
   element.classList.add('active');
+
   ['curl', 'fetch', 'axios', 'python'].forEach((lang) => {
     const block = document.getElementById(`code-${lang}`);
     if (block) block.style.display = lang === language ? 'block' : 'none';
@@ -515,6 +561,7 @@ function switchCode(language, element) {
 function copyCode(id) {
   const block = document.getElementById(id);
   const text = block.innerText.replace(/^Copy$|^Copied!$/gm, '').trim();
+
   navigator.clipboard.writeText(text).then(() => {
     const button = block.querySelector('.copy-btn');
     button.textContent = 'Copied!';
@@ -533,8 +580,10 @@ function escHtml(value) {
 function buildSampleBody(api) {
   if (!api.params) return {};
   const body = {};
+
   api.params.forEach((param) => {
     if (param.required === false) return;
+
     if (param.example !== undefined) {
       if (param.type === 'boolean') {
         body[param.name] = String(param.example).toLowerCase() === 'true';
@@ -545,37 +594,39 @@ function buildSampleBody(api) {
       }
       return;
     }
+
     if (param.name === 'preset') body[param.name] = 'bratdeluxe';
     else if (param.name === 'option') body[param.name] = 'hitam';
     else body[param.name] = `<${param.name}>`;
   });
+
   return body;
 }
 
 function buildRequestBodyExample(api) {
   if (!api.params || api.params.length === 0 || api.method === 'GET') return null;
+
   const supportsFile = api.params.some((param) => param.type === 'file');
-  const isTelegramSticker = api.action.includes('/api/telegram/sticker');
+  const isTelegramSticker = api.action === '/api/telegram/sticker';
 
   if (isTelegramSticker) {
     return JSON.stringify({
       fileId: 'CAACAgIAAxkBAAEK... (gunakan salah satu)',
       url: 'https://... (atau ini)',
       botToken: '123456:ABC... (opsional)',
-      format: 'wa  ← png | jpg | gif | webp | wa',
+      format: 'wa <- png | jpg | gif | webp | wa',
     }, null, 2);
   }
 
   if (supportsFile) {
-    const fields = api.params.map((param) => {
+    return api.params.map((param) => {
       if (param.type === 'file') return `${param.name}: <binary image file>`;
       if (param.name === 'option') return `${param.name}: hitam | nerd`;
       if (param.type === 'boolean' && param.example !== undefined) return `${param.name}: ${String(param.example).toLowerCase()}`;
       if (param.type === 'number' && param.example !== undefined) return `${param.name}: ${Number(param.example)}`;
       if (param.example !== undefined) return `${param.name}: ${param.example}`;
       return `${param.name}: <${param.name}>`;
-    });
-    return fields.join('\n');
+    }).join('\n');
   }
 
   const body = {};
@@ -589,48 +640,212 @@ function buildRequestBodyExample(api) {
     else if (param.example !== undefined) body[param.name] = param.example;
     else body[param.name] = `<${param.name}>`;
   });
+
   return JSON.stringify(body, null, 2);
 }
 
 function buildResponseExample(api) {
   const action = api.action;
-  if (action.includes('/api/telegram/sticker')) {
-    return `Content-Type: image/webp   (static → format wa/webp)\nContent-Type: image/gif    (animated TGS atau WebM)\nContent-Type: image/png    (format png)\nX-Sticker-Type: webp | tgs | webm\n\n[Binary image response — langsung bisa dipakai sebagai Buffer]`;
+
+  if (action === '/api/telegram/sticker-pack') {
+    return JSON.stringify({
+      success: true,
+      statusCode: 200,
+      message: 'Data sticker pack berhasil diambil',
+      data: {
+        name: 'KOSHAKIEBANIYE',
+        title: 'Contoh Sticker Pack',
+        stickers: [
+          { fileId: 'CAACAgIAAxkBAAEKxxxxxXXXX', emoji: '🙂' },
+        ],
+      },
+      timestamp: '2026-04-23T10:00:00.000Z',
+    }, null, 2);
   }
-  if (action.includes('/api/brat/') || action.includes('/api/quote') || action.includes('/api/smeme') || action.includes('/api/miq/') || action === '/mcapi/render/head') {
+
+  if (action === '/api/telegram/sticker') {
+    return `Content-Type: image/webp   (static -> format wa/webp)
+Content-Type: image/gif    (animated TGS atau WebM)
+Content-Type: image/png    (format png)
+X-Sticker-Type: webp | tgs | webm
+
+[Binary image response]`;
+  }
+
+  if (
+    action.includes('/api/brat/') ||
+    action.includes('/api/quote') ||
+    action.includes('/api/smeme') ||
+    action.includes('/api/miq/') ||
+    action === '/mcapi/render/head'
+  ) {
     return 'Content-Type: image/png\n\n[Binary image response]';
   }
+
   if (action.includes('/api/youtube/mp3')) {
-    return JSON.stringify({ success: true, statusCode: 200, message: 'MP3 download link generated', data: { title: 'Never Gonna Give You Up', download: `${BASE_URL}/download/never-gonna-give-you-up.mp3`, format: 'audio/mpeg', fileSize: '3.20 MB', duration: '3 menit, 32 detik', author: 'Rick Astley' }, timestamp: '2026-04-18T10:00:00.000Z' }, null, 2);
+    return JSON.stringify({
+      success: true,
+      statusCode: 200,
+      message: 'MP3 download link generated',
+      data: {
+        title: 'Never Gonna Give You Up',
+        download: `${BASE_URL}/download/never-gonna-give-you-up.mp3`,
+        format: 'audio/mpeg',
+        fileSize: '3.20 MB',
+        duration: '3 menit, 32 detik',
+        author: 'Rick Astley',
+      },
+      timestamp: '2026-04-18T10:00:00.000Z',
+    }, null, 2);
   }
+
   if (action.includes('/api/youtube/mp4')) {
-    return JSON.stringify({ success: true, statusCode: 200, message: 'MP4 download link generated', data: { title: 'Never Gonna Give You Up', download: `${BASE_URL}/download/never-gonna-give-you-up.mp4`, format: 'video/mp4', fileSize: '12.40 MB', duration: '3 menit, 32 detik', quality: '720p' }, timestamp: '2026-04-18T10:00:00.000Z' }, null, 2);
+    return JSON.stringify({
+      success: true,
+      statusCode: 200,
+      message: 'MP4 download link generated',
+      data: {
+        title: 'Never Gonna Give You Up',
+        download: `${BASE_URL}/download/never-gonna-give-you-up.mp4`,
+        format: 'video/mp4',
+        fileSize: '12.40 MB',
+        duration: '3 menit, 32 detik',
+        quality: '720p',
+      },
+      timestamp: '2026-04-18T10:00:00.000Z',
+    }, null, 2);
   }
+
   if (action.includes('/api/tiktok/')) {
-    return JSON.stringify({ success: true, statusCode: 200, message: 'TikTok video data fetched successfully', data: { title: 'Contoh video TikTok', author: { name: 'Nama Kreator', username: '@username' }, media: { video: { nowm: 'https://example.com/video-nowm.mp4', hd: 'https://example.com/video-hd.mp4' }, audio: 'https://example.com/audio.mp3' } }, timestamp: '2026-04-18T10:00:00.000Z' }, null, 2);
+    return JSON.stringify({
+      success: true,
+      statusCode: 200,
+      message: 'TikTok video data fetched successfully',
+      data: {
+        title: 'Contoh video TikTok',
+        author: {
+          name: 'Nama Kreator',
+          username: '@username',
+        },
+        media: {
+          video: {
+            nowm: 'https://example.com/video-nowm.mp4',
+            hd: 'https://example.com/video-hd.mp4',
+          },
+          audio: 'https://example.com/audio.mp3',
+        },
+      },
+      timestamp: '2026-04-18T10:00:00.000Z',
+    }, null, 2);
   }
+
   if (action.includes('/api/instagram/download')) {
-    return JSON.stringify({ success: true, statusCode: 200, message: 'Instagram content fetched successfully', data: { downloadLinks: [{ url: 'https://example.com/instagram-media.mp4', type: 'video' }], count: 1 }, timestamp: '2026-04-18T10:00:00.000Z' }, null, 2);
+    return JSON.stringify({
+      success: true,
+      statusCode: 200,
+      message: 'Instagram content fetched successfully',
+      data: {
+        downloadLinks: [
+          {
+            url: 'https://example.com/instagram-media.mp4',
+            type: 'video',
+          },
+        ],
+        count: 1,
+      },
+      timestamp: '2026-04-18T10:00:00.000Z',
+    }, null, 2);
   }
+
   if (action.includes('/api/gdrive')) {
-    return JSON.stringify({ status: 200, creator: 'Arnov', result: { data: 'https://drive.google.com/uc?export=download&id=...', fileName: 'example.zip', fileSize: '1024.00 KB', mimetype: 'application/zip' } }, null, 2);
+    return JSON.stringify({
+      success: true,
+      statusCode: 200,
+      message: 'Google Drive link fetched successfully',
+      data: {
+        data: 'https://drive.google.com/uc?export=download&id=...',
+        fileName: 'example.zip',
+        fileSize: '1024.00 KB',
+        mimetype: 'application/zip',
+      },
+      timestamp: '2026-04-23T10:00:00.000Z',
+    }, null, 2);
   }
+
   if (action.includes('/api/promosi')) {
-    return JSON.stringify({ status: 200, creator: 'Arnov', result: { percentage: 88, isPromotion: true, reason: 'Mengandung ajakan promosi dan penawaran yang jelas.' } }, null, 2);
+    return JSON.stringify({
+      success: true,
+      statusCode: 200,
+      message: 'Promotion analysis completed',
+      data: {
+        percentage: 88,
+        isPromotion: true,
+        reason: 'Mengandung ajakan promosi dan penawaran yang jelas.',
+      },
+      timestamp: '2026-04-23T10:00:00.000Z',
+    }, null, 2);
   }
+
   if (action === '/mcapi/profile') {
-    return JSON.stringify({ ok: true, data: { edition: 'java', username: 'Dream', id: '8667ba71-b85a-4004-af54-457a9734eed7', linked: false, textures: { skin: 'https://textures.minecraft.net/texture/...' }, java: { uuid: '8667ba71-b85a-4004-af54-457a9734eed7', username: 'Dream' } } }, null, 2);
+    return JSON.stringify({
+      success: true,
+      statusCode: 200,
+      message: 'Minecraft profile fetched successfully',
+      data: {
+        edition: 'java',
+        username: 'Dream',
+        id: '8667ba71-b85a-4004-af54-457a9734eed7',
+        linked: false,
+        textures: {
+          skin: 'https://textures.minecraft.net/texture/...',
+        },
+        java: {
+          uuid: '8667ba71-b85a-4004-af54-457a9734eed7',
+          username: 'Dream',
+        },
+      },
+      timestamp: '2026-04-23T10:00:00.000Z',
+    }, null, 2);
   }
+
   if (action.includes('/mcapi/profile/:edition/:id/skin')) {
     return 'HTTP/1.1 302 Found\nLocation: https://textures.minecraft.net/texture/...';
   }
+
   if (action === '/health') {
-    return JSON.stringify({ status: 'healthy', timestamp: '2026-04-18T10:00:00.000Z', uptime: 1234.56 }, null, 2);
+    return JSON.stringify({
+      success: true,
+      statusCode: 200,
+      message: 'Health check passed',
+      data: {
+        status: 'healthy',
+        uptime: 1234.56,
+      },
+      timestamp: '2026-04-23T10:00:00.000Z',
+    }, null, 2);
   }
+
   if (action === '/api/status') {
-    return JSON.stringify({ success: true, statusCode: 200, message: 'API is running', data: { version: '2.0.0', environment: 'development', uptime: 1234 }, timestamp: '2026-04-18T10:00:00.000Z' }, null, 2);
+    return JSON.stringify({
+      success: true,
+      statusCode: 200,
+      message: 'API is running',
+      data: {
+        version: '2.0.0',
+        environment: 'development',
+        uptime: 1234,
+      },
+      timestamp: '2026-04-18T10:00:00.000Z',
+    }, null, 2);
   }
-  return JSON.stringify({ success: true, statusCode: 200, message: 'Success', data: {}, timestamp: '2026-04-10T00:00:00.000Z' }, null, 2);
+
+  return JSON.stringify({
+    success: true,
+    statusCode: 200,
+    message: 'Success',
+    data: {},
+    timestamp: '2026-04-10T00:00:00.000Z',
+  }, null, 2);
 }
 
 function getParamDesc(name) {
@@ -645,7 +860,7 @@ function getParamDesc(name) {
     avatar: 'File gambar avatar opsional',
     avatarUrl: 'URL gambar avatar publik opsional',
     option: 'Pilih transformasi AI: hitam atau nerd',
-    color: 'Untuk Make It A Quote gunakan true atau false. Untuk smeme isi warna teks seperti white,black',
+    color: 'Nilai warna atau opsi warna sesuai kebutuhan endpoint',
     preset: 'Pilih tema: bratdeluxe, brat, atau custom',
     bgColor: 'Warna latar dalam format hex, contoh: #e4ff3d',
     textColor: 'Warna teks dalam format hex, contoh: #000000',
@@ -664,19 +879,23 @@ function getParamDesc(name) {
     skin: 'URL skin Minecraft',
     size: 'Ukuran hasil render kepala',
     id: 'UUID Java atau identifier Bedrock sesuai endpoint',
-    fileId: 'Telegram file_id — dapatkan dari @RawDataBot atau via getUpdates di bot kamu',
+    fileId: 'Telegram file_id, dapatkan dari @RawDataBot atau via getUpdates di bot kamu',
     botToken: 'Token bot Telegram (opsional jika env TELEGRAM_BOT_TOKEN sudah diset)',
   };
+
   return descriptions[name] || '';
 }
 
 function selPreset(value, element) {
   selectedPreset = value;
   document.querySelectorAll('.preset-btn').forEach((button) => {
-    if (!button.getAttribute('onclick').includes('selOpt') && !button.getAttribute('onclick').includes('selFormat'))
+    const onclick = button.getAttribute('onclick') || '';
+    if (!onclick.includes('selOpt') && !onclick.includes('selFormat')) {
       button.classList.remove('sel');
+    }
   });
   element.classList.add('sel');
+
   const colorWrap = document.getElementById('colorWrap');
   if (colorWrap) colorWrap.style.display = value === 'custom' ? 'block' : 'none';
 }
@@ -684,18 +903,22 @@ function selPreset(value, element) {
 function selOpt(value, element) {
   selectedOption = value;
   document.querySelectorAll('.preset-btn').forEach((button) => {
-    if (button.getAttribute('onclick').includes('selOpt')) button.classList.remove('sel');
+    const onclick = button.getAttribute('onclick') || '';
+    if (onclick.includes('selOpt')) button.classList.remove('sel');
   });
   element.classList.add('sel');
+
   const hiddenInput = document.getElementById('f-option');
   if (hiddenInput) hiddenInput.value = value;
 }
 
 function selFormat(value, element) {
   document.querySelectorAll('.preset-btn').forEach((button) => {
-    if (button.getAttribute('onclick').includes('selFormat')) button.classList.remove('sel');
+    const onclick = button.getAttribute('onclick') || '';
+    if (onclick.includes('selFormat')) button.classList.remove('sel');
   });
   element.classList.add('sel');
+
   const hiddenInput = document.getElementById('f-format');
   if (hiddenInput) hiddenInput.value = value;
 }
@@ -714,17 +937,21 @@ function syncP(name) {
 
 function sendReq() {
   if (!currentApi) return;
+
   const api = currentApi;
   const button = document.getElementById('sendBtn');
   button.disabled = true;
   button.textContent = 'Mengirim...';
 
-  const isTelegramSticker = api.action.includes('/api/telegram/sticker');
-  const body = {};
+  const isTelegramSticker = api.action === '/api/telegram/sticker';
+  const isBrat = api.name.toLowerCase().includes('brat');
+  const isGemini = api.name.toLowerCase().includes('gemini');
 
+  const body = {};
   if (api.params) {
     api.params.forEach((param) => {
       if (['bgColor', 'textColor', 'preset', 'format'].includes(param.name)) return;
+
       const input = document.getElementById(`f-${param.name}`);
       if (!input) return;
       if (param.type === 'file') return;
@@ -740,9 +967,10 @@ function sendReq() {
     });
   }
 
-  const isBrat = api.name.toLowerCase().includes('brat');
-  const isGemini = api.name.toLowerCase().includes('gemini');
-  const hasFile = (api.params || []).some((param) => param.type === 'file' && document.getElementById(`f-${param.name}`)?.files?.length);
+  const hasFile = (api.params || []).some((param) => {
+    const input = document.getElementById(`f-${param.name}`);
+    return param.type === 'file' && input?.files?.length;
+  });
 
   if (isBrat) {
     body.preset = selectedPreset;
@@ -760,24 +988,25 @@ function sendReq() {
   }
 
   if (isTelegramSticker) {
-    const fmt = document.getElementById('f-format');
-    if (fmt) body.format = fmt.value;
+    const format = document.getElementById('f-format');
+    if (format) body.format = format.value;
   }
 
   showLoading();
 
   const requestOptions = { method: api.method };
-
   if (api.method !== 'GET') {
     if (hasFile) {
       const form = new FormData();
       Object.entries(body).forEach(([key, value]) => form.append(key, value));
+
       (api.params || [])
         .filter((param) => param.type === 'file')
         .forEach((param) => {
           const input = document.getElementById(`f-${param.name}`);
           if (input?.files?.[0]) form.append(param.name, input.files[0]);
         });
+
       requestOptions.body = form;
     } else {
       requestOptions.headers = { 'Content-Type': 'application/json' };
@@ -788,18 +1017,25 @@ function sendReq() {
   fetch(api.action, requestOptions)
     .then(async (response) => {
       const contentType = response.headers.get('content-type') || '';
+
       if (contentType.includes('image/')) {
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
-        const ext = contentType.includes('gif') ? 'gif' : contentType.includes('webp') ? 'webp' : 'png';
+        const ext = contentType.includes('gif')
+          ? 'gif'
+          : contentType.includes('webp')
+            ? 'webp'
+            : 'png';
         showImage(url, ext, response.status, contentType);
         return;
       }
+
       if (contentType.includes('application/json')) {
         const json = await response.json();
         showJSON(json, response.status);
         return;
       }
+
       const text = await response.text();
       showError(text || 'Response tidak dikenali');
     })
@@ -851,7 +1087,9 @@ const mobileOverlay = document.getElementById('mobileOverlay');
 function closeMobileMenu() {
   sidebar.classList.remove('open');
   mobileOverlay.classList.remove('active');
-  setTimeout(() => { mobileOverlay.style.display = 'none'; }, 300);
+  setTimeout(() => {
+    mobileOverlay.style.display = 'none';
+  }, 300);
 }
 
 function toggleMobileMenu() {

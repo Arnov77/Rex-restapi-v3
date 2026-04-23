@@ -1,16 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const utils = require('../../../utils/utils');
+const ResponseHandler = require('../../../shared/utils/response');
 
 router.all('/', async (req, res) => {
   if (!['GET', 'POST'].includes(req.method)) {
-    return res.status(405).json({ status: 405, message: 'Method Not Allowed' });
+    return ResponseHandler.error(res, 'Method Not Allowed', 405);
   }
 
   try {
     const obj = req.method === 'GET' ? req.query : req.body;
     if (!obj.name || !obj.message) {
-      return res.status(400).json({ status: 400, message: "Parameter 'name' dan 'message' wajib diisi" });
+      return ResponseHandler.error(res, "Parameter 'name' dan 'message' wajib diisi", 400);
     }
 
     const buffer = await utils.generateQuoteImage(obj.name, obj.message, obj.avatarUrl);
@@ -21,7 +22,7 @@ router.all('/', async (req, res) => {
     
   } catch (e) {
     console.error(e);
-    res.status(500).json({ status: 500, message: utils.getError(e) });
+    return ResponseHandler.error(res, utils.getError(e), 500);
   }
 });
 

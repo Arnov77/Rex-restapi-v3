@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
+const ResponseHandler = require('../../../shared/utils/response');
 
 const MEMEGEN_BASE_URL = 'https://api.memegen.link';
 
@@ -63,14 +64,14 @@ function encodeMemegenText(text = '') {
 // Endpoint: /meme
 router.all('/', async (req, res) => {
   if (!['GET', 'POST'].includes(req.method)) {
-    return res.status(405).json({ status: 405, message: 'Method Not Allowed' });
+    return ResponseHandler.error(res, 'Method Not Allowed', 405);
   }
 
   try {
     const obj = req.method === 'GET' ? req.query : req.body;
 
     const { image, top, bottom, format, width, height, font, color, layout } = obj;
-    if (!image) return res.status(400).json({ status: 400, message: "Parameter 'image' diperlukan (URL gambar)" });
+    if (!image) return ResponseHandler.error(res, "Parameter 'image' diperlukan (URL gambar)", 400);
 
     const safeFormat = ['png', 'jpg', 'gif', 'webp'].includes(String(format || '').toLowerCase())
       ? String(format).toLowerCase()
@@ -95,17 +96,14 @@ router.all('/', async (req, res) => {
 
     if (response.status >= 400) {
       const errorMessage = Buffer.from(response.data).toString('utf-8') || 'Gagal membuat meme';
-      return res.status(response.status).json({
-        status: response.status,
-        message: errorMessage,
-      });
+      return ResponseHandler.error(res, errorMessage, response.status);
     }
 
     res.set('Content-Type', response.headers['content-type'] || `image/${safeFormat}`);
     res.send(Buffer.from(response.data));
   } catch (e) {
     console.error(e);
-    res.status(500).json({ status: 500, message: e.message || 'Unknown Error' });
+    return ResponseHandler.error(res, e.message || 'Unknown Error', 500);
   }
 });
 

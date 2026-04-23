@@ -1,5 +1,6 @@
 const telegramService = require('./telegram.service');
 const logger = require('../../../shared/utils/logger');
+const ResponseHandler = require('../../../shared/utils/response');
 
 /**
  * Telegram Sticker Controller
@@ -36,17 +37,17 @@ class TelegramStickerController {
       const target = url || packName;
 
       if (!target) {
-        return res.status(400).json({ error: 'Sediakan parameter url atau packName' });
+        return ResponseHandler.error(res, 'Sediakan parameter url atau packName', 400);
       }
 
       const packData = await telegramService.getStickerSet(target, botToken);
-      
-      // Kirim respons dalam bentuk JSON (bukan buffer gambar)
-      return res.status(200).json({
-        success: true,
-        message: 'Data sticker pack berhasil diambil',
-        data: packData
-      });
+
+      return ResponseHandler.success(
+        res,
+        packData,
+        'Data sticker pack berhasil diambil',
+        200
+      );
 
     } catch (error) {
       logger.error(`[Telegram Controller] getStickerPack: ${error.message}`);

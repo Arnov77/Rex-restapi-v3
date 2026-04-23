@@ -22,7 +22,14 @@ WORKDIR /app
 
 COPY package*.json ./
 
+ENV YOUTUBE_DL_SKIP_DOWNLOAD=true
+
 RUN npm ci --legacy-peer-deps
+
+RUN apt-get update && apt-get install -y python3 curl && \
+    mkdir -p node_modules/youtube-dl-exec/bin && \
+    curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o node_modules/youtube-dl-exec/bin/yt-dlp && \
+    chmod +x node_modules/youtube-dl-exec/bin/yt-dlp
 
 COPY . .
 

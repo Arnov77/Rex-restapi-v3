@@ -1,5 +1,4 @@
 FROM node:20
-ARG GITHUB_TOKEN
 
 RUN apt-get update && apt-get install -y \
   chromium \
@@ -23,7 +22,7 @@ WORKDIR /app
 
 COPY package*.json ./
 
-RUN GITHUB_TOKEN=$GITHUB_TOKEN npm ci --legacy-peer-deps
+RUN npm ci --legacy-peer-deps
 
 COPY . .
 

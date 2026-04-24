@@ -2,12 +2,12 @@ const play = require('play-dl');
 const youtubedl = require('youtube-dl-exec');
 const logger = require('../../../shared/utils/logger');
 const { NotFoundError, AppError } = require('../../../shared/utils/errors');
-const fs = require('fs-extra');
+const fs = require('fs');
 const path = require('path');
 const { randomUUID } = require('crypto');
 
 const DOWNLOAD_DIR = path.join(__dirname, '../../../../downloads');
-fs.ensureDirSync(DOWNLOAD_DIR);
+fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
 
 function writeCookieToTmp() {
   const b64 = process.env.YOUTUBE_COOKIES_B64;
@@ -63,25 +63,6 @@ function getBaseOptions(cookiePath) {
     logger.warn('[YouTube] YOUTUBE_COOKIES_B64 not set — may be blocked on cloud servers');
   }
   return opts;
-}
-
-async function getBestProxy() {
-  try {
-    const response = await axios.get('https://raw.githubusercontent.com/proxifly/free-proxy-list/main/proxies/protocols/socks5/data.json');
-    const samples = response.data.sort(() => 0.5 - Math.random()).slice(0, 5);
-    
-    for (const p of samples) {
-      const proxyUrl = `socks5://${p.ip}:${p.port}`;
-      try {
-        // Test singkat ke youtube
-        await axios.get('https://www.youtube.com', { 
-          httpsAgent: new SocksProxyAgent(proxyUrl), 
-          timeout: 5000 
-        });
-        return proxyUrl;
-      } catch (e) { continue; }
-    }
-  } catch (e) { return null; }
 }
 
 class YouTubeService {
@@ -215,30 +196,7 @@ class YouTubeService {
           postprocessorArgs: 'ffmpeg:-c:v copy -c:a aac',
         };
 
-        try {
-          // PERCOBAAN 1: Tanpa Proxy
-          await youtubedl(videoUrl, { ...baseOpts, ...downloadParams });
-        } catch (error) {
-          // PERCOBAAN 2: Jika diblokir, coba pakai Proxy Tercepat
-          if (this._isBotBlock(error.message)) {
-            logger.warn('[YouTube] Terdeteksi blokir, mencoba mencari proxy...');
-            const bestProxy = await getBestProxy(); // Fungsi tester yang kita buat tadi
-
-            if (bestProxy) {
-              logger.info(`[YouTube] Retrying download with proxy: ${bestProxy}`);
-              await youtubedl(videoUrl, { 
-                ...baseOpts, 
-                ...downloadParams, 
-                proxy: bestProxy,
-                socketTimeout: 30 // Tambah timeout karena proxy gratis lambat
-              });
-            } else {
-              throw error; // Jika tidak ada proxy hidup, lempar error asli
-            }
-          } else {
-            throw error;
-          }
-        }
+        await youtubedl(videoUrl, { ...baseOpts, ...downloadParams });
 
       const filepath = this._findOutputFile(outputBase, ['mp4', 'mkv', 'webm']);
       if (!filepath) throw new AppError('Video file was not created', 502);
@@ -260,7 +218,7 @@ class YouTubeService {
     } catch (error) {
       logger.error(`[YouTube MP4] Error: ${error.message}`);
       if (this._isBotBlock(error.message)) {
-        throw new AppError('YouTube is blocking this server even with proxy. Refresh cookies.', 403);
+        throw new AppError('YouTube is blocking this server. Set YOUTUBE_COOKIES_B64 with valid browser cookies.', 403);
       }
       throw new AppError(`Download failed: ${error.message}`, 502);
     } finally {

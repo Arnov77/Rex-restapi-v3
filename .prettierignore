@@ -1,0 +1,12 @@
+node_modules
+package-lock.json
+downloads
+logs
+temp
+public
+src/shared/logs
+coverage
+dist
+build
+*.min.js
+**/*-player-script.js

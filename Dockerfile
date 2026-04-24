@@ -1,34 +1,29 @@
 FROM node:20
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
   chromium \
   libnss3 \
   libxss1 \
   libasound2 \
-  libcairo2-dev \
-  libpango1.0-dev \
-  libjpeg-dev \
-  libgif-dev \
-  librsvg2-dev \
-  build-essential \
   ffmpeg \
-  --no-install-recommends \
+  python3 \
+  curl \
+  ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
 ENV CHROME_BIN=/usr/bin/chromium
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+ENV YOUTUBE_DL_SKIP_DOWNLOAD=true
 
 WORKDIR /app
 
 COPY package*.json ./
 
-ENV YOUTUBE_DL_SKIP_DOWNLOAD=true
+RUN npm ci
 
-RUN npm ci --legacy-peer-deps
-
-RUN apt-get update && apt-get install -y python3 curl && \
-    mkdir -p node_modules/youtube-dl-exec/bin && \
-    curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o node_modules/youtube-dl-exec/bin/yt-dlp && \
+RUN mkdir -p node_modules/youtube-dl-exec/bin && \
+    curl -fsSL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
+      -o node_modules/youtube-dl-exec/bin/yt-dlp && \
     chmod +x node_modules/youtube-dl-exec/bin/yt-dlp
 
 COPY . .

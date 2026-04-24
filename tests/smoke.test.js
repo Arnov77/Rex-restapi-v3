@@ -63,3 +63,64 @@ describe('supertest wiring', () => {
     expect(res.body).toEqual({ ok: true });
   });
 });
+
+describe('server app (end-to-end wiring)', () => {
+  const app = require('../server');
+
+  it('GET /health returns the standard envelope', async () => {
+    const res = await request(app).get('/health');
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      success: true,
+      statusCode: 200,
+      message: expect.any(String),
+      data: { status: 'healthy' },
+    });
+  });
+
+  it('GET /api/status reports environment + version', async () => {
+    const res = await request(app).get('/api/status');
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({
+      version: expect.any(String),
+      environment: expect.any(String),
+      uptime: expect.any(Number),
+    });
+  });
+
+  it('responds with a stable request-id header', async () => {
+    const res = await request(app).get('/health');
+    expect(res.headers['x-request-id']).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+    );
+  });
+
+  it('echoes an incoming X-Request-ID header', async () => {
+    const incoming = 'test-req-id-42';
+    const res = await request(app).get('/health').set('X-Request-ID', incoming);
+    expect(res.headers['x-request-id']).toBe(incoming);
+  });
+
+  it('applies helmet security headers', async () => {
+    const res = await request(app).get('/health');
+    // helmet sets a handful of hardening headers; pick two that are always on
+    // regardless of helmet's internal defaults.
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
+    expect(res.headers).toHaveProperty('x-dns-prefetch-control');
+  });
+
+  it('returns 404 envelope on unknown endpoint', async () => {
+    const res = await request(app).get('/__definitely-not-a-route__');
+    expect(res.status).toBe(404);
+    expect(res.body).toMatchObject({ success: false, statusCode: 404 });
+  });
+
+  it('rejects malformed JSON with a 400 envelope', async () => {
+    const res = await request(app)
+      .post('/api/brat/generate')
+      .set('Content-Type', 'application/json')
+      .send('{"not valid json');
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ success: false, statusCode: 400 });
+  });
+});

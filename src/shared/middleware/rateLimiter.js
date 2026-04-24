@@ -1,42 +1,53 @@
 const rateLimit = require('express-rate-limit');
-const { RateLimitError } = require('../utils/errors');
+const ResponseHandler = require('../utils/response');
 
-/**
- * General rate limiter for all endpoints
- */
+// Shared handler — keeps every rate-limited response on the same envelope as
+// the rest of the API (success/statusCode/message/data/timestamp).
+const buildHandler = (message) => (req, res) => ResponseHandler.error(res, message, 429);
+
+// Applied to every request as a broad abuse safeguard.
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // requests per window
-  message: 'Too many requests from this IP, please try again later.',
-  standardHeaders: true, // Return rate limit info in headers
+  max: 300,
+  standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => req.path === '/health', // Skip health check
+  skip: (req) => req.path === '/health' || req.path === '/api/status',
+  handler: buildHandler('Too many requests from this IP, please slow down.'),
 });
 
-/**
- * Strict rate limiter for heavy operations
- */
+// Default tier for regular /api/* endpoints (text/JSON work).
 const apiLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute
+  windowMs: 60 * 1000, // 1 minute
   max: 30,
-  message: 'Too many requests to this endpoint, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
+  handler: buildHandler('Too many requests to this endpoint, please slow down.'),
 });
 
-/**
- * Very strict rate limiter for AI operations
- */
-const aiLimiter = rateLimit({
-  windowMs: 5 * 60 * 1000, // 5 minutes
+// Heavier tier for endpoints that spin up a browser, scrape an upstream, or
+// transcode media — these are slow and expensive, so the ceiling is lower.
+const heavyLimiter = rateLimit({
+  windowMs: 60 * 1000,
   max: 10,
-  message: 'Too many AI requests, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
+  handler: buildHandler('Too many heavy requests, please slow down.'),
+});
+
+// Reserved for AI-backed endpoints (Gemini / Replicate). Hourly budget to keep
+// upstream costs predictable. Currently unused — Gemini route is not mounted
+// yet — but exported so it's ready when PR-5 wires it in.
+const aiLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: buildHandler('AI endpoint hourly quota reached, try again later.'),
 });
 
 module.exports = {
   generalLimiter,
   apiLimiter,
+  heavyLimiter,
   aiLimiter,
 };

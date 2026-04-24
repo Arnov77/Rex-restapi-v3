@@ -1,0 +1,46 @@
+# Keep the Docker build context small and avoid leaking host-local files into
+# the image.
+
+# Dependencies — reinstalled inside the image
+node_modules
+npm-debug.log*
+
+# VCS / editor / OS metadata
+.git
+.gitignore
+.gitattributes
+.editorconfig
+.vscode
+.idea
+.DS_Store
+
+# Local env / secrets / credentials (NEVER bake into images)
+.env
+.env.*
+!.env.example
+proxies.txt
+
+# Runtime / transient dirs
+downloads
+logs
+temp
+coverage
+tmp
+*.log
+
+# Tooling / test artefacts
+.husky
+.prettierignore
+.prettierrc.json
+eslint.config.js
+vitest.config.js
+tests
+**/*.test.js
+
+# Documentation
+README.md
+CHANGELOG.md
+LICENSE
+
+# CI / GitHub metadata
+.github

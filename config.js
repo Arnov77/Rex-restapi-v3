@@ -32,6 +32,12 @@ const envSchema = Joi.object({
   BEDROCK_PREFIXES: Joi.string().default('.'),
   FILE_IO_API_URL: Joi.string().uri().default('https://tmpfiles.org'),
   API_VERSION: Joi.string().default('2.0.0'),
+
+  // Pino log level. When unset, server falls back to 'debug' in dev and
+  // 'info' in prod (see src/shared/utils/logger.js).
+  LOG_LEVEL: Joi.string()
+    .valid('fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent')
+    .optional(),
 }).unknown(true);
 
 const { error, value: env } = envSchema.validate(process.env, {

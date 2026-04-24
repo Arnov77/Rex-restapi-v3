@@ -2,11 +2,11 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
-const morgan = require('morgan');
+const pinoHttp = require('pino-http');
 const path = require('path');
 const fs = require('fs');
 
-const { env, isProd } = require('./config');
+const { env } = require('./config');
 const logger = require('./src/shared/utils/logger');
 const { errorHandler } = require('./src/shared/middleware/errorHandler');
 const { generalLimiter, apiLimiter, heavyLimiter } = require('./src/shared/middleware/rateLimiter');
@@ -45,7 +45,7 @@ for (const dirname of ['temp', 'logs', 'downloads']) {
 // 1. requestId first so every subsequent log line can reference it.
 // 2. helmet / compression — transport-level concerns.
 // 3. cors — after helmet so its headers aren't shadowed.
-// 4. morgan request log (will be replaced by pino-http in PR-2).
+// 4. pino-http request log (structured, reuses req.id from step 1).
 // 5. body parsers — tight limit (multipart uploads bypass these).
 // 6. generalLimiter — blanket abuse guard before route dispatch.
 app.use(requestId);
@@ -59,7 +59,28 @@ app.use(
 );
 app.use(compression());
 app.use(cors());
-app.use(morgan(isProd ? 'combined' : 'dev'));
+app.use(
+  pinoHttp({
+    logger: logger._pino,
+    // Reuse the UUID minted by the requestId middleware so a single request
+    // spans exactly one correlation id from edge to error log.
+    genReqId: (req) => req.id,
+    customLogLevel: (req, res, err) => {
+      if (err || res.statusCode >= 500) return 'error';
+      if (res.statusCode >= 400) return 'warn';
+      return 'info';
+    },
+    // Skip health/status from per-request logs — they spam the output and
+    // tell us nothing about user traffic.
+    autoLogging: {
+      ignore: (req) => req.url === '/health' || req.url === '/api/status',
+    },
+    serializers: {
+      req: (req) => ({ id: req.id, method: req.method, url: req.url }),
+      res: (res) => ({ statusCode: res.statusCode }),
+    },
+  })
+);
 
 const bodyLimit = `${env.BODY_LIMIT_MB}mb`;
 app.use(express.json({ limit: bodyLimit }));

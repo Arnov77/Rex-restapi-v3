@@ -1,15 +1,16 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const compression = require('compression');
 const morgan = require('morgan');
-const dotenv = require('dotenv');
 const path = require('path');
 const fs = require('fs');
 
-dotenv.config();
-
+const { env, isProd } = require('./config');
 const logger = require('./src/shared/utils/logger');
 const { errorHandler } = require('./src/shared/middleware/errorHandler');
-const { generalLimiter, apiLimiter } = require('./src/shared/middleware/rateLimiter');
+const { generalLimiter, apiLimiter, heavyLimiter } = require('./src/shared/middleware/rateLimiter');
+const requestId = require('./src/shared/middleware/requestId');
 const ResponseHandler = require('./src/shared/utils/response');
 
 const youtubeRoutes = require('./src/core/media/youtube/youtube.routes');
@@ -26,84 +27,108 @@ const miqRoute = require('./src/core/tools/miq/miq.routes');
 const telegramRoute = require('./src/core/tools/telegram/telegram.routes');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-// Trust the first proxy hop when running behind services like Render or Railway.
-// This prevents express-rate-limit from rejecting proxied requests.
-app.set('trust proxy', 1);
+// Trust proxy hops (Render/Railway/Cloudflare all add one). Required for
+// express-rate-limit to read the client IP correctly.
+app.set('trust proxy', env.TRUST_PROXY);
 
-function ensureDir(dirname) {
+// Ensure the working directories a few routes rely on exist. Done once at
+// boot so handlers never have to guard against ENOENT on the happy path.
+for (const dirname of ['temp', 'logs', 'downloads']) {
   const target = path.join(__dirname, dirname);
   if (!fs.existsSync(target)) {
     fs.mkdirSync(target, { recursive: true });
   }
 }
 
-['temp', 'logs', 'downloads'].forEach(ensureDir);
-
+// ── Core middleware (runs before routes, in deliberate order) ────────────────
+// 1. requestId first so every subsequent log line can reference it.
+// 2. helmet / compression — transport-level concerns.
+// 3. cors — after helmet so its headers aren't shadowed.
+// 4. morgan request log (will be replaced by pino-http in PR-2).
+// 5. body parsers — tight limit (multipart uploads bypass these).
+// 6. generalLimiter — blanket abuse guard before route dispatch.
+app.use(requestId);
+app.use(
+  helmet({
+    // Serving API JSON + a public static dir — CSP adds little here and
+    // frequently breaks Swagger UI (planned for /api/docs in PR-5).
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  })
+);
+app.use(compression());
 app.use(cors());
-app.use(morgan('dev'));
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(morgan(isProd ? 'combined' : 'dev'));
+
+const bodyLimit = `${env.BODY_LIMIT_MB}mb`;
+app.use(express.json({ limit: bodyLimit }));
+app.use(express.urlencoded({ limit: bodyLimit, extended: true }));
+
+// Static assets. The `public/` dir holds the marketing landing page; the
+// `downloads/` dir exposes artefacts produced by media routes. The legacy
+// `/download` alias was removed — callers should use `/downloads`.
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/downloads', express.static(path.join(__dirname, 'downloads')));
-app.use('/download', express.static(path.join(__dirname, 'downloads')));
 
 app.use(generalLimiter);
 
-app.use('/api/youtube', apiLimiter, youtubeRoutes);
-app.use('/api/brat', apiLimiter, bratRoutes);
+// ── Route mounts ─────────────────────────────────────────────────────────────
+// Heavy endpoints (browser automation + large transcodes) get the tighter
+// heavyLimiter; everything else gets the standard apiLimiter.
+app.use('/api/youtube', heavyLimiter, youtubeRoutes);
+app.use('/api/brat', heavyLimiter, bratRoutes);
 app.use('/api/tiktok', apiLimiter, tiktokRoutes);
 app.use('/api/instagram', apiLimiter, instagramRoutes);
 app.use('/api/gdrive', apiLimiter, gdriveRoute);
-app.use('/api/quote', apiLimiter, quoteRoute);
+app.use('/api/quote', heavyLimiter, quoteRoute);
 app.use('/api/smeme', apiLimiter, smemeRoute);
 app.use('/api/promosi', apiLimiter, promosiRoute);
 app.use('/api/miq', apiLimiter, miqRoute);
-app.use('/api/telegram', apiLimiter, telegramRoute);
+app.use('/api/telegram', heavyLimiter, telegramRoute);
 app.use('/mcapi', apiLimiter, mcprofileRoute);
 
-app.get('/health', (req, res) => {
-  return ResponseHandler.success(
+app.get('/health', (req, res) =>
+  ResponseHandler.success(
     res,
-    {
-      status: 'healthy',
-      uptime: process.uptime(),
-    },
-    'Health check passed',
-    200
-  );
-});
+    { status: 'healthy', uptime: process.uptime() },
+    'Health check passed'
+  )
+);
 
-app.get('/api/status', (req, res) => {
-  return ResponseHandler.success(
+app.get('/api/status', (req, res) =>
+  ResponseHandler.success(
     res,
     {
-      version: process.env.API_VERSION || '2.0.0',
-      environment: process.env.NODE_ENV || 'development',
+      version: env.API_VERSION,
+      environment: env.NODE_ENV,
       uptime: Math.floor(process.uptime()),
     },
-    'API is running',
-    200
-  );
-});
+    'API is running'
+  )
+);
 
+// 404 handler — runs after every mounted router failed to match.
 app.use((req, res) => {
   logger.warn(`404 Not Found: ${req.method} ${req.path}`);
   return ResponseHandler.error(res, 'Endpoint not found', 404);
 });
 
+// Error handler — MUST be last.
 app.use(errorHandler);
+
+// ── Lifecycle ────────────────────────────────────────────────────────────────
+let httpServer;
 
 async function startServer() {
   try {
     const utils = require('./src/utils/utils');
     await utils.init();
 
-    app.listen(PORT, () => {
-      logger.success(`Server running at http://localhost:${PORT}`);
-      logger.info(`Health check: http://localhost:${PORT}/health`);
-      logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    httpServer = app.listen(env.PORT, () => {
+      logger.success(`Server running at http://localhost:${env.PORT}`);
+      logger.info(`Health check: http://localhost:${env.PORT}/health`);
+      logger.info(`Environment: ${env.NODE_ENV}`);
     });
   } catch (error) {
     logger.error(`Failed to start server: ${error.message}`);
@@ -111,6 +136,34 @@ async function startServer() {
   }
 }
 
-startServer();
+// Graceful shutdown — stop accepting connections, drain in-flight requests,
+// then exit. Hard-kill after 15s in case something (browser worker, long
+// download) refuses to finish. Covers SIGTERM (docker stop / orchestrator)
+// and SIGINT (Ctrl-C).
+function shutdown(signal) {
+  logger.info(`Received ${signal}, shutting down gracefully...`);
+  if (!httpServer) {
+    process.exit(0);
+  }
+  httpServer.close((err) => {
+    if (err) {
+      logger.error(`Error during shutdown: ${err.message}`);
+      process.exit(1);
+    }
+    logger.info('HTTP server closed, bye.');
+    process.exit(0);
+  });
+  setTimeout(() => {
+    logger.warn('Shutdown timeout exceeded, forcing exit.');
+    process.exit(1);
+  }, 15_000).unref();
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+
+if (require.main === module) {
+  startServer();
+}
 
 module.exports = app;

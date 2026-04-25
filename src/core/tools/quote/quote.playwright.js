@@ -1,11 +1,10 @@
-const { getBrowser } = require('./browser');
+const { withPage } = require('../../../shared/browser/browserManager');
+
+const DEFAULT_AVATAR = 'https://i.ibb.co/dwTRp2SF/images-1.jpg';
 
 async function generateQuoteImage(name, message, avatarUrl) {
-  const browser = await getBrowser();
-  try {
-    const page = await browser.newPage();
-    const defaultAvatar = 'https://i.ibb.co.com/dwTRp2SF/images-1.jpg';
-    const resolvedAvatar = avatarUrl?.trim() ? avatarUrl : defaultAvatar;
+  return withPage(async (page) => {
+    const resolvedAvatar = avatarUrl?.trim() ? avatarUrl : DEFAULT_AVATAR;
 
     const html = `
       <html>
@@ -86,11 +85,8 @@ async function generateQuoteImage(name, message, avatarUrl) {
 
     await page.setContent(html, { waitUntil: 'networkidle' });
     const element = await page.$('.chat-container');
-    const buffer = await element.screenshot({ omitBackground: true });
-    return buffer;
-  } finally {
-    await browser.close();
-  }
+    return element.screenshot({ omitBackground: true });
+  });
 }
 
 module.exports = { generateQuoteImage };

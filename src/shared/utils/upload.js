@@ -36,10 +36,13 @@ async function uploadToDiscordWebhook(fileBuffer, fileName, contentType) {
   }
 
   const form = new FormData();
-  form.append('payload_json', JSON.stringify({
-    content: `MIQ avatar upload: ${fileName}`,
-    allowed_mentions: { parse: [] },
-  }));
+  form.append(
+    'payload_json',
+    JSON.stringify({
+      content: `MIQ avatar upload: ${fileName}`,
+      allowed_mentions: { parse: [] },
+    })
+  );
   form.append('files[0]', fileBuffer, {
     filename: fileName,
     contentType: contentType || 'application/octet-stream',
@@ -59,9 +62,7 @@ async function uploadToDiscordWebhook(fileBuffer, fileName, contentType) {
 
     return uploadedUrl;
   } catch (error) {
-    const details = error.response?.data
-      ? JSON.stringify(error.response.data)
-      : error.message;
+    const details = error.response?.data ? JSON.stringify(error.response.data) : error.message;
     throw new Error(`Gagal upload ke Discord webhook: ${details}`);
   }
 }
@@ -97,9 +98,7 @@ async function fetchRemoteImage(url) {
       fileName: getFileNameFromUrl(url),
     };
   } catch (error) {
-    const details = error.response?.status
-      ? `status ${error.response.status}`
-      : error.message;
+    const details = error.response?.status ? `status ${error.response.status}` : error.message;
     throw new Error(`Gagal mengambil avatar dari URL: ${details}`);
   }
 }

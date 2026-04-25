@@ -1,7 +1,7 @@
 const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs');
 const path = require('path');
-const logger = require('../shared/utils/logger');
+const logger = require('../utils/logger');
 
 async function createGIF(frames) {
   return new Promise((resolve, reject) => {
@@ -12,10 +12,9 @@ async function createGIF(frames) {
 
       logger.info(`[GIF] Creating GIF from ${frames.length} frames using ffmpeg`);
 
-      // Create unique temp directory per request
       const uniqueId = Date.now();
-      const tempDir = path.join(__dirname, `../../temp/gif-${uniqueId}`);
-      
+      const tempDir = path.join(__dirname, `../../../temp/gif-${uniqueId}`);
+
       if (!fs.existsSync(tempDir)) {
         fs.mkdirSync(tempDir, { recursive: true });
       }
@@ -28,18 +27,16 @@ async function createGIF(frames) {
 
       logger.info(`[GIF] Saved ${framePaths.length} temp frames to ${tempDir}`);
 
-      // Use ffmpeg to create GIF from frames
       const outputGif = path.join(tempDir, `output.gif`);
       const inputPattern = path.join(tempDir, 'frame-%03d.png');
 
       ffmpeg()
         .input(inputPattern)
-        .inputFPS(2) // 2 frames per second = 500ms per frame
+        .inputFPS(2)
         .output(outputGif)
-        // Use split+palettegen approach for better quality GIFs
         .outputOptions([
           '-vf',
-          'split[p],select=n=1[g];[g]palettegen=reserve_transparent=off[pal];[p][pal]paletteuse=dither=sierra2_4a'
+          'split[p],select=n=1[g];[g]palettegen=reserve_transparent=off[pal];[p][pal]paletteuse=dither=sierra2_4a',
         ])
         .on('start', (cmd) => {
           logger.info(`[GIF] FFmpeg command: ${cmd}`);
@@ -49,20 +46,20 @@ async function createGIF(frames) {
         })
         .on('error', (err) => {
           logger.error(`[GIF] FFmpeg error: ${err.message}`);
-          // Cleanup on error
           try {
             fs.rmSync(tempDir, { recursive: true, force: true });
-          } catch (e) {}
+          } catch (_e) {
+            /* ignore cleanup errors */
+          }
           reject(new Error(`GIF creation failed: ${err.message}`));
         })
         .on('end', () => {
           try {
             const gifBuffer = fs.readFileSync(outputGif);
-            logger.success(`[GIF] Successfully created GIF (${(gifBuffer.length / 1024 / 1024).toFixed(2)} MB)`);
-            
-            // Cleanup
+            logger.success(
+              `[GIF] Successfully created GIF (${(gifBuffer.length / 1024 / 1024).toFixed(2)} MB)`
+            );
             fs.rmSync(tempDir, { recursive: true, force: true });
-            
             resolve(gifBuffer);
           } catch (e) {
             logger.error(`[GIF] Cleanup error: ${e.message}`);

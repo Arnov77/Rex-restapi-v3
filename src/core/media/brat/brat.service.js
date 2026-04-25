@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const logger = require('../../../shared/utils/logger');
 const { AppError } = require('../../../shared/utils/errors');
+const bratPlaywright = require('./brat.playwright');
 
 // Ensure download directory exists
 const DOWNLOAD_DIR = path.join(__dirname, '../../../../downloads');
@@ -18,7 +19,7 @@ function sanitizeFilename(text, ext) {
     .replace(/\s+/g, '-') // Replace spaces with hyphens
     .replace(/-+/g, '-') // Replace multiple hyphens
     .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
-  
+
   // Add timestamp for uniqueness
   const timestamp = Date.now();
   return `${clean}-${timestamp}.${ext}`;
@@ -38,10 +39,11 @@ class BratService {
     const { text, preset = 'bratdeluxe', bgColor = null, textColor = null } = params;
 
     try {
-      logger.info(`[Brat] Generating image with preset: ${preset}, text: ${text.substring(0, 20)}...`);
+      logger.info(
+        `[Brat] Generating image with preset: ${preset}, text: ${text.substring(0, 20)}...`
+      );
 
-      const utils = require('../../../utils/utils');
-      const imageBuffer = await utils.generateBrat(text, preset, bgColor, textColor);
+      const imageBuffer = await bratPlaywright.generateBrat(text, preset, bgColor, textColor);
 
       // Save to downloads folder (but still return buffer directly)
       try {
@@ -55,7 +57,6 @@ class BratService {
 
       logger.success('[Brat] Image generated successfully');
       return imageBuffer;
-
     } catch (error) {
       logger.error(`[Brat] Error generating image: ${error.message}`);
       throw new AppError('Failed to generate Brat image', 500);
@@ -73,8 +74,7 @@ class BratService {
     try {
       logger.info(`[Brat] Generating video with preset: ${preset}`);
 
-      const utils = require('../../../utils/utils');
-      const gifBuffer = await utils.generateBratVideo(text, preset, bgColor, textColor);
+      const gifBuffer = await bratPlaywright.generateBratVideo(text, preset, bgColor, textColor);
 
       // Save to downloads folder (but still return buffer directly)
       try {
@@ -88,7 +88,6 @@ class BratService {
 
       logger.success('[Brat] Video/GIF generated successfully');
       return gifBuffer;
-
     } catch (error) {
       logger.error(`[Brat] Error generating video: ${error.message}`);
       throw new AppError('Failed to generate Brat video', 500);

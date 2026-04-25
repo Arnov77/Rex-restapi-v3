@@ -61,9 +61,6 @@ module.exports = [
       'src/core/tools/telegram/telegram.service.js',
       'src/core/media/brat/**/*.js',
       'src/core/tools/quote/**/*.js',
-      'src/utils/brat.js',
-      'src/utils/quote.js',
-      'src/utils/browser.js',
     ],
     languageOptions: {
       globals: {

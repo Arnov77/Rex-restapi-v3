@@ -126,15 +126,65 @@ function extractVideoId(input) {
   return null;
 }
 
+// Clients to try, in order. Picked because:
+//  - TV / IOS / WEB_EMBEDDED return formats with a plain `url` field (no
+//    server-side signature cipher), so info.download() doesn't need to
+//    decipher anything — sidesteps the regex-based player.js parser
+//    failures we hit on WEB.
+//  - MWEB and ANDROID_VR are last-ditch options that have historically
+//    bypassed format-restriction edge cases.
+//  - WEB is the original default. Kept last for accounts where the only
+//    ciphered formats are returned.
+const CLIENT_FALLBACK_CHAIN = ['TV', 'IOS', 'WEB_EMBEDDED', 'MWEB', 'ANDROID_VR', 'WEB'];
+
+function infoHasPlayableFormats(info) {
+  const sd = info?.streaming_data;
+  if (!sd) return false;
+  const fmts = (sd.formats || []).concat(sd.adaptive_formats || []);
+  // Anything with a non-empty url, OR a deciphered URL we can resolve later.
+  return fmts.some((f) => Boolean(f?.url) || Boolean(f?.signature_cipher) || Boolean(f?.cipher));
+}
+
+async function fetchInfoWithFallback(yt, id) {
+  let lastErr = null;
+  for (const client of CLIENT_FALLBACK_CHAIN) {
+    try {
+      const info = await yt.getInfo(id, { client });
+      const status = info?.playability_status?.status;
+      if (status && status !== 'OK') {
+        logger.warn(
+          `[YouTube] youtubei.js client=${client} returned status=${status} (${info?.playability_status?.reason || 'no reason'})`
+        );
+        lastErr = new Error(
+          `youtubei.js client=${client} status=${status}: ${info?.playability_status?.reason || ''}`
+        );
+        continue;
+      }
+      if (!infoHasPlayableFormats(info)) {
+        logger.warn(`[YouTube] youtubei.js client=${client} returned no playable formats`);
+        lastErr = new Error(`youtubei.js client=${client} returned no playable formats`);
+        continue;
+      }
+      logger.info(`[YouTube] youtubei.js using client=${client}`);
+      return { info, client };
+    } catch (err) {
+      lastErr = err;
+      logger.warn(`[YouTube] youtubei.js client=${client} threw: ${err.message}`);
+    }
+  }
+  throw lastErr || new Error('youtubei.js: all clients exhausted');
+}
+
 async function getVideoMetadata(videoUrl, cookieEntries) {
   const yt = await getInstance(cookieEntries);
   const id = extractVideoId(videoUrl);
   if (!id) throw new Error(`youtubei.js: could not extract video id from "${videoUrl}"`);
-  const info = await yt.getInfo(id);
+  const { info, client } = await fetchInfoWithFallback(yt, id);
   const v = info.basic_info || {};
   return {
     info,
     yt,
+    client,
     title: v.title || '',
     duration: v.duration || 0,
     uploader: v.author || '',

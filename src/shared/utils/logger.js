@@ -1,85 +1,53 @@
-const fs = require('fs');
-const path = require('path');
+const pino = require('pino');
+const { env, isProd, isTest } = require('../../../config');
 
-/**
- * Simple Logger Utility
- * Writes logs to console and files
- */
-class Logger {
-  constructor() {
-    this.logDir = path.join(__dirname, '../../logs');
-    this._ensureLogDir();
-  }
+// Pino is the runtime logger. In development we pipe through pino-pretty for
+// a human-readable coloured output; in production we emit structured JSON
+// straight to stdout so log collectors (Loki, CloudWatch, etc.) can index it.
+const basePino = pino({
+  level: env.LOG_LEVEL || (isProd ? 'info' : 'debug'),
+  // Silence during `vitest run` so the test runner's own summary stays clean.
+  enabled: !isTest,
+  timestamp: pino.stdTimeFunctions.isoTime,
+  base: undefined, // Drop pid/hostname — not useful for this single-node API.
+  transport: isProd
+    ? undefined
+    : {
+        target: 'pino-pretty',
+        options: {
+          colorize: true,
+          translateTime: 'SYS:HH:MM:ss.l',
+          ignore: 'pid,hostname',
+          singleLine: false,
+        },
+      },
+});
 
-  /**
-   * Ensure log directory exists
-   */
-  _ensureLogDir() {
-    if (!fs.existsSync(this.logDir)) {
-      fs.mkdirSync(this.logDir, { recursive: true });
+// Back-compat shim: the codebase calls logger.info(msg) / logger.success(msg)
+// with plain strings. Pino's signature is the opposite (obj, msg) — and it
+// doesn't have a .success level. This wrapper lets every existing call site
+// keep working unchanged while also accepting (obj, msg) for new code.
+function wrap(level) {
+  return (arg1, arg2) => {
+    if (typeof arg1 === 'string') {
+      basePino[level](arg1);
+    } else if (arg1 instanceof Error) {
+      basePino[level]({ err: arg1 }, arg2 || arg1.message);
+    } else {
+      basePino[level](arg1, arg2);
     }
-  }
-
-  /**
-   * Format log message
-   */
-  _formatMessage(level, message) {
-    return `[${new Date().toISOString()}] [${level}] ${message}`;
-  }
-
-  /**
-   * Write log to console and file
-   */
-  _write(level, message) {
-    const formatted = this._formatMessage(level, message);
-    const color = this._getColor(level);
-    
-    console.log(`${color}${formatted}\x1b[0m`);
-
-    // Write to file
-    const filePath = path.join(this.logDir, `${level.toLowerCase()}.log`);
-    fs.appendFileSync(filePath, formatted + '\n');
-
-    // Also write to combined log
-    const combinedPath = path.join(this.logDir, 'combined.log');
-    fs.appendFileSync(combinedPath, formatted + '\n');
-  }
-
-  /**
-   * Get ANSI color for log level
-   */
-  _getColor(level) {
-    const colors = {
-      INFO: '\x1b[36m',    // Cyan
-      ERROR: '\x1b[31m',   // Red
-      WARN: '\x1b[33m',    // Yellow
-      DEBUG: '\x1b[35m',   // Magenta
-      SUCCESS: '\x1b[32m', // Green
-    };
-    return colors[level] || '\x1b[0m';
-  }
-
-  info(message) {
-    this._write('INFO', message);
-  }
-
-  error(message) {
-    this._write('ERROR', message);
-  }
-
-  warn(message) {
-    this._write('WARN', message);
-  }
-
-  debug(message) {
-    if (process.env.NODE_ENV === 'development') {
-      this._write('DEBUG', message);
-    }
-  }
-
-  success(message) {
-    this._write('SUCCESS', message);
-  }
+  };
 }
 
-module.exports = new Logger();
+module.exports = {
+  info: wrap('info'),
+  warn: wrap('warn'),
+  error: wrap('error'),
+  debug: wrap('debug'),
+  // Pino has no "success" level — alias to info so existing call sites work.
+  // The message itself (e.g. "Server running at ...") stays self-describing.
+  success: wrap('info'),
+  // Exposed for pino-http integration in server.js — it needs the raw pino
+  // instance to reuse the same destination + formatting.
+  _pino: basePino,
+};

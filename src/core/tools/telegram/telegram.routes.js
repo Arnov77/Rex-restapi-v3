@@ -2,43 +2,64 @@ const express = require('express');
 const router = express.Router();
 const telegramController = require('./telegram.controller');
 const validateRequest = require('../../../shared/middleware/validateRequest');
-const { stickerSchema } = require('../../../shared/validators/telegramSchemas');
+const { stickerSchema, stickerPackSchema } = require('./telegram.schemas');
 const { asyncHandler } = require('../../../shared/middleware/errorHandler');
 
 /**
- * @route POST /api/telegram/sticker
- * @desc  Download dan konversi stiker Telegram
- *
- * @body {string}  [fileId]    - Telegram file_id dari stiker (ambil dari pesan Telegram)
- * @body {string}  [url]       - URL langsung ke file stiker (alternatif fileId)
- * @body {string}  [botToken]  - Token bot Telegram (opsional, fallback ke env TELEGRAM_BOT_TOKEN)
- * @body {string}  [format]    - Format output: png | jpg | gif | webp | wa  (default: png)
- *                               "wa" = format stiker WhatsApp (512×512 WebP static,
- *                                      atau GIF untuk animasi — kompatibel baileys/whatsapp-web.js)
- *
- * @returns {Buffer} Gambar sesuai format yang diminta
- *
- * Contoh penggunaan di bot WhatsApp (baileys):
- *   const buffer = await (await fetch('/api/telegram/sticker', {
- *     method: 'POST',
- *     body: JSON.stringify({ fileId: '...', format: 'wa' })
- *   })).arrayBuffer();
- *   await sock.sendMessage(jid, { sticker: Buffer.from(buffer) });
+ * @openapi
+ * /api/telegram/sticker:
+ *   post:
+ *     summary: Download and convert a Telegram sticker
+ *     tags: [Tools]
+ *     description: |
+ *       Provide either `fileId` (Telegram file_id from a message) or a direct
+ *       `url`. Output format defaults to PNG; `wa` produces a 512×512 WebP
+ *       compatible with WhatsApp stickers.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               fileId: { type: string }
+ *               url: { type: string, format: uri }
+ *               botToken: { type: string, description: Falls back to env TELEGRAM_BOT_TOKEN }
+ *               format: { type: string, enum: [png, jpg, jpeg, gif, webp, wa], default: png }
+ *     responses:
+ *       200:
+ *         description: Sticker bytes in the requested format
  */
 router.post(
   '/sticker',
   validateRequest(stickerSchema),
-  asyncHandler((req, res, next) => telegramController.downloadSticker(req, res, next))
+  asyncHandler(telegramController.downloadSticker)
 );
 
 /**
- * @route POST /api/telegram/sticker-pack
- * @desc  Ambil semua daftar stiker dari sebuah Pack Telegram
- * @body {string} url - Contoh: "https://t.me/addstickers/KOSHAKIEBANIYE"
+ * @openapi
+ * /api/telegram/sticker-pack:
+ *   post:
+ *     summary: Fetch metadata for a Telegram sticker pack
+ *     tags: [Tools]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               url: { type: string, example: "https://t.me/addstickers/KOSHAKIEBANIYE" }
+ *               packName: { type: string }
+ *               botToken: { type: string }
+ *     responses:
+ *       200: { description: Pack metadata with sticker file IDs and emojis }
+ *       404: { description: Pack not found }
  */
 router.post(
   '/sticker-pack',
-  asyncHandler((req, res, next) => telegramController.getStickerPack(req, res, next))
+  validateRequest(stickerPackSchema),
+  asyncHandler(telegramController.getStickerPack)
 );
 
 module.exports = router;

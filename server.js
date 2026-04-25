@@ -5,15 +5,22 @@ const compression = require('compression');
 const pinoHttp = require('pino-http');
 const path = require('path');
 const fs = require('fs');
+const swaggerUi = require('swagger-ui-express');
 
 const { env } = require('./config');
 const logger = require('./src/shared/utils/logger');
 const { errorHandler } = require('./src/shared/middleware/errorHandler');
-const { generalLimiter, apiLimiter, heavyLimiter } = require('./src/shared/middleware/rateLimiter');
+const {
+  generalLimiter,
+  apiLimiter,
+  heavyLimiter,
+  aiLimiter,
+} = require('./src/shared/middleware/rateLimiter');
 const requestId = require('./src/shared/middleware/requestId');
 const ResponseHandler = require('./src/shared/utils/response');
 const browserManager = require('./src/shared/browser/browserManager');
 const { initColorIndex } = require('./src/core/media/brat/color');
+const swaggerSpec = require('./src/shared/docs/swagger');
 
 const youtubeRoutes = require('./src/core/media/youtube/youtube.routes');
 const bratRoutes = require('./src/core/media/brat/brat.routes');
@@ -27,6 +34,7 @@ const promosiRoute = require('./src/core/tools/promosi/promosi.routes');
 const mcprofileRoute = require('./src/core/tools/mcprofile/mcprofile.routes');
 const miqRoute = require('./src/core/tools/miq/miq.routes');
 const telegramRoute = require('./src/core/tools/telegram/telegram.routes');
+const replicateRoute = require('./src/core/ai/replicate/replicate.routes');
 
 const app = express();
 
@@ -109,7 +117,13 @@ app.use('/api/smeme', apiLimiter, smemeRoute);
 app.use('/api/promosi', apiLimiter, promosiRoute);
 app.use('/api/miq', apiLimiter, miqRoute);
 app.use('/api/telegram', heavyLimiter, telegramRoute);
+app.use('/api/replicate', aiLimiter, replicateRoute);
 app.use('/mcapi', apiLimiter, mcprofileRoute);
+
+// OpenAPI / Swagger UI — the JSON spec is published at /api/docs.json for
+// scripted clients and the interactive explorer at /api/docs for humans.
+app.get('/api/docs.json', (req, res) => res.json(swaggerSpec));
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, { explorer: true }));
 
 app.get('/health', (req, res) =>
   ResponseHandler.success(

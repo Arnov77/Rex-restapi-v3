@@ -51,8 +51,20 @@ async function installJsdom() {
 
 async function buildInstance(cookieEntries) {
   await installJsdom();
-  const { Innertube, UniversalCache } = await import('youtubei.js');
+  const ytjs = await import('youtubei.js');
+  const { Innertube, UniversalCache, Platform } = ytjs;
   const { BG } = await import('bgutils-js');
+
+  // Provide a real JavaScript evaluator so the Player can decipher
+  // signatureCipher / n-parameter for the formats it returns. The default
+  // evaluator throws "To decipher URLs, you must provide your own JavaScript
+  // evaluator." -- documented at https://ytjs.dev/guide/getting-started.html.
+  // The script in `data.output` is fully self-contained and ends with a
+  // `return process(...)` statement, so wrapping it in `new Function()` and
+  // invoking it returns the `{ sig, n }` object the Player expects.
+  if (Platform?.shim) {
+    Platform.shim.eval = async (data) => new Function(data.output)();
+  }
 
   // 1. Barebones Innertube to grab a visitorData.
   let yt = await Innertube.create({ retrieve_player: false });

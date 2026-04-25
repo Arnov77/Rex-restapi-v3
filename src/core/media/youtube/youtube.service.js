@@ -38,16 +38,34 @@ function sanitizeFilename(title, ext) {
   return `${uid}-${clean}.${ext}`;
 }
 
-function getBaseOptions(cookieData, cookiePath) {
-  const headers = [
-    'User-Agent: com.google.ios.youtube/19.14.3 (iPhone16,2; iOS 17_4_1; Scale/3.00)',
-    'Accept-Language: en-US,en;q=0.9',
-  ];
-  if (cookieData?.header) headers.push(`Cookie: ${cookieData.header}`);
+// Player client controls which YouTube internal client yt-dlp impersonates.
+// Override via env if android starts getting throttled too (e.g. "web", "mweb",
+// "tv", "android,web"). yt-dlp accepts a comma-separated list.
+const YOUTUBE_PLAYER_CLIENT = process.env.YOUTUBE_PLAYER_CLIENT || 'android';
 
+const PLAYER_CLIENT_USER_AGENTS = {
+  android: 'com.google.android.youtube/19.29.39 (Linux; U; Android 14) gzip',
+  ios: 'com.google.ios.youtube/19.29.1 (iPhone16,2; iOS 17_4_1; Scale/3.00)',
+  mweb: 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
+  web: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  tv: 'Mozilla/5.0 (PlayStation; PlayStation 5/2.26) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0 Safari/605.1.15',
+};
+
+function pickUserAgent(playerClient) {
+  const primary = String(playerClient).split(',')[0].trim().toLowerCase();
+  return PLAYER_CLIENT_USER_AGENTS[primary] || PLAYER_CLIENT_USER_AGENTS.android;
+}
+
+function getBaseOptions(cookiePath) {
+  // IMPORTANT: do NOT push "Cookie:" into addHeader. yt-dlp warns this is a
+  // security risk and YouTube's anti-bot escalates ("Failed to extract any
+  // player response"). Cookies must come from the Netscape file via opts.cookies.
   const opts = {
-    addHeader: headers,
-    extractorArgs: 'youtube:player_client=ios',
+    addHeader: [
+      `User-Agent: ${pickUserAgent(YOUTUBE_PLAYER_CLIENT)}`,
+      'Accept-Language: en-US,en;q=0.9',
+    ],
+    extractorArgs: `youtube:player_client=${YOUTUBE_PLAYER_CLIENT}`,
     geoBypass: true,
     retries: 5,
     fragmentRetries: 5,
@@ -61,11 +79,15 @@ function getBaseOptions(cookieData, cookiePath) {
   return opts;
 }
 
+// prepareCookies: write Netscape-format cookies to a fresh tmp file and
+// configure play-dl once. The returned cookiePath MUST stay alive on disk
+// until every yt-dlp call that uses it has fully resolved. Cleanup happens
+// in the caller's finally block via unlinkSilent(cookiePath).
 function prepareCookies() {
   const cookieData = loadYouTubeCookies();
-  if (!cookieData) return { cookieData: null, cookiePath: null };
+  if (!cookieData) return { cookiePath: null };
   ensurePlayDlCookies(cookieData);
-  return { cookieData, cookiePath: cookieData.write() };
+  return { cookiePath: cookieData.write() };
 }
 
 class YouTubeService {
@@ -111,9 +133,8 @@ class YouTubeService {
       }
 
       logger.info(`[YouTube] Downloading MP3 from: ${videoUrl}`);
-      const prepared = prepareCookies();
-      cookiePath = prepared.cookiePath;
-      const baseOpts = getBaseOptions(prepared.cookieData, cookiePath);
+      ({ cookiePath } = prepareCookies());
+      const baseOpts = getBaseOptions(cookiePath);
 
       let videoMetadata = {};
       try {
@@ -184,9 +205,8 @@ class YouTubeService {
       }
 
       logger.info(`[YouTube] Downloading MP4 from: ${videoUrl}`);
-      const prepared = prepareCookies();
-      cookiePath = prepared.cookiePath;
-      const baseOpts = getBaseOptions(prepared.cookieData, cookiePath);
+      ({ cookiePath } = prepareCookies());
+      const baseOpts = getBaseOptions(cookiePath);
 
       let videoMetadata = {};
       try {

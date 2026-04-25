@@ -49,6 +49,9 @@ const envSchema = Joi.object({
   // when a single provider is missing. Call sites validate presence as needed
   // and fail with 400/502.
   YOUTUBE_COOKIES_B64: Joi.string().allow('').optional(),
+  YOUTUBE_PLAYER_CLIENT: Joi.string()
+    .valid('android', 'ios', 'web', 'mweb', 'tv', 'android,web', 'web,android')
+    .default('android'),
   TELEGRAM_BOT_TOKEN: Joi.string().allow('').optional(),
   GEMINI_API_KEY: Joi.string().allow('').optional(),
   DISCORD_WEBHOOK_URL: Joi.string().uri().allow('').optional(),

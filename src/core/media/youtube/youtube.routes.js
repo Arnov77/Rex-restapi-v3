@@ -47,6 +47,17 @@ router
  *         name: query
  *         required: true
  *         schema: { type: string }
+ *       - in: query
+ *         name: quality
+ *         required: false
+ *         description: |
+ *           Maximum video resolution. Numeric values are treated as a height
+ *           ceiling (the highest available format <= the requested height is
+ *           picked). Defaults to 'best'.
+ *         schema:
+ *           type: string
+ *           enum: ['144', '240', '360', '480', '720', '1080', '1440', '2160', 'best']
+ *           default: best
  *     responses:
  *       200: { description: Video download options }
  *   post:
@@ -61,6 +72,10 @@ router
  *             required: [query]
  *             properties:
  *               query: { type: string }
+ *               quality:
+ *                 type: string
+ *                 enum: ['144', '240', '360', '480', '720', '1080', '1440', '2160', 'best']
+ *                 default: best
  */
 router
   .route('/mp4')

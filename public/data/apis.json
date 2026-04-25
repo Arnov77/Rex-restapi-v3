@@ -15,9 +15,18 @@
       "name": "YouTube MP4",
       "method": "POST",
       "action": "/api/youtube/mp4",
-      "description": "Download video dari YouTube dalam format MP4 dengan berbagai resolusi.",
+      "description": "Download video dari YouTube dalam format MP4. Resolusi dapat dipilih; jika resolusi yang diminta tidak tersedia, server otomatis pakai yang terdekat di bawahnya.",
       "params": [
-        { "name": "query", "type": "string", "example": "never gonna give you up official mv", "required": true }
+        { "name": "query", "type": "string", "example": "never gonna give you up official mv", "required": true },
+        {
+          "name": "quality",
+          "type": "select",
+          "required": false,
+          "default": "best",
+          "example": "best",
+          "options": ["best", "2160", "1440", "1080", "720", "480", "360", "240", "144"],
+          "description": "Resolusi maksimum (height). 'best' = kualitas tertinggi yang tersedia."
+        }
       ]
     },
     {

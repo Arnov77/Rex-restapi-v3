@@ -9,9 +9,9 @@ async function getMp3(req, res) {
 }
 
 async function getMp4(req, res) {
-  const { query } = req.validated;
+  const { query, quality } = req.validated;
   const baseUrl = `${req.protocol}://${req.get('host')}`;
-  const downloadData = await youtubeService.downloadMp4(query, baseUrl);
+  const downloadData = await youtubeService.downloadMp4(query, baseUrl, { quality });
   return ResponseHandler.success(res, downloadData, 'MP4 download link generated', 200);
 }
 

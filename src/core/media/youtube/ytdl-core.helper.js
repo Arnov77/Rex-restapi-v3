@@ -183,39 +183,40 @@ async function downloadMp3(videoUrl, outPath, agent, providedInfo) {
  * muxed via ffmpeg when only adaptive formats are available (common for
  * resolutions above 360p).
  */
-async function downloadMp4(videoUrl, outPath, agent, providedInfo) {
+async function downloadMp4(videoUrl, outPath, agent, providedInfo, opts = {}) {
   const meta = providedInfo || (await getVideoMetadata(videoUrl, agent));
+  const maxHeight = opts.maxHeight || null;
   const formats = meta.info?.formats || [];
-  const muxedFormats = formats.filter((f) => f.hasVideo && f.hasAudio);
 
-  if (muxedFormats.length > 0) {
-    const muxedOpts = {
-      filter: 'videoandaudio',
-      quality: 'highest',
-      highWaterMark: 1 << 25,
-    };
+  // Pick highest-quality format that satisfies (hasVideo / hasAudio) predicates
+  // and -- when specified -- has height <= maxHeight.
+  const pickBest = (predicate) =>
+    formats
+      .filter(predicate)
+      .filter((f) => !maxHeight || (f.height && f.height <= maxHeight))
+      .sort(
+        (a, b) => (b.height || 0) - (a.height || 0) || (b.bitrate || 0) - (a.bitrate || 0)
+      )[0] || null;
+
+  const muxedFmt = pickBest((f) => f.hasVideo && f.hasAudio);
+  if (muxedFmt) {
+    const muxedOpts = { quality: muxedFmt.itag, highWaterMark: 1 << 25 };
     if (agent) muxedOpts.agent = agent;
     const stream = ytdl.downloadFromInfo(meta.info, muxedOpts);
     await pipeStreamToFile(stream, outPath);
     return meta;
   }
 
-  const videoFormats = formats.filter((f) => f.hasVideo && !f.hasAudio);
-  const audioFormats = formats.filter((f) => f.hasAudio && !f.hasVideo);
-  if (videoFormats.length === 0 || audioFormats.length === 0) {
-    throw new Error('ytdl-core: no muxable video+audio formats available');
+  const videoFmt = pickBest((f) => f.hasVideo && !f.hasAudio);
+  const audioFmt = pickBest((f) => f.hasAudio && !f.hasVideo);
+  if (!videoFmt || !audioFmt) {
+    throw new Error(
+      `ytdl-core: no muxable video+audio formats${maxHeight ? ` <= ${maxHeight}p` : ''}`
+    );
   }
 
-  const videoOpts = {
-    filter: 'videoonly',
-    quality: 'highestvideo',
-    highWaterMark: 1 << 25,
-  };
-  const audioOpts = {
-    filter: 'audioonly',
-    quality: 'highestaudio',
-    highWaterMark: 1 << 25,
-  };
+  const videoOpts = { quality: videoFmt.itag, highWaterMark: 1 << 25 };
+  const audioOpts = { quality: audioFmt.itag, highWaterMark: 1 << 25 };
   if (agent) {
     videoOpts.agent = agent;
     audioOpts.agent = agent;

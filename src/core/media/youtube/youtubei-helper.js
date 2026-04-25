@@ -312,32 +312,59 @@ async function downloadMp3(videoUrl, outPath, cookieEntries, providedMeta) {
   return meta;
 }
 
-async function downloadMp4(videoUrl, outPath, cookieEntries, providedMeta) {
-  const meta = providedMeta || (await getVideoMetadata(videoUrl, cookieEntries));
+// Pick the highest-quality format from a list, optionally capped at maxHeight.
+// Returns null when no candidate satisfies the predicate.
+function pickBestFormat(formats, predicate, maxHeight) {
+  const filtered = formats
+    .filter(predicate)
+    .filter((f) => !maxHeight || (f.height && f.height <= maxHeight))
+    .sort((a, b) => (b.height || 0) - (a.height || 0) || (b.bitrate || 0) - (a.bitrate || 0));
+  return filtered[0] || null;
+}
 
-  // Try a single muxed video+audio first to skip muxing entirely.
-  try {
-    const muxed = toNodeReadable(
-      await meta.info.download({ type: 'video+audio', quality: 'best' })
-    );
-    await pipeReadableToFile(muxed, outPath);
-    return meta;
-  } catch (err) {
-    logger.warn(
-      `[YouTube] youtubei.js muxed download failed (${err.message}); falling back to adaptive video+audio merge.`
-    );
+async function downloadMp4(videoUrl, outPath, cookieEntries, providedMeta, opts = {}) {
+  const meta = providedMeta || (await getVideoMetadata(videoUrl, cookieEntries));
+  const maxHeight = opts.maxHeight || null;
+  const sd = meta.info.streaming_data || {};
+  const allFormats = [...(sd.formats || []), ...(sd.adaptive_formats || [])];
+
+  // 1. Try a single muxed video+audio first to skip ffmpeg merging.
+  const muxed = pickBestFormat(allFormats, (f) => f.has_video && f.has_audio, maxHeight);
+  if (muxed) {
+    try {
+      const stream = toNodeReadable(await meta.info.download({ itag: muxed.itag }));
+      await pipeReadableToFile(stream, outPath);
+      logger.info(
+        `[YouTube] youtubei.js MP4 muxed itag=${muxed.itag} height=${muxed.height || '?'}p`
+      );
+      return meta;
+    } catch (err) {
+      logger.warn(
+        `[YouTube] youtubei.js muxed itag=${muxed.itag} failed (${err.message}); falling back to adaptive merge.`
+      );
+    }
+  } else if (maxHeight) {
+    logger.info(`[YouTube] youtubei.js no muxed format <= ${maxHeight}p, using adaptive merge`);
   }
 
-  // Fallback: separate adaptive streams + ffmpeg mux.
+  // 2. Adaptive: separate video + audio streams, then ffmpeg mux.
+  const videoFmt = pickBestFormat(allFormats, (f) => f.has_video && !f.has_audio, maxHeight);
+  const audioFmt = pickBestFormat(allFormats, (f) => f.has_audio && !f.has_video, null);
+  if (!videoFmt) {
+    throw new Error(`youtubei.js: no playable video format${maxHeight ? ` <= ${maxHeight}p` : ''}`);
+  }
+  if (!audioFmt) {
+    throw new Error('youtubei.js: no playable audio format for adaptive merge');
+  }
+  logger.info(
+    `[YouTube] youtubei.js MP4 adaptive video itag=${videoFmt.itag} (${videoFmt.height || '?'}p) + audio itag=${audioFmt.itag}`
+  );
+
   const tmpVideo = `${outPath}.video.tmp`;
   const tmpAudio = `${outPath}.audio.tmp`;
   try {
-    const videoStream = toNodeReadable(
-      await meta.info.download({ type: 'video', quality: 'best' })
-    );
-    const audioStream = toNodeReadable(
-      await meta.info.download({ type: 'audio', quality: 'best' })
-    );
+    const videoStream = toNodeReadable(await meta.info.download({ itag: videoFmt.itag }));
+    const audioStream = toNodeReadable(await meta.info.download({ itag: audioFmt.itag }));
     await Promise.all([
       pipeReadableToFile(videoStream, tmpVideo),
       pipeReadableToFile(audioStream, tmpAudio),

@@ -298,9 +298,20 @@ function buildTryTab(api) {
         : ['url', 'image', 'avatarUrl', 'skin'].includes(param.name) ? 'url' : 'text';
       const description = param.description || getParamDesc(param.name);
 
+      let control;
+      if (param.type === 'select' && Array.isArray(param.options)) {
+        const defaultValue = param.default ?? param.example ?? param.options[0];
+        const opts = param.options
+          .map((opt) => `<option value="${opt}"${opt === defaultValue ? ' selected' : ''}>${opt}</option>`)
+          .join('');
+        control = `<select class="form-input" id="f-${param.name}">${opts}</select>`;
+      } else {
+        control = `<input type="${inputType}" class="form-input" id="f-${param.name}" ${inputType === 'file' ? 'accept="image/*"' : `placeholder="${hint}"`}>`;
+      }
+
       fields += `<div class="form-section">
         <div class="form-label"><span class="form-label-text">${param.name}</span>${required}</div>
-        <input type="${inputType}" class="form-input" id="f-${param.name}" ${inputType === 'file' ? 'accept="image/*"' : `placeholder="${hint}"`}>
+        ${control}
         ${description ? `<div class="form-hint">${description}</div>` : ''}
       </div>`;
     });

@@ -40,6 +40,14 @@ function ensurePlayDlCookies(cookieData) {
   }
 }
 
+// Convert the validated `quality` field (string|number|'best') into a numeric
+// height ceiling. 'best' / null / invalid -> null (no cap).
+function parseQualityToHeight(quality) {
+  if (quality == null || quality === 'best') return null;
+  const n = typeof quality === 'string' ? parseInt(quality, 10) : Number(quality);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 function sanitizeFilename(title, ext) {
   let clean = title
     .replace(/[\\/:*?"<>|]/g, '')
@@ -367,7 +375,7 @@ class YouTubeService {
     }
   }
 
-  async _tryYoutubeiMp4(videoUrl, videoInfo, baseUrl) {
+  async _tryYoutubeiMp4(videoUrl, videoInfo, baseUrl, opts = {}) {
     try {
       const cookieData = loadYouTubeCookies();
       const cookies = cookieData?.cookies || [];
@@ -377,8 +385,10 @@ class YouTubeService {
       const cleanFilename = sanitizeFilename(titleForName, 'mp4');
       const outPath = path.join(DOWNLOAD_DIR, cleanFilename);
 
-      logger.info('[YouTube] MP4 via youtubei.js (primary path, auto PO Token)');
-      await youtubei.downloadMp4(videoUrl, outPath, cookies, meta);
+      logger.info(
+        `[YouTube] MP4 via youtubei.js (primary path, auto PO Token, quality=${opts.maxHeight ? `<=${opts.maxHeight}p` : 'best'})`
+      );
+      await youtubei.downloadMp4(videoUrl, outPath, cookies, meta, opts);
 
       if (!fs.existsSync(outPath)) {
         logger.warn('[YouTube] youtubei.js MP4 finished but file missing — falling back');
@@ -446,10 +456,12 @@ class YouTubeService {
     }
   }
 
-  async downloadMp4(query, baseUrl = 'http://localhost:3000') {
+  async downloadMp4(query, baseUrl = 'http://localhost:3000', options = {}) {
     let cookiePath = null;
+    const maxHeight = parseQualityToHeight(options.quality);
+    const helperOpts = maxHeight ? { maxHeight } : {};
     try {
-      logger.info(`[YouTube] Fetching MP4 for: ${query}`);
+      logger.info(`[YouTube] Fetching MP4 for: ${query} (quality=${options.quality || 'best'})`);
 
       let videoUrl = query;
       let videoInfo = null;
@@ -462,10 +474,10 @@ class YouTubeService {
 
       logger.info(`[YouTube] Downloading MP4 from: ${videoUrl}`);
 
-      const ytiResult = await this._tryYoutubeiMp4(videoUrl, videoInfo, baseUrl);
+      const ytiResult = await this._tryYoutubeiMp4(videoUrl, videoInfo, baseUrl, helperOpts);
       if (ytiResult) return ytiResult;
 
-      const ytdlResult = await this._tryYtdlCoreMp4(videoUrl, videoInfo, baseUrl);
+      const ytdlResult = await this._tryYtdlCoreMp4(videoUrl, videoInfo, baseUrl, helperOpts);
       if (ytdlResult) return ytdlResult;
 
       ({ cookiePath } = prepareCookies());
@@ -479,8 +491,18 @@ class YouTubeService {
       );
       const outputBase = path.join(DOWNLOAD_DIR, cleanFilename.replace(/\.mp4$/, ''));
 
+      // yt-dlp format selector: filter by [height<=N] when a cap is requested.
+      // The chain prefers a separate video+audio merge (highest quality), then
+      // a single muxed file, then the absolute best regardless of cap as the
+      // last resort so requests don't hard-fail just because no resolution at
+      // or below the cap is available.
+      const heightFilter = maxHeight ? `[height<=${maxHeight}]` : '';
+      const format = maxHeight
+        ? `bestvideo${heightFilter}+bestaudio/best${heightFilter}/bestvideo+bestaudio/best`
+        : 'best/bestvideo+bestaudio';
+
       const downloadParams = {
-        format: 'best/bestvideo+bestaudio',
+        format,
         mergeOutputFormat: 'mp4',
         output: outputBase,
         quiet: false,
@@ -517,7 +539,7 @@ class YouTubeService {
     }
   }
 
-  async _tryYtdlCoreMp4(videoUrl, videoInfo, baseUrl) {
+  async _tryYtdlCoreMp4(videoUrl, videoInfo, baseUrl, opts = {}) {
     try {
       const cookieData = loadYouTubeCookies();
       const agent = ytdlCore.getYtdlAgent(cookieData?.cookies || []);
@@ -526,8 +548,10 @@ class YouTubeService {
       const cleanFilename = sanitizeFilename(meta.title || videoInfo?.title || 'video', 'mp4');
       const outPath = path.join(DOWNLOAD_DIR, cleanFilename);
 
-      logger.info('[YouTube] MP4 via ytdl-core (primary path)');
-      await ytdlCore.downloadMp4(videoUrl, outPath, agent, meta);
+      logger.info(
+        `[YouTube] MP4 via ytdl-core (primary path, quality=${opts.maxHeight ? `<=${opts.maxHeight}p` : 'best'})`
+      );
+      await ytdlCore.downloadMp4(videoUrl, outPath, agent, meta, opts);
 
       if (!fs.existsSync(outPath)) {
         logger.warn('[YouTube] ytdl-core MP4 finished but file missing — falling back to yt-dlp');

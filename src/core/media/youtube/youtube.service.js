@@ -312,7 +312,7 @@ class YouTubeService {
       logger.success(`[YouTube] MP3 ready (yt-dlp fallback): ${cleanFilename}`);
       return {
         title: videoMetadata.title || videoInfo?.title || 'Audio',
-        download: `${baseUrl}/download/${cleanFilename}`,
+        download: `${baseUrl}/downloads/${cleanFilename}`,
         format: 'audio/mpeg',
         fileSize: Math.round(stats.size / 1024) + ' KB',
         duration: videoMetadata.duration
@@ -358,7 +358,7 @@ class YouTubeService {
       logger.success(`[YouTube] MP3 ready (youtubei.js): ${cleanFilename}`);
       return {
         title: meta.title || videoInfo?.title || (meta.videoId ? `Video ${meta.videoId}` : 'Audio'),
-        download: `${baseUrl}/download/${cleanFilename}`,
+        download: `${baseUrl}/downloads/${cleanFilename}`,
         format: 'audio/mpeg',
         fileSize: Math.round(stats.size / 1024) + ' KB',
         duration: meta.duration
@@ -398,7 +398,7 @@ class YouTubeService {
       logger.success(`[YouTube] MP4 ready (youtubei.js): ${cleanFilename}`);
       return {
         title: meta.title || videoInfo?.title || (meta.videoId ? `Video ${meta.videoId}` : 'Video'),
-        download: `${baseUrl}/download/${cleanFilename}`,
+        download: `${baseUrl}/downloads/${cleanFilename}`,
         format: 'video/mp4',
         fileSize: Math.round((stats.size / (1024 * 1024)) * 100) / 100 + ' MB',
         duration: meta.duration
@@ -440,7 +440,7 @@ class YouTubeService {
       logger.success(`[YouTube] MP3 ready (ytdl-core): ${cleanFilename}`);
       return {
         title: meta.title || videoInfo?.title || 'Audio',
-        download: `${baseUrl}/download/${cleanFilename}`,
+        download: `${baseUrl}/downloads/${cleanFilename}`,
         format: 'audio/mpeg',
         fileSize: Math.round(stats.size / 1024) + ' KB',
         duration: meta.duration
@@ -519,7 +519,7 @@ class YouTubeService {
 
       return {
         title: videoMetadata.title || videoInfo?.title || 'Video',
-        download: `${baseUrl}/download/${actualFilename}`,
+        download: `${baseUrl}/downloads/${actualFilename}`,
         format: 'video/mp4',
         fileSize: Math.round((stats.size / (1024 * 1024)) * 100) / 100 + ' MB',
         duration: videoMetadata.duration
@@ -561,7 +561,7 @@ class YouTubeService {
       logger.success(`[YouTube] MP4 ready (ytdl-core): ${cleanFilename}`);
       return {
         title: meta.title || videoInfo?.title || 'Video',
-        download: `${baseUrl}/download/${cleanFilename}`,
+        download: `${baseUrl}/downloads/${cleanFilename}`,
         format: 'video/mp4',
         fileSize: Math.round((stats.size / (1024 * 1024)) * 100) / 100 + ' MB',
         duration: meta.duration

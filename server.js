@@ -21,6 +21,7 @@ const ResponseHandler = require('./src/shared/utils/response');
 const browserManager = require('./src/shared/browser/browserManager');
 const { initColorIndex } = require('./src/core/media/brat/color');
 const swaggerSpec = require('./src/shared/docs/swagger');
+const downloadsCleanup = require('./src/shared/utils/downloadsCleanup');
 
 const youtubeRoutes = require('./src/core/media/youtube/youtube.routes');
 const bratRoutes = require('./src/core/media/brat/brat.routes');
@@ -163,6 +164,11 @@ async function startServer() {
     // dynamic-import + JSON-parse cost (~150ms on cold start).
     await initColorIndex();
 
+    // Sweep stale files in /downloads on a TTL so the disk doesn't fill up
+    // with old YouTube/TikTok artefacts. Runs an initial pass synchronously,
+    // then schedules an interval. unref()'d so it never blocks shutdown.
+    downloadsCleanup.startCleanup(path.join(__dirname, 'downloads'));
+
     httpServer = app.listen(env.PORT, () => {
       logger.success(`Server running at http://localhost:${env.PORT}`);
       logger.info(`Health check: http://localhost:${env.PORT}/health`);
@@ -180,6 +186,7 @@ async function startServer() {
 // and SIGINT (Ctrl-C).
 function shutdown(signal) {
   logger.info(`Received ${signal}, shutting down gracefully...`);
+  downloadsCleanup.stopCleanup();
   if (!httpServer) {
     browserManager.shutdown().finally(() => process.exit(0));
     return;

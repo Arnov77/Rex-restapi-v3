@@ -772,7 +772,7 @@ X-Sticker-Type: webp | tgs | webm
       message: 'MP3 download link generated',
       data: {
         title: 'Never Gonna Give You Up',
-        download: `${BASE_URL}/download/never-gonna-give-you-up.mp3`,
+        download: `${BASE_URL}/downloads/never-gonna-give-you-up.mp3`,
         format: 'audio/mpeg',
         fileSize: '3.20 MB',
         duration: '3 menit, 32 detik',
@@ -789,7 +789,7 @@ X-Sticker-Type: webp | tgs | webm
       message: 'MP4 download link generated',
       data: {
         title: 'Never Gonna Give You Up',
-        download: `${BASE_URL}/download/never-gonna-give-you-up.mp4`,
+        download: `${BASE_URL}/downloads/never-gonna-give-you-up.mp4`,
         format: 'video/mp4',
         fileSize: '12.40 MB',
         duration: '3 menit, 32 detik',

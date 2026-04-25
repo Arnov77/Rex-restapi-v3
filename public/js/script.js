@@ -281,7 +281,7 @@ function buildDocsTab(api) {
 
 function buildTryTab(api) {
   const isBrat = api.name.toLowerCase().includes('brat');
-  const isGemini = api.name.toLowerCase().includes('gemini');
+  const isReplicate = api.action === '/api/replicate/generate';
   const isTelegramSticker = api.action === '/api/telegram/sticker';
 
   let fields = '';
@@ -335,7 +335,7 @@ function buildTryTab(api) {
     </div>`;
   }
 
-  if (isGemini) {
+  if (isReplicate) {
     extra = `<div class="form-section">
       <div class="form-label"><span class="form-label-text">option</span><span class="chip-req" style="font-size:10px">wajib</span></div>
       <div class="preset-row">
@@ -377,13 +377,75 @@ function buildCodeTab(api) {
   const supportsFile = (api.params || []).some((param) => param.type === 'file');
   const isTelegramSticker = endpoint === '/api/telegram/sticker';
   const isTelegramStickerPack = endpoint === '/api/telegram/sticker-pack';
+  const isTelegramStickerDownload = endpoint === '/api/telegram/sticker-pack/download';
 
   let curl;
   let fetchCode;
   let axiosCode;
   let pythonCode;
 
-  if (isTelegramSticker) {
+  if (isTelegramStickerDownload) {
+    curl = `# Single pack (\u2264 30 stiker) -> .wasticker langsung
+curl -X POST ${BASE_URL}${endpoint} \\
+  -H "Content-Type: application/json" \\
+  -d '{"url":"https://t.me/addstickers/KOSHAKIEBANIYE"}' \\
+  --output pack.wasticker
+
+# Multi-part (> 30 stiker) -> .zip berisi N file .wasticker
+curl -X POST ${BASE_URL}${endpoint} \\
+  -H "Content-Type: application/json" \\
+  -d '{"packName":"KOSHAKIEBANIYE","stickersPerPack":30}' \\
+  --output pack.zip`;
+
+    fetchCode = `// Auto-download .wasticker / .zip ke perangkat user
+const res = await fetch('${BASE_URL}${endpoint}', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    url: 'https://t.me/addstickers/KOSHAKIEBANIYE',
+    publisher: 'Rex API',
+    author: 'Converted via Rex REST API',
+    stickersPerPack: 30,
+  }),
+});
+const blob = await res.blob();
+const filename = (res.headers.get('content-disposition') || '')
+  .match(/filename="?([^"\\;]+)/)?.[1] || 'pack.wasticker';
+const a = document.createElement('a');
+a.href = URL.createObjectURL(blob);
+a.download = filename;
+a.click();`;
+
+    axiosCode = `import axios from 'axios';
+
+const res = await axios.post('${BASE_URL}${endpoint}', {
+  url: 'https://t.me/addstickers/KOSHAKIEBANIYE',
+  publisher: 'Rex API',
+  author: 'Converted via Rex REST API',
+}, { responseType: 'arraybuffer' });
+
+console.log('parts:', res.headers['x-sticker-parts']);
+console.log('stickers:', res.headers['x-sticker-count']);
+// res.data -> Buffer (.wasticker atau .zip)`;
+
+    pythonCode = `import re, requests
+
+r = requests.post(
+    '${BASE_URL}${endpoint}',
+    json={'url': 'https://t.me/addstickers/KOSHAKIEBANIYE'},
+    timeout=180,
+)
+r.raise_for_status()
+
+cd = r.headers.get('content-disposition', '')
+m = re.search(r'filename="?([^";]+)', cd)
+filename = m.group(1) if m else 'pack.wasticker'
+with open(filename, 'wb') as f:
+    f.write(r.content)
+
+print('parts:', r.headers.get('x-sticker-parts'))
+print('stickers:', r.headers.get('x-sticker-count'))`;
+  } else if (isTelegramSticker) {
     curl = `# Menggunakan file_id
 curl -X POST ${BASE_URL}${endpoint} \\
   -H "Content-Type: application/json" \\
@@ -661,6 +723,16 @@ function buildResponseExample(api) {
       },
       timestamp: '2026-04-23T10:00:00.000Z',
     }, null, 2);
+  }
+
+  if (action === '/api/telegram/sticker-pack/download') {
+    return `Content-Type: application/octet-stream  (single pack -> .wasticker)
+Content-Type: application/zip               (multi-part -> .zip berisi N .wasticker)
+Content-Disposition: attachment; filename="<pack>.wasticker"
+X-Sticker-Parts: 1                          (jumlah part dalam respons)
+X-Sticker-Count: 24                         (total stiker yang berhasil dikonversi)
+
+[Binary archive — flat layout: title.txt, author.txt, tray.png, 1.webp ... N.webp]`;
   }
 
   if (action === '/api/telegram/sticker') {
@@ -944,8 +1016,9 @@ function sendReq() {
   button.textContent = 'Mengirim...';
 
   const isTelegramSticker = api.action === '/api/telegram/sticker';
+  const isTelegramStickerDownload = api.action === '/api/telegram/sticker-pack/download';
   const isBrat = api.name.toLowerCase().includes('brat');
-  const isGemini = api.name.toLowerCase().includes('gemini');
+  const isReplicate = api.action === '/api/replicate/generate';
 
   const body = {};
   if (api.params) {
@@ -982,7 +1055,7 @@ function sendReq() {
     }
   }
 
-  if (isGemini) {
+  if (isReplicate) {
     const option = document.getElementById('f-option');
     if (option) body.option = option.value;
   }
@@ -1015,35 +1088,159 @@ function sendReq() {
   }
 
   fetch(api.action, requestOptions)
-    .then(async (response) => {
-      const contentType = response.headers.get('content-type') || '';
-
-      if (contentType.includes('image/')) {
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const ext = contentType.includes('gif')
-          ? 'gif'
-          : contentType.includes('webp')
-            ? 'webp'
-            : 'png';
-        showImage(url, ext, response.status, contentType);
-        return;
-      }
-
-      if (contentType.includes('application/json')) {
-        const json = await response.json();
-        showJSON(json, response.status);
-        return;
-      }
-
-      const text = await response.text();
-      showError(text || 'Response tidak dikenali');
-    })
-    .catch((error) => showError(error.message))
+    .then((response) => handleApiResponse(response, { isTelegramStickerDownload }))
+    .catch((error) => showError(error.message || 'Network error: gagal terhubung ke server.'))
     .finally(() => {
       button.disabled = false;
       button.textContent = 'Kirim Request';
     });
+}
+
+// Centralised response handler. Detects:
+//   - .wasticker / .zip binary downloads -> trigger browser save dialog
+//   - image/* -> render preview + download anchor
+//   - application/json -> success envelope (200) or error envelope (4xx/5xx)
+//   - 429 -> surface Retry-After hint
+async function handleApiResponse(response, { isTelegramStickerDownload } = {}) {
+  const contentType = response.headers.get('content-type') || '';
+  const isJson = contentType.includes('application/json');
+  const isOk = response.status >= 200 && response.status < 300;
+
+  // Error path first — backend always emits a JSON envelope on 4xx/5xx.
+  if (!isOk) {
+    let payload = null;
+    if (isJson) {
+      try {
+        payload = await response.json();
+      } catch {
+        payload = null;
+      }
+    } else {
+      const text = await response.text().catch(() => '');
+      payload = text ? { message: text } : null;
+    }
+    showApiError(response.status, response.headers, payload);
+    return;
+  }
+
+  // .wasticker (octet-stream) or multi-part .zip -> save to device.
+  const isBinaryArchive =
+    contentType.includes('application/octet-stream') ||
+    contentType.includes('application/zip') ||
+    isTelegramStickerDownload;
+
+  if (isBinaryArchive) {
+    const blob = await response.blob();
+    const filename = parseContentDispositionFilename(response.headers.get('content-disposition'))
+      || (contentType.includes('zip') ? 'sticker-pack.zip' : 'sticker-pack.wasticker');
+    triggerDownload(blob, filename);
+    showDownloadResult({
+      filename,
+      size: blob.size,
+      status: response.status,
+      parts: response.headers.get('x-sticker-parts'),
+      stickers: response.headers.get('x-sticker-count'),
+      contentType,
+    });
+    return;
+  }
+
+  if (contentType.includes('image/')) {
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const ext = contentType.includes('gif')
+      ? 'gif'
+      : contentType.includes('webp')
+        ? 'webp'
+        : 'png';
+    showImage(url, ext, response.status, contentType);
+    return;
+  }
+
+  if (isJson) {
+    const json = await response.json();
+    showJSON(json, response.status);
+    return;
+  }
+
+  const text = await response.text();
+  showError(text || 'Response tidak dikenali');
+}
+
+function parseContentDispositionFilename(header) {
+  if (!header) return null;
+  const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(header);
+  if (utf8) {
+    try { return decodeURIComponent(utf8[1].trim()); } catch { /* fall through */ }
+  }
+  const ascii = /filename="?([^";]+)"?/i.exec(header);
+  return ascii ? ascii[1].trim() : null;
+}
+
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes)) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function showDownloadResult({ filename, size, status, parts, stickers, contentType }) {
+  const meta = [];
+  if (size) meta.push(formatBytes(size));
+  if (parts) meta.push(`${parts} part${Number(parts) > 1 ? 's' : ''}`);
+  if (stickers) meta.push(`${stickers} stiker`);
+  const metaLine = meta.length ? `<div class="img-note">${meta.join(' • ')} • ${escHtml(contentType)}</div>` : '';
+
+  document.getElementById('responseArea').innerHTML = `<div class="response-area">
+    <div class="res-bar"><span class="res-label">Response</span><span class="res-status s-ok">${status} OK - File terunduh</span></div>
+    <div class="img-result">
+      <div style="font-weight:600;margin-bottom:6px">${escHtml(filename)}</div>
+      ${metaLine}
+      <div class="img-note" style="margin-top:10px">File otomatis terunduh ke perangkat. Impor ke aplikasi Sticker Maker untuk menambahkan ke WhatsApp.</div>
+    </div>
+  </div>`;
+}
+
+function showApiError(status, headers, payload) {
+  // Pull human-readable copy from the standard envelope first; fall back to
+  // raw text or generic copy so we never display an empty bubble.
+  let message = (payload && (payload.message || payload.error || payload.statusMessage)) || '';
+  if (!message) {
+    if (status === 400) message = 'Parameter request tidak valid. Periksa kembali isian form.';
+    else if (status === 401) message = 'Tidak terautentikasi. Cek API key / botToken.';
+    else if (status === 403) message = 'Akses ditolak.';
+    else if (status === 404) message = 'Resource tidak ditemukan.';
+    else if (status === 413) message = 'Payload terlalu besar.';
+    else if (status === 429) message = 'Terlalu banyak request. Coba lagi sebentar.';
+    else if (status === 502 || status === 503) message = 'Layanan upstream sedang bermasalah.';
+    else message = `Request gagal (HTTP ${status}).`;
+  }
+
+  const retryAfter = headers && headers.get && headers.get('retry-after');
+  if (status === 429 && retryAfter) {
+    message += ` Coba lagi dalam ${retryAfter} detik.`;
+  }
+
+  const details = payload && payload.errors
+    ? `<div class="res-body" style="margin-top:8px">${escHtml(JSON.stringify(payload.errors, null, 2))}</div>`
+    : '';
+
+  document.getElementById('responseArea').innerHTML = `<div class="response-area">
+    <div class="res-bar"><span class="res-label">Response</span><span class="res-status s-err">${status} Error</span></div>
+    <div class="res-body">${escHtml(message)}</div>
+    ${details}
+  </div>`;
 }
 
 function showLoading() {

@@ -2,6 +2,7 @@ const play = require('play-dl');
 const youtubedl = require('youtube-dl-exec');
 const logger = require('../../../shared/utils/logger');
 const { NotFoundError, AppError } = require('../../../shared/utils/errors');
+const { loadYouTubeCookies, unlinkSilent } = require('../../../shared/utils/cookies');
 const fs = require('fs');
 const path = require('path');
 const { randomUUID } = require('crypto');
@@ -9,22 +10,16 @@ const { randomUUID } = require('crypto');
 const DOWNLOAD_DIR = path.join(__dirname, '../../../../downloads');
 fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
 
-function writeCookieToTmp() {
-  const b64 = process.env.YOUTUBE_COOKIES_B64;
-  if (!b64) return null;
-  const tmpPath = `/tmp/ck_${randomUUID()}.txt`;
-  fs.writeFileSync(tmpPath, Buffer.from(b64, 'base64').toString('utf-8'), { mode: 0o600 });
-  return tmpPath;
-}
-
-function cleanupCookies(tmpPath) {
-  if (tmpPath && fs.existsSync(tmpPath)) {
-    try { fs.unlinkSync(tmpPath); } catch (_) {}
+let playDlCookieReady = false;
+function ensurePlayDlCookies(cookieData) {
+  if (playDlCookieReady || !cookieData?.header || typeof play.setToken !== 'function') return;
+  try {
+    play.setToken({ youtube: { cookie: cookieData.header } });
+    playDlCookieReady = true;
+    logger.info(`[YouTube] play-dl cookie configured (${cookieData.cookies.length} entries)`);
+  } catch (err) {
+    logger.warn(`[YouTube] play-dl cookie injection failed: ${err.message}`);
   }
-}
-
-function hasCookies() {
-  return Boolean(process.env.YOUTUBE_COOKIES_B64);
 }
 
 function sanitizeFilename(title, ext) {
@@ -43,14 +38,15 @@ function sanitizeFilename(title, ext) {
   return `${uid}-${clean}.${ext}`;
 }
 
-function getBaseOptions(cookiePath) {
+function getBaseOptions(cookieData, cookiePath) {
+  const headers = [
+    'User-Agent: com.google.ios.youtube/19.14.3 (iPhone16,2; iOS 17_4_1; Scale/3.00)',
+    'Accept-Language: en-US,en;q=0.9',
+  ];
+  if (cookieData?.header) headers.push(`Cookie: ${cookieData.header}`);
+
   const opts = {
-    addHeader: [
-      'User-Agent: com.google.ios.youtube/19.14.3 (iPhone16,2; iOS 17_4_1; Scale/3.00)',
-      'Accept-Language: en-US,en;q=0.9',
-    ],
-    // ✅ FIX: 'web' client works reliably on cloud; removed 'default' which caused
-    // "Requested format is not available" on some videos
+    addHeader: headers,
     extractorArgs: 'youtube:player_client=ios',
     geoBypass: true,
     retries: 5,
@@ -65,6 +61,13 @@ function getBaseOptions(cookiePath) {
   return opts;
 }
 
+function prepareCookies() {
+  const cookieData = loadYouTubeCookies();
+  if (!cookieData) return { cookieData: null, cookiePath: null };
+  ensurePlayDlCookies(cookieData);
+  return { cookieData, cookiePath: cookieData.write() };
+}
+
 class YouTubeService {
   async searchVideos(query, limit = 5) {
     try {
@@ -72,9 +75,9 @@ class YouTubeService {
       const results = await play.search(query, { limit });
       if (!results || results.length === 0) throw new NotFoundError('No videos found on YouTube');
       const videos = results
-        .filter(v => v.type === 'video')
+        .filter((v) => v.type === 'video')
         .slice(0, limit)
-        .map(v => ({
+        .map((v) => ({
           id: v.id,
           title: v.title,
           url: `https://youtube.com/watch?v=${v.id}`,
@@ -97,7 +100,6 @@ class YouTubeService {
     let cookiePath = null;
     try {
       logger.info(`[YouTube] Fetching MP3 for: ${query}`);
-      if (!hasCookies()) logger.warn('[YouTube] No cookies — set YOUTUBE_COOKIES_B64 for cloud servers');
 
       let videoUrl = query;
       let videoInfo = null;
@@ -109,8 +111,9 @@ class YouTubeService {
       }
 
       logger.info(`[YouTube] Downloading MP3 from: ${videoUrl}`);
-      cookiePath = writeCookieToTmp();
-      const baseOpts = getBaseOptions(cookiePath);
+      const prepared = prepareCookies();
+      cookiePath = prepared.cookiePath;
+      const baseOpts = getBaseOptions(prepared.cookieData, cookiePath);
 
       let videoMetadata = {};
       try {
@@ -120,7 +123,10 @@ class YouTubeService {
         logger.warn(`[YouTube] Metadata fetch failed: ${e.message}`);
       }
 
-      const cleanFilename = sanitizeFilename(videoMetadata.title || videoInfo?.title || 'audio', 'mp3');
+      const cleanFilename = sanitizeFilename(
+        videoMetadata.title || videoInfo?.title || 'audio',
+        'mp3'
+      );
       const outputBase = path.join(DOWNLOAD_DIR, cleanFilename.replace(/\.mp3$/, ''));
 
       await youtubedl(videoUrl, {
@@ -142,7 +148,9 @@ class YouTubeService {
         download: `${baseUrl}/download/${cleanFilename}`,
         format: 'audio/mpeg',
         fileSize: Math.round(stats.size / 1024) + ' KB',
-        duration: videoMetadata.duration ? this._formatDuration(videoMetadata.duration) : (videoInfo?.duration || 'Unknown'),
+        duration: videoMetadata.duration
+          ? this._formatDuration(videoMetadata.duration)
+          : videoInfo?.duration || 'Unknown',
         author: videoMetadata.uploader || videoInfo?.author || 'Unknown',
         thumbnail: videoMetadata.thumbnail || videoInfo?.thumbnail || null,
         status: 'success',
@@ -150,53 +158,59 @@ class YouTubeService {
     } catch (error) {
       logger.error(`[YouTube MP3] Error: ${error.message}`);
       if (this._isBotBlock(error.message)) {
-        throw new AppError('YouTube is blocking this server. Set YOUTUBE_COOKIES_B64 with valid browser cookies.', 403);
+        throw new AppError(
+          'YouTube is blocking this server. Set YOUTUBE_COOKIES_B64 with valid browser cookies.',
+          403
+        );
       }
       throw error;
     } finally {
-      cleanupCookies(cookiePath);
+      unlinkSilent(cookiePath);
     }
   }
 
   async downloadMp4(query, baseUrl = 'http://localhost:3000') {
-      let cookiePath = null;
+    let cookiePath = null;
+    try {
+      logger.info(`[YouTube] Fetching MP4 for: ${query}`);
+
+      let videoUrl = query;
+      let videoInfo = null;
+      if (!query.includes('youtube.com') && !query.includes('youtu.be')) {
+        const sr = await this.searchVideos(query, 1);
+        if (!sr.videos.length) throw new NotFoundError('Video not found');
+        videoInfo = sr.videos[0];
+        videoUrl = videoInfo.url;
+      }
+
+      logger.info(`[YouTube] Downloading MP4 from: ${videoUrl}`);
+      const prepared = prepareCookies();
+      cookiePath = prepared.cookiePath;
+      const baseOpts = getBaseOptions(prepared.cookieData, cookiePath);
+
+      let videoMetadata = {};
       try {
-        logger.info(`[YouTube] Fetching MP4 for: ${query}`);
-        if (!hasCookies()) logger.warn('[YouTube] No cookies — set YOUTUBE_COOKIES_B64 for cloud servers');
+        const metadata = await youtubedl(videoUrl, { ...baseOpts, dumpJson: true, quiet: true });
+        videoMetadata = typeof metadata === 'string' ? JSON.parse(metadata) : metadata;
+      } catch (e) {
+        logger.warn(`[YouTube] Metadata fetch failed: ${e.message}`);
+      }
 
-        let videoUrl = query;
-        let videoInfo = null;
-        if (!query.includes('youtube.com') && !query.includes('youtu.be')) {
-          const sr = await this.searchVideos(query, 1);
-          if (!sr.videos.length) throw new NotFoundError('Video not found');
-          videoInfo = sr.videos[0];
-          videoUrl = videoInfo.url;
-        }
+      const cleanFilename = sanitizeFilename(
+        videoMetadata.title || videoInfo?.title || 'video',
+        'mp4'
+      );
+      const outputBase = path.join(DOWNLOAD_DIR, cleanFilename.replace(/\.mp4$/, ''));
 
-        logger.info(`[YouTube] Downloading MP4 from: ${videoUrl}`);
-        cookiePath = writeCookieToTmp();
-        const baseOpts = getBaseOptions(cookiePath);
+      const downloadParams = {
+        format: 'bestvideo+bestaudio/best',
+        mergeOutputFormat: 'mp4',
+        output: outputBase,
+        quiet: false,
+        postprocessorArgs: 'ffmpeg:-c:v copy -c:a aac',
+      };
 
-        let videoMetadata = {};
-        try {
-          const metadata = await youtubedl(videoUrl, { ...baseOpts, dumpJson: true, quiet: true });
-          videoMetadata = typeof metadata === 'string' ? JSON.parse(metadata) : metadata;
-        } catch (e) {
-          logger.warn(`[YouTube] Metadata fetch failed: ${e.message}`);
-        }
-
-        const cleanFilename = sanitizeFilename(videoMetadata.title || videoInfo?.title || 'video', 'mp4');
-        const outputBase = path.join(DOWNLOAD_DIR, cleanFilename.replace(/\.mp4$/, ''));
-
-        const downloadParams = {
-          format: 'bestvideo+bestaudio/best',
-          mergeOutputFormat: 'mp4',
-          output: outputBase,
-          quiet: false,
-          postprocessorArgs: 'ffmpeg:-c:v copy -c:a aac',
-        };
-
-        await youtubedl(videoUrl, { ...baseOpts, ...downloadParams });
+      await youtubedl(videoUrl, { ...baseOpts, ...downloadParams });
 
       const filepath = this._findOutputFile(outputBase, ['mp4', 'mkv', 'webm']);
       if (!filepath) throw new AppError('Video file was not created', 502);
@@ -209,8 +223,10 @@ class YouTubeService {
         title: videoMetadata.title || videoInfo?.title || 'Video',
         download: `${baseUrl}/download/${actualFilename}`,
         format: 'video/mp4',
-        fileSize: Math.round(stats.size / (1024 * 1024) * 100) / 100 + ' MB',
-        duration: videoMetadata.duration ? this._formatDuration(videoMetadata.duration) : (videoInfo?.duration || 'Unknown'),
+        fileSize: Math.round((stats.size / (1024 * 1024)) * 100) / 100 + ' MB',
+        duration: videoMetadata.duration
+          ? this._formatDuration(videoMetadata.duration)
+          : videoInfo?.duration || 'Unknown',
         author: videoMetadata.uploader || videoInfo?.author || 'Unknown',
         thumbnail: videoMetadata.thumbnail || videoInfo?.thumbnail || null,
         status: 'success',
@@ -218,11 +234,14 @@ class YouTubeService {
     } catch (error) {
       logger.error(`[YouTube MP4] Error: ${error.message}`);
       if (this._isBotBlock(error.message)) {
-        throw new AppError('YouTube is blocking this server. Set YOUTUBE_COOKIES_B64 with valid browser cookies.', 403);
+        throw new AppError(
+          'YouTube is blocking this server. Set YOUTUBE_COOKIES_B64 with valid browser cookies.',
+          403
+        );
       }
       throw new AppError(`Download failed: ${error.message}`, 502);
     } finally {
-      cleanupCookies(cookiePath);
+      unlinkSilent(cookiePath);
     }
   }
 
@@ -235,10 +254,15 @@ class YouTubeService {
   }
 
   _isBotBlock(message = '') {
-    return ['Sign in to confirm', 'bot', 'HTTP Error 429', 'HTTP Error 403',
-      'cookies', 'age-restricted', 'not available'].some(
-      s => message.toLowerCase().includes(s.toLowerCase())
-    );
+    return [
+      'Sign in to confirm',
+      'bot',
+      'HTTP Error 429',
+      'HTTP Error 403',
+      'cookies',
+      'age-restricted',
+      'not available',
+    ].some((s) => message.toLowerCase().includes(s.toLowerCase()));
   }
 
   _formatDuration(seconds) {

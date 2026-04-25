@@ -74,11 +74,15 @@ router.post(
  *     tags: [Tools]
  *     description: |
  *       Converts every sticker to 512×512 WebP and bundles them with a
- *       96×96 tray icon plus `contents.json`. When the source pack exceeds
- *       `stickersPerPack` (default 30, WA's limit), the response is a `.zip`
- *       containing multiple `.wasticker` parts; otherwise a single
- *       `.wasticker` is returned. Check `X-Sticker-Parts` / `X-Sticker-Count`
- *       response headers for metadata.
+ *       96×96 tray icon at the zip root in a flat layout (`title.txt`,
+ *       `author.txt`, `tray.png`, `1.webp` … `N.webp`) — the format read
+ *       by Sticker Maker and similar third-party WA importers.
+ *
+ *       When the source pack exceeds `stickersPerPack` (default 30, WA's
+ *       limit) the response is a `.zip` containing multiple `.wasticker`
+ *       parts; otherwise a single `.wasticker`. Each part's `title.txt`
+ *       carries a `Part N` suffix so importers display them distinctly.
+ *       Inspect `X-Sticker-Parts` / `X-Sticker-Count` response headers.
  *     requestBody:
  *       required: true
  *       content:
@@ -89,7 +93,8 @@ router.post(
  *               url: { type: string, example: "https://t.me/addstickers/PackName" }
  *               packName: { type: string }
  *               botToken: { type: string }
- *               publisher: { type: string, default: "Rex API", maxLength: 80 }
+ *               publisher: { type: string, default: "Rex API", maxLength: 80, description: "Watermark suffix appended to title.txt (e.g. '{pack name} - Rex API')." }
+ *               author: { type: string, default: "Converted via Rex REST API", maxLength: 120, description: "Verbatim contents of author.txt." }
  *               stickersPerPack: { type: integer, minimum: 1, maximum: 30, default: 30 }
  *     responses:
  *       200:

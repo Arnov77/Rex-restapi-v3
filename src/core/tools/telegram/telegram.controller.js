@@ -25,13 +25,14 @@ async function getStickerPack(req, res) {
 }
 
 async function downloadStickerPack(req, res) {
-  const { url, packName, botToken, publisher, stickersPerPack } = req.validated;
+  const { url, packName, botToken, publisher, author, stickersPerPack } = req.validated;
   const target = url || packName;
   const { buffer, filename, contentType, parts, totalStickers } =
     await telegramService.buildWAStickerPack({
       packNameOrUrl: target,
       botToken,
       publisher,
+      author,
       stickersPerPack,
     });
   logger.success(

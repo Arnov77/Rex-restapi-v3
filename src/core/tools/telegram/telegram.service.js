@@ -393,12 +393,16 @@ async function processSticker({ fileId, url, botToken, format = 'png' }) {
 
 // ─── WASticker pack builder ─────────────────────────────────────────────────
 // Produces a `.wasticker` archive (zip) — or, when the source pack exceeds the
-// WhatsApp per-pack limit (30), a `.zip` of multiple `.wasticker` parts. The
-// inner JSON follows the common flat format that third-party WA sticker
-// importers (Sticker.ly, StickerMaker, etc.) accept; WhatsApp's own
-// ContentProvider apps use a slightly richer schema but take the same files.
+// WhatsApp per-pack limit (30), a `.zip` of multiple `.wasticker` parts.
+//
+// Layout: most third-party WA sticker importer apps (e.g. Sticker Maker,
+// Personal Stickers) read a flat-text format — `title.txt`, `author.txt`,
+// `tray.png` and the WebP files — instead of a `contents.json` manifest. We
+// emit that flat layout directly at the zip root (no subfolders) so the
+// archive imports cleanly without further repackaging.
 
 const MAX_STICKERS_PER_PACK = 30;
+const DEFAULT_AUTHOR = 'Converted via Rex REST API';
 
 function sanitizeIdentifier(input) {
   return (
@@ -457,28 +461,13 @@ async function processStickersConcurrent(stickers, botToken, concurrency = 4) {
   return results.filter(Boolean);
 }
 
-// Build a single .wasticker buffer for `slice` stickers.
-async function buildSingleWAStickerBuffer({ slice, identifier, name, publisher, trayBuffer }) {
+// Build a single .wasticker buffer for `slice` stickers using the flat
+// title.txt + author.txt layout (no contents.json, no subfolders).
+async function buildSingleWAStickerBuffer({ slice, title, author, trayBuffer }) {
   const zip = new JSZip();
 
-  const contents = {
-    identifier,
-    name,
-    publisher,
-    tray_image: 'tray.png',
-    image_data_version: '1',
-    avoid_cache: false,
-    publisher_email: '',
-    publisher_website: '',
-    privacy_policy_website: '',
-    license_agreement_website: '',
-    stickers: slice.map((s, idx) => ({
-      image_file: `${idx + 1}.webp`,
-      emojis: s.emoji ? [s.emoji] : ['⭐'],
-    })),
-  };
-
-  zip.file('contents.json', JSON.stringify(contents, null, 2));
+  zip.file('title.txt', title);
+  zip.file('author.txt', author);
   zip.file('tray.png', trayBuffer);
   slice.forEach((s, idx) => {
     zip.file(`${idx + 1}.webp`, s.buffer);
@@ -491,6 +480,7 @@ async function buildWAStickerPack({
   packNameOrUrl,
   botToken,
   publisher = 'Rex API',
+  author = DEFAULT_AUTHOR,
   stickersPerPack = MAX_STICKERS_PER_PACK,
 }) {
   const pack = await getStickerSet(packNameOrUrl, botToken);
@@ -511,14 +501,14 @@ async function buildWAStickerPack({
 
   const trayBuffer = await buildTrayIcon(processed[0].buffer);
   const baseIdentifier = sanitizeIdentifier(pack.name);
+  const baseTitle = pack.title || pack.name;
 
   // Single-part case: return the .wasticker buffer directly.
   if (processed.length <= limit) {
     const buffer = await buildSingleWAStickerBuffer({
       slice: processed,
-      identifier: baseIdentifier,
-      name: pack.title,
-      publisher,
+      title: `${baseTitle} - ${publisher}`,
+      author,
       trayBuffer,
     });
     return {
@@ -531,8 +521,8 @@ async function buildWAStickerPack({
   }
 
   // Multi-part case: one .wasticker per chunk, all bundled in an outer .zip.
-  // Generates stable identifiers per part so WA registers each as a distinct
-  // pack, not a duplicate.
+  // Each part's title carries the part suffix so importers display them as
+  // distinct packs instead of overwriting each other.
   const outerZip = new JSZip();
   const totalParts = Math.ceil(processed.length / limit);
 
@@ -541,9 +531,8 @@ async function buildWAStickerPack({
     const partId = `${baseIdentifier}_part${part + 1}`;
     const partBuffer = await buildSingleWAStickerBuffer({
       slice,
-      identifier: partId,
-      name: `${pack.title} (Part ${part + 1}/${totalParts})`,
-      publisher,
+      title: `${baseTitle} Part ${part + 1} - ${publisher}`,
+      author,
       trayBuffer,
     });
     outerZip.file(`${partId}.wasticker`, partBuffer);

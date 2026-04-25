@@ -3,6 +3,7 @@ const youtubedl = require('youtube-dl-exec');
 const logger = require('../../../shared/utils/logger');
 const { NotFoundError, AppError } = require('../../../shared/utils/errors');
 const { loadYouTubeCookies, unlinkSilent } = require('../../../shared/utils/cookies');
+const ytdlCore = require('./ytdl-core.helper');
 const fs = require('fs');
 const path = require('path');
 const { randomUUID } = require('crypto');
@@ -258,11 +259,15 @@ class YouTubeService {
       }
 
       logger.info(`[YouTube] Downloading MP3 from: ${videoUrl}`);
+
+      // Try ytdl-core first — it bypasses the "downgraded player API" path that
+      // strands yt-dlp on storyboards-only responses. Only if it fails do we
+      // fall back to yt-dlp (kept as a safety net for future format changes).
+      const ytdlResult = await this._tryYtdlCoreMp3(videoUrl, videoInfo, baseUrl);
+      if (ytdlResult) return ytdlResult;
+
       ({ cookiePath } = prepareCookies());
 
-      // Metadata first, with a separate option set that omits format-related
-      // flags. Download options come from getBaseOptions() and DO carry the
-      // format selector.
       const videoMetadata = await fetchVideoMetadata(videoUrl, cookiePath);
       const baseOpts = getBaseOptions(cookiePath);
 
@@ -272,11 +277,6 @@ class YouTubeService {
       );
       const outputBase = path.join(DOWNLOAD_DIR, cleanFilename.replace(/\.mp3$/, ''));
 
-      // bestaudio (any codec), fall back to best single muxed file.
-      // extractAudio + audioFormat: 'mp3' transcodes whatever stream is chosen
-      // to mp3 via ffmpeg. If neither selector is satisfiable, the helper
-      // logs --list-formats output and retries once with format: 'worst' so
-      // we still produce SOME audio file rather than 502'ing the user.
       await downloadWithFallback(
         videoUrl,
         {
@@ -296,7 +296,7 @@ class YouTubeService {
       if (!fs.existsSync(filepath)) throw new AppError('MP3 file was not created', 502);
 
       const stats = fs.statSync(filepath);
-      logger.success(`[YouTube] MP3 ready: ${cleanFilename}`);
+      logger.success(`[YouTube] MP3 ready (yt-dlp fallback): ${cleanFilename}`);
       return {
         title: videoMetadata.title || videoInfo?.title || 'Audio',
         download: `${baseUrl}/download/${cleanFilename}`,
@@ -319,6 +319,47 @@ class YouTubeService {
     }
   }
 
+  /**
+   * Attempt MP3 download via ytdl-core. Returns the API response payload on
+   * success, or null when ytdl-core couldn't produce a file (so the caller
+   * can fall back to yt-dlp).
+   */
+  async _tryYtdlCoreMp3(videoUrl, videoInfo, baseUrl) {
+    try {
+      const cookieData = loadYouTubeCookies();
+      const agent = ytdlCore.getYtdlAgent(cookieData?.cookies || []);
+      const meta = await ytdlCore.getVideoMetadata(videoUrl, agent);
+
+      const cleanFilename = sanitizeFilename(meta.title || videoInfo?.title || 'audio', 'mp3');
+      const outPath = path.join(DOWNLOAD_DIR, cleanFilename);
+
+      logger.info('[YouTube] MP3 via ytdl-core (primary path)');
+      await ytdlCore.downloadMp3(videoUrl, outPath, agent, meta);
+
+      if (!fs.existsSync(outPath)) {
+        logger.warn('[YouTube] ytdl-core MP3 finished but file missing — falling back to yt-dlp');
+        return null;
+      }
+      const stats = fs.statSync(outPath);
+      logger.success(`[YouTube] MP3 ready (ytdl-core): ${cleanFilename}`);
+      return {
+        title: meta.title || videoInfo?.title || 'Audio',
+        download: `${baseUrl}/download/${cleanFilename}`,
+        format: 'audio/mpeg',
+        fileSize: Math.round(stats.size / 1024) + ' KB',
+        duration: meta.duration
+          ? this._formatDuration(meta.duration)
+          : videoInfo?.duration || 'Unknown',
+        author: meta.uploader || videoInfo?.author || 'Unknown',
+        thumbnail: meta.thumbnail || videoInfo?.thumbnail || null,
+        status: 'success',
+      };
+    } catch (err) {
+      logger.warn(`[YouTube] ytdl-core MP3 failed (${err.message}) — falling back to yt-dlp`);
+      return null;
+    }
+  }
+
   async downloadMp4(query, baseUrl = 'http://localhost:3000') {
     let cookiePath = null;
     try {
@@ -334,9 +375,12 @@ class YouTubeService {
       }
 
       logger.info(`[YouTube] Downloading MP4 from: ${videoUrl}`);
+
+      const ytdlResult = await this._tryYtdlCoreMp4(videoUrl, videoInfo, baseUrl);
+      if (ytdlResult) return ytdlResult;
+
       ({ cookiePath } = prepareCookies());
 
-      // Metadata first, with a stripped-down option set (no format selector).
       const videoMetadata = await fetchVideoMetadata(videoUrl, cookiePath);
       const baseOpts = getBaseOptions(cookiePath);
 
@@ -346,10 +390,6 @@ class YouTubeService {
       );
       const outputBase = path.join(DOWNLOAD_DIR, cleanFilename.replace(/\.mp4$/, ''));
 
-      // Best single muxed file first, fall back to merging bestvideo +
-      // bestaudio. yt-dlp emits mp4/mkv/webm depending on source;
-      // _findOutputFile handles all three. On format-availability failure,
-      // helper retries once with 'worst' so we still produce some video.
       const downloadParams = {
         format: 'best/bestvideo+bestaudio',
         mergeOutputFormat: 'mp4',
@@ -364,7 +404,7 @@ class YouTubeService {
 
       const stats = fs.statSync(filepath);
       const actualFilename = path.basename(filepath);
-      logger.success(`[YouTube] MP4 ready: ${actualFilename}`);
+      logger.success(`[YouTube] MP4 ready (yt-dlp fallback): ${actualFilename}`);
 
       return {
         title: videoMetadata.title || videoInfo?.title || 'Video',
@@ -385,6 +425,42 @@ class YouTubeService {
       throw new AppError(`Download failed: ${error.message}`, 502);
     } finally {
       unlinkSilent(cookiePath);
+    }
+  }
+
+  async _tryYtdlCoreMp4(videoUrl, videoInfo, baseUrl) {
+    try {
+      const cookieData = loadYouTubeCookies();
+      const agent = ytdlCore.getYtdlAgent(cookieData?.cookies || []);
+      const meta = await ytdlCore.getVideoMetadata(videoUrl, agent);
+
+      const cleanFilename = sanitizeFilename(meta.title || videoInfo?.title || 'video', 'mp4');
+      const outPath = path.join(DOWNLOAD_DIR, cleanFilename);
+
+      logger.info('[YouTube] MP4 via ytdl-core (primary path)');
+      await ytdlCore.downloadMp4(videoUrl, outPath, agent, meta);
+
+      if (!fs.existsSync(outPath)) {
+        logger.warn('[YouTube] ytdl-core MP4 finished but file missing — falling back to yt-dlp');
+        return null;
+      }
+      const stats = fs.statSync(outPath);
+      logger.success(`[YouTube] MP4 ready (ytdl-core): ${cleanFilename}`);
+      return {
+        title: meta.title || videoInfo?.title || 'Video',
+        download: `${baseUrl}/download/${cleanFilename}`,
+        format: 'video/mp4',
+        fileSize: Math.round((stats.size / (1024 * 1024)) * 100) / 100 + ' MB',
+        duration: meta.duration
+          ? this._formatDuration(meta.duration)
+          : videoInfo?.duration || 'Unknown',
+        author: meta.uploader || videoInfo?.author || 'Unknown',
+        thumbnail: meta.thumbnail || videoInfo?.thumbnail || null,
+        status: 'success',
+      };
+    } catch (err) {
+      logger.warn(`[YouTube] ytdl-core MP4 failed (${err.message}) — falling back to yt-dlp`);
+      return null;
     }
   }
 

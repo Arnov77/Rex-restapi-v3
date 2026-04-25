@@ -198,17 +198,24 @@ async function downloadMp4(videoUrl, outPath, agent, providedInfo, opts = {}) {
         (a, b) => (b.height || 0) - (a.height || 0) || (b.bitrate || 0) - (a.bitrate || 0)
       )[0] || null;
 
+  // YouTube only ships muxed (videoandaudio) formats up to 360p. If the user
+  // wants something higher, the adaptive video-only stream will out-resolve
+  // the best muxed candidate -- prefer adaptive in that case, otherwise the
+  // request for e.g. 1080p silently downgrades to 360p.
   const muxedFmt = pickBest((f) => f.hasVideo && f.hasAudio);
-  if (muxedFmt) {
+  const videoFmt = pickBest((f) => f.hasVideo && !f.hasAudio);
+  const audioFmt = pickBest((f) => f.hasAudio && !f.hasVideo);
+  const muxedHeight = muxedFmt?.height || 0;
+  const adaptiveHeight = videoFmt?.height || 0;
+  const useMuxed = muxedFmt && (!videoFmt || adaptiveHeight <= muxedHeight);
+
+  if (useMuxed) {
     const muxedOpts = { quality: muxedFmt.itag, highWaterMark: 1 << 25 };
     if (agent) muxedOpts.agent = agent;
     const stream = ytdl.downloadFromInfo(meta.info, muxedOpts);
     await pipeStreamToFile(stream, outPath);
     return meta;
   }
-
-  const videoFmt = pickBest((f) => f.hasVideo && !f.hasAudio);
-  const audioFmt = pickBest((f) => f.hasAudio && !f.hasVideo);
   if (!videoFmt || !audioFmt) {
     throw new Error(
       `ytdl-core: no muxable video+audio formats${maxHeight ? ` <= ${maxHeight}p` : ''}`

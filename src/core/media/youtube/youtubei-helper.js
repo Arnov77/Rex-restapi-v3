@@ -386,9 +386,23 @@ async function downloadMp4(videoUrl, outPath, cookieEntries, providedMeta, opts 
   const sd = meta.info.streaming_data || {};
   const allFormats = [...(sd.formats || []), ...(sd.adaptive_formats || [])];
 
-  // 1. Try a single muxed video+audio first to skip ffmpeg merging.
+  // YouTube only publishes muxed (video+audio in one file) up to 360p. Anything
+  // above 360p is adaptive only. So if there's an adaptive video stream that's
+  // strictly higher resolution than the best muxed (still within the cap),
+  // prefer adaptive -- otherwise the user asks for 1080p and gets 360p back.
+  // The muxed fast-path is only worth taking when it actually delivers the
+  // best resolution available under the cap.
   const muxed = pickBestFormat(allFormats, (f) => f.has_video && f.has_audio, maxHeight);
-  if (muxed) {
+  const adaptiveVideoCandidate = pickBestFormat(
+    allFormats,
+    (f) => f.has_video && !f.has_audio,
+    maxHeight
+  );
+  const muxedHeight = muxed?.height || 0;
+  const adaptiveHeight = adaptiveVideoCandidate?.height || 0;
+  const useMuxed = muxed && (!adaptiveVideoCandidate || adaptiveHeight <= muxedHeight);
+
+  if (useMuxed) {
     try {
       logger.info(
         `[YouTube] youtubei.js MP4 muxed itag=${muxed.itag} height=${muxed.height || '?'}p (chunked)`
@@ -400,12 +414,16 @@ async function downloadMp4(videoUrl, outPath, cookieEntries, providedMeta, opts 
         `[YouTube] youtubei.js muxed itag=${muxed.itag} failed (${err.message}); falling back to adaptive merge.`
       );
     }
+  } else if (muxed) {
+    logger.info(
+      `[YouTube] youtubei.js skipping muxed itag=${muxed.itag} (${muxedHeight}p) -- adaptive video at ${adaptiveHeight}p available`
+    );
   } else if (maxHeight) {
     logger.info(`[YouTube] youtubei.js no muxed format <= ${maxHeight}p, using adaptive merge`);
   }
 
   // 2. Adaptive: separate video + audio streams, then ffmpeg mux.
-  const videoFmt = pickBestFormat(allFormats, (f) => f.has_video && !f.has_audio, maxHeight);
+  const videoFmt = adaptiveVideoCandidate;
   const audioFmt = pickBestFormat(allFormats, (f) => f.has_audio && !f.has_video, null);
   if (!videoFmt) {
     throw new Error(`youtubei.js: no playable video format${maxHeight ? ` <= ${maxHeight}p` : ''}`);

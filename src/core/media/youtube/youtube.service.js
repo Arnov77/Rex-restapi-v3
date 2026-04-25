@@ -152,6 +152,7 @@ class YouTubeService {
 
       await youtubedl(videoUrl, {
         ...baseOpts,
+        format: 'bestaudio/best',
         extractAudio: true,
         audioFormat: 'mp3',
         audioQuality: '192',
@@ -178,12 +179,8 @@ class YouTubeService {
       };
     } catch (error) {
       logger.error(`[YouTube MP3] Error: ${error.message}`);
-      if (this._isBotBlock(error.message)) {
-        throw new AppError(
-          'YouTube is blocking this server. Set YOUTUBE_COOKIES_B64 with valid browser cookies.',
-          403
-        );
-      }
+      const mapped = this._classifyDownloadError(error);
+      if (mapped) throw mapped;
       throw error;
     } finally {
       unlinkSilent(cookiePath);
@@ -223,7 +220,7 @@ class YouTubeService {
       const outputBase = path.join(DOWNLOAD_DIR, cleanFilename.replace(/\.mp4$/, ''));
 
       const downloadParams = {
-        format: 'bestvideo+bestaudio/best',
+        format: 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/b/best',
         mergeOutputFormat: 'mp4',
         output: outputBase,
         quiet: false,
@@ -253,12 +250,8 @@ class YouTubeService {
       };
     } catch (error) {
       logger.error(`[YouTube MP4] Error: ${error.message}`);
-      if (this._isBotBlock(error.message)) {
-        throw new AppError(
-          'YouTube is blocking this server. Set YOUTUBE_COOKIES_B64 with valid browser cookies.',
-          403
-        );
-      }
+      const mapped = this._classifyDownloadError(error);
+      if (mapped) throw mapped;
       throw new AppError(`Download failed: ${error.message}`, 502);
     } finally {
       unlinkSilent(cookiePath);
@@ -273,16 +266,55 @@ class YouTubeService {
     return null;
   }
 
-  _isBotBlock(message = '') {
-    return [
-      'Sign in to confirm',
-      'bot',
-      'HTTP Error 429',
-      'HTTP Error 403',
-      'cookies',
-      'age-restricted',
-      'not available',
-    ].some((s) => message.toLowerCase().includes(s.toLowerCase()));
+  // Pass an Error or a string. Returns an AppError with the right HTTP code +
+  // user-facing message, or null if the error doesn't match any known pattern
+  // (caller should rethrow as-is in that case).
+  _classifyDownloadError(input) {
+    const message = (input && input.message) || String(input || '');
+    const m = message.toLowerCase();
+
+    // Format negotiation failure with yt-dlp — NOT a bot-block, and the cookies
+    // we passed worked. The chosen player_client just doesn't expose the
+    // requested format. Suggest flipping YOUTUBE_PLAYER_CLIENT.
+    if (m.includes('requested format is not available') || m.includes('no video formats found')) {
+      return new AppError(
+        'Format media tidak tersedia dari YouTube untuk video ini. Coba ubah YOUTUBE_PLAYER_CLIENT (web/mweb/tv) lalu retry.',
+        502
+      );
+    }
+
+    // Video genuinely unavailable.
+    if (
+      m.includes('video unavailable') ||
+      m.includes('this video is no longer available') ||
+      m.includes('private video') ||
+      m.includes('removed by the user')
+    ) {
+      return new AppError('Video tidak tersedia atau sudah dihapus.', 404);
+    }
+
+    // Age-gated content — needs cookies from a logged-in adult account.
+    if (m.includes('age-restricted') || m.includes('confirm your age')) {
+      return new AppError(
+        'Video age-restricted. Cookies harus dari akun yang sudah login dewasa.',
+        403
+      );
+    }
+
+    // Genuine anti-bot block — server IP flagged.
+    if (
+      m.includes('sign in to confirm') ||
+      m.includes("confirm you're not a bot") ||
+      m.includes('http error 429') ||
+      m.includes('http error 403')
+    ) {
+      return new AppError(
+        'YouTube is blocking this server. Set YOUTUBE_COOKIES_B64 with valid browser cookies.',
+        403
+      );
+    }
+
+    return null;
   }
 
   _formatDuration(seconds) {

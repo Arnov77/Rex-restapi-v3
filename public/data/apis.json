@@ -64,7 +64,7 @@
 "Sticker": [
     {
       "id": 1,
-      "name": "Get Sticker Pack",
+      "name": "Get Sticker Pack Info",
       "method": "POST",
       "action": "/api/telegram/sticker-pack",
       "description": "Ambil seluruh daftar stiker dari sebuah Telegram Sticker Pack. Endpoint ini mengembalikan data JSON berisi info pack dan daftar fileId stiker yang siap diunduh.",
@@ -80,6 +80,50 @@
     },
     {
       "id": 2,
+      "name": "Download WASticker Pack",
+      "method": "POST",
+      "action": "/api/telegram/sticker-pack/download",
+      "description": "Konversi seluruh Telegram Sticker Pack menjadi arsip .wasticker (atau .zip multi-part jika lebih dari 30 stiker) yang siap diimpor ke aplikasi Sticker Maker WhatsApp pihak ketiga.",
+      "params": [
+        {
+          "name": "url",
+          "type": "string",
+          "example": "https://t.me/addstickers/KOSHAKIEBANIYE",
+          "required": false,
+          "description": "URL pack Telegram. Bisa juga isi packName."
+        },
+        {
+          "name": "packName",
+          "type": "string",
+          "example": "KOSHAKIEBANIYE",
+          "required": false,
+          "description": "Nama pack Telegram (alternatif untuk url)."
+        },
+        {
+          "name": "publisher",
+          "type": "string",
+          "example": "Rex API",
+          "required": false,
+          "description": "Watermark suffix untuk title.txt, contoh '{nama_pack} - Rex API'."
+        },
+        {
+          "name": "author",
+          "type": "string",
+          "example": "Converted via Rex REST API",
+          "required": false,
+          "description": "Isi file author.txt (kredit kreator)."
+        },
+        {
+          "name": "stickersPerPack",
+          "type": "number",
+          "example": "30",
+          "required": false,
+          "description": "Jumlah stiker per part (1-30). Default 30 sesuai batas WhatsApp."
+        }
+      ]
+    },
+    {
+      "id": 3,
       "name": "Convert & Download Sticker",
       "method": "POST",
       "action": "/api/telegram/sticker",
@@ -132,10 +176,10 @@
     },
     {
       "id": 3,
-      "name": "AI Image (Gemini)",
+      "name": "AI Image (Replicate)",
       "method": "POST",
-      "action": "/api/ai/gemini/generate",
-      "description": "Modifikasi gambar karakter anime menggunakan AI Gemini. Ubah jadi 'hitam' atau 'nerd'.",
+      "action": "/api/replicate/generate",
+      "description": "Modifikasi gambar karakter anime menggunakan AI (Replicate SDXL). Ubah jadi 'hitam' atau 'nerd'.",
       "params": [
         { "name": "image", "type": "string", "example": "https://i.ibb.co/contoh.jpg", "required": true },
         { "name": "option", "type": "string", "example": "hitam", "required": true }

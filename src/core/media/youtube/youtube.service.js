@@ -54,13 +54,34 @@ function sanitizeFilename(title, ext) {
   return `${uid}-${clean}.${ext}`;
 }
 
-// In late 2025/2026 YouTube serves an empty format list to many individual
-// player_clients (PO-token gating, JS challenges). Forcing a single client
-// causes "Requested format is not available" even with valid cookies.
-// yt-dlp accepts a comma-separated FALLBACK CHAIN — it tries each client in
-// order and stops at the first one that returns a usable format list.
-const DEFAULT_PLAYER_CLIENT_CHAIN = 'default,tv,web,android,mweb,ios,web_safari,android_creator';
+// In 2025/2026 YouTube enforces PO Token (Proof of Origin) on most requests.
+// Without a PO token, many clients receive a "downgraded" player API response
+// with ONLY storyboard images (no real video/audio streams). This chain front-
+// loads clients least frequently gated by PO Token enforcement, then falls
+// through to mainstream clients in case future YouTube changes flip which
+// clients are gated.
+const DEFAULT_PLAYER_CLIENT_CHAIN = [
+  'mediaconnect',
+  'tv_simply',
+  'web_safari',
+  'mweb',
+  'android_vr',
+  'android_creator',
+  'tv_embedded',
+  'tv',
+  'web',
+  'android',
+  'ios',
+  'default',
+].join(',');
 const YOUTUBE_PLAYER_CLIENT = process.env.YOUTUBE_PLAYER_CLIENT || DEFAULT_PLAYER_CLIENT_CHAIN;
+
+// Optional manual PO Token. yt-dlp accepts it via extractor args:
+//   youtube:po_token=<client>+<token>
+// Operators can extract a PO token from a browser dev tools session and pin
+// it here — this is the only reliable way to keep getting full format lists
+// when YouTube has enrolled the account in strict PO Token enforcement.
+const YOUTUBE_PO_TOKEN = process.env.YOUTUBE_PO_TOKEN || '';
 
 const PLAYER_CLIENT_USER_AGENTS = {
   android: 'com.google.android.youtube/19.29.39 (Linux; U; Android 14) gzip',
@@ -97,8 +118,13 @@ function getBaseOptions(cookiePath) {
   };
   // Always pass a player_client chain. Single-client forcing fails too often;
   // the chain lets yt-dlp probe multiple impersonations until one yields a
-  // non-empty format list.
-  opts.extractorArgs = `youtube:player_client=${YOUTUBE_PLAYER_CLIENT}`;
+  // non-empty format list. PO Token (when provided) is appended in the same
+  // youtube: extractor namespace.
+  let extractorArgs = `youtube:player_client=${YOUTUBE_PLAYER_CLIENT}`;
+  if (YOUTUBE_PO_TOKEN) {
+    extractorArgs += `;po_token=${YOUTUBE_PO_TOKEN}`;
+  }
+  opts.extractorArgs = extractorArgs;
   if (cookiePath) {
     opts.cookies = cookiePath;
   } else {
@@ -377,12 +403,15 @@ class YouTubeService {
     const message = (input && input.message) || String(input || '');
     const m = message.toLowerCase();
 
-    // Format negotiation failure with yt-dlp — NOT a bot-block, and the cookies
-    // we passed worked. The chosen player_client just doesn't expose the
-    // requested format. Suggest flipping YOUTUBE_PLAYER_CLIENT.
+    // Format negotiation failure. After our retry chain + 'worst' fallback
+    // still couldn't pick a usable format, the most likely root cause is
+    // YouTube serving a "downgraded" player response (storyboards only) due
+    // to PO Token enforcement on this account. Cookies alone are insufficient.
     if (m.includes('requested format is not available') || m.includes('no video formats found')) {
       return new AppError(
-        'Format media tidak tersedia dari YouTube untuk video ini. Coba ubah YOUTUBE_PLAYER_CLIENT (web/mweb/tv) lalu retry.',
+        'YouTube tidak mengembalikan format media yang bisa di-download. ' +
+          'Penyebab paling umum: PO Token enforcement (cookies saja tidak cukup). ' +
+          'Solusi: set YOUTUBE_PO_TOKEN di .env, atau regenerate cookies dari sesi browser yang baru saja menonton video.',
         502
       );
     }

@@ -56,6 +56,9 @@ const envSchema = Joi.object({
     .pattern(/^[a-z0-9_,]+$/i)
     .allow('')
     .optional(),
+  // OPT-IN: PO Token for yt-dlp youtube extractor. Format: '<client>+<token>'
+  // (e.g. 'web+ABC...'). Multiple tokens can be separated by ';'.
+  YOUTUBE_PO_TOKEN: Joi.string().allow('').optional(),
   TELEGRAM_BOT_TOKEN: Joi.string().allow('').optional(),
   GEMINI_API_KEY: Joi.string().allow('').optional(),
   DISCORD_WEBHOOK_URL: Joi.string().uri().allow('').optional(),

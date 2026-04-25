@@ -2,7 +2,7 @@ const svc = require('../src/core/media/youtube/youtube.service');
 const { AppError } = require('../src/shared/utils/errors');
 
 describe('YouTubeService._classifyDownloadError', () => {
-  it('maps "Requested format is not available" to 502 with format-specific message', () => {
+  it('maps "Requested format is not available" to 502 with PO-token-specific message', () => {
     const err = svc._classifyDownloadError(
       new Error(
         'ERROR: Requested format is not available. Use --list-formats for a list of available formats'
@@ -10,14 +10,15 @@ describe('YouTubeService._classifyDownloadError', () => {
     );
     expect(err).toBeInstanceOf(AppError);
     expect(err.statusCode).toBe(502);
-    expect(err.message).toContain('Format media tidak tersedia');
+    expect(err.message).toContain('PO Token');
+    expect(err.message).toContain('YOUTUBE_PO_TOKEN');
     expect(err.message).not.toContain('blocking this server');
   });
 
-  it('maps "No video formats found" to the same 502 format error', () => {
+  it('maps "No video formats found" to the same 502 PO-token error', () => {
     const err = svc._classifyDownloadError('ERROR: No video formats found!');
     expect(err.statusCode).toBe(502);
-    expect(err.message).toContain('Format media tidak tersedia');
+    expect(err.message).toContain('PO Token');
   });
 
   it('maps "Video unavailable" to 404', () => {

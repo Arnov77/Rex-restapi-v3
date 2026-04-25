@@ -52,8 +52,17 @@ async function installJsdom() {
 async function buildInstance(cookieEntries) {
   await installJsdom();
   const ytjs = await import('youtubei.js');
-  const { Innertube, UniversalCache, Platform } = ytjs;
+  const { Innertube, UniversalCache, Platform, Log } = ytjs;
   const { BG } = await import('bgutils-js');
+
+  // Quiet upstream parser warnings ("VideoDescriptionYouchatSectionView not
+  // found", "Unable to find matching run for attachment run", etc.). They
+  // come from new YouTube response fields the library hasn't been updated
+  // for. None of them affect format extraction or download -- they're noise
+  // from the description / engagement-panel parser, which we don't consume.
+  if (Log?.setLevel && Log?.Level) {
+    Log.setLevel(Log.Level.ERROR);
+  }
 
   // Provide a real JavaScript evaluator so the Player can decipher
   // signatureCipher / n-parameter for the formats it returns. The default
@@ -187,16 +196,32 @@ async function fetchInfoWithFallback(yt, id) {
   throw lastErr || new Error('youtubei.js: all clients exhausted');
 }
 
+// Some clients (notably TV / IOS) return a streamable response but a sparse
+// basic_info — title/author empty even when playability_status is OK. The WEB
+// client always populates basic_info even when its streaming_data is gated.
+// Make a cheap metadata-only call on WEB when the streaming client's title is
+// missing so we can build sensible filenames and API responses.
+async function fillMissingMetadata(yt, id, basicInfo) {
+  if (basicInfo?.title) return basicInfo;
+  try {
+    const probe = await yt.getBasicInfo(id, { client: 'WEB' });
+    return probe?.basic_info || basicInfo;
+  } catch {
+    return basicInfo;
+  }
+}
+
 async function getVideoMetadata(videoUrl, cookieEntries) {
   const yt = await getInstance(cookieEntries);
   const id = extractVideoId(videoUrl);
   if (!id) throw new Error(`youtubei.js: could not extract video id from "${videoUrl}"`);
   const { info, client } = await fetchInfoWithFallback(yt, id);
-  const v = info.basic_info || {};
+  const v = await fillMissingMetadata(yt, id, info.basic_info || {});
   return {
     info,
     yt,
     client,
+    videoId: id,
     title: v.title || '',
     duration: v.duration || 0,
     uploader: v.author || '',

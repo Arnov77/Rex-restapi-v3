@@ -335,7 +335,8 @@ class YouTubeService {
       const cookies = cookieData?.cookies || [];
       const meta = await youtubei.getVideoMetadata(videoUrl, cookies);
 
-      const cleanFilename = sanitizeFilename(meta.title || videoInfo?.title || 'audio', 'mp3');
+      const titleForName = meta.title || videoInfo?.title || meta.videoId || 'audio';
+      const cleanFilename = sanitizeFilename(titleForName, 'mp3');
       const outPath = path.join(DOWNLOAD_DIR, cleanFilename);
 
       logger.info('[YouTube] MP3 via youtubei.js (primary path, auto PO Token)');
@@ -348,7 +349,7 @@ class YouTubeService {
       const stats = fs.statSync(outPath);
       logger.success(`[YouTube] MP3 ready (youtubei.js): ${cleanFilename}`);
       return {
-        title: meta.title || videoInfo?.title || 'Audio',
+        title: meta.title || videoInfo?.title || (meta.videoId ? `Video ${meta.videoId}` : 'Audio'),
         download: `${baseUrl}/download/${cleanFilename}`,
         format: 'audio/mpeg',
         fileSize: Math.round(stats.size / 1024) + ' KB',
@@ -372,7 +373,8 @@ class YouTubeService {
       const cookies = cookieData?.cookies || [];
       const meta = await youtubei.getVideoMetadata(videoUrl, cookies);
 
-      const cleanFilename = sanitizeFilename(meta.title || videoInfo?.title || 'video', 'mp4');
+      const titleForName = meta.title || videoInfo?.title || meta.videoId || 'video';
+      const cleanFilename = sanitizeFilename(titleForName, 'mp4');
       const outPath = path.join(DOWNLOAD_DIR, cleanFilename);
 
       logger.info('[YouTube] MP4 via youtubei.js (primary path, auto PO Token)');
@@ -385,7 +387,7 @@ class YouTubeService {
       const stats = fs.statSync(outPath);
       logger.success(`[YouTube] MP4 ready (youtubei.js): ${cleanFilename}`);
       return {
-        title: meta.title || videoInfo?.title || 'Video',
+        title: meta.title || videoInfo?.title || (meta.videoId ? `Video ${meta.videoId}` : 'Video'),
         download: `${baseUrl}/download/${cleanFilename}`,
         format: 'video/mp4',
         fileSize: Math.round((stats.size / (1024 * 1024)) * 100) / 100 + ' MB',

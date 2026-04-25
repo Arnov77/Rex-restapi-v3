@@ -24,4 +24,24 @@ async function getStickerPack(req, res) {
   return ResponseHandler.success(res, packData, 'Data sticker pack berhasil diambil', 200);
 }
 
-module.exports = { downloadSticker, getStickerPack };
+async function downloadStickerPack(req, res) {
+  const { url, packName, botToken, publisher, stickersPerPack } = req.validated;
+  const target = url || packName;
+  const { buffer, filename, contentType, parts, totalStickers } =
+    await telegramService.buildWAStickerPack({
+      packNameOrUrl: target,
+      botToken,
+      publisher,
+      stickersPerPack,
+    });
+  logger.success(
+    `[Telegram Controller] .wasticker built (${totalStickers} stickers, ${parts} part${parts > 1 ? 's' : ''})`
+  );
+  res.set('Content-Type', contentType);
+  res.set('Content-Disposition', `attachment; filename="${filename}"`);
+  res.set('X-Sticker-Parts', String(parts));
+  res.set('X-Sticker-Count', String(totalStickers));
+  return res.send(buffer);
+}
+
+module.exports = { downloadSticker, getStickerPack, downloadStickerPack };

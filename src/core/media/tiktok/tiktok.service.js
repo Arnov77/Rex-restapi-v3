@@ -1,6 +1,6 @@
 const { ttdl } = require('ruhend-scraper');
 const logger = require('../../../shared/utils/logger');
-const { NotFoundError, AppError } = require('../../../shared/utils/errors');
+const { NotFoundError } = require('../../../shared/utils/errors');
 
 /**
  * TikTok Service
@@ -15,7 +15,7 @@ class TiktokService {
   async downloadVideo(url) {
     try {
       logger.info(`[TikTok] Fetching video from: ${url}`);
-      
+
       const result = await ttdl(url);
 
       if (!result || !result.video) {
@@ -23,10 +23,9 @@ class TiktokService {
       }
 
       const formatted = this._formatResponse(result);
-      
+
       logger.success('[TikTok] Video data fetched successfully');
       return formatted;
-
     } catch (error) {
       logger.error(`[TikTok] Error: ${error.message}`);
       throw error;
@@ -41,7 +40,7 @@ class TiktokService {
   async downloadAudio(url) {
     try {
       logger.info(`[TikTok] Fetching audio from: ${url}`);
-      
+
       const result = await ttdl(url);
 
       if (!result || !result.video) {
@@ -58,7 +57,6 @@ class TiktokService {
         audioUrl: result.music || result.video, // Fallback if no separate audio
         format: 'audio/mpeg',
       };
-
     } catch (error) {
       logger.error(`[TikTok] Error: ${error.message}`);
       throw error;

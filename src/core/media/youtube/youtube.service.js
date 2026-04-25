@@ -54,13 +54,13 @@ function sanitizeFilename(title, ext) {
   return `${uid}-${clean}.${ext}`;
 }
 
-// player_client spoofing is OPT-IN. yt-dlp's default client negotiation works
-// best when paired with a valid Netscape cookies file — hard-coding a single
-// client (e.g. android) routinely causes "Requested format is not available"
-// because that client doesn't expose the format we asked for. Only set this
-// env if you have a specific reason; valid values: android|ios|web|mweb|tv
-// (or comma-separated like "android,web").
-const YOUTUBE_PLAYER_CLIENT = process.env.YOUTUBE_PLAYER_CLIENT;
+// In late 2025/2026 YouTube serves an empty format list to many individual
+// player_clients (PO-token gating, JS challenges). Forcing a single client
+// causes "Requested format is not available" even with valid cookies.
+// yt-dlp accepts a comma-separated FALLBACK CHAIN — it tries each client in
+// order and stops at the first one that returns a usable format list.
+const DEFAULT_PLAYER_CLIENT_CHAIN = 'default,tv,web,android,mweb,ios,web_safari,android_creator';
+const YOUTUBE_PLAYER_CLIENT = process.env.YOUTUBE_PLAYER_CLIENT || DEFAULT_PLAYER_CLIENT_CHAIN;
 
 const PLAYER_CLIENT_USER_AGENTS = {
   android: 'com.google.android.youtube/19.29.39 (Linux; U; Android 14) gzip',
@@ -95,12 +95,10 @@ function getBaseOptions(cookiePath) {
     fragmentRetries: 5,
     noWarnings: true,
   };
-  // extractorArgs is OPT-IN. Forcing a single client tends to hide the
-  // formats we want; let yt-dlp negotiate naturally unless the operator
-  // explicitly opts into a specific client via env.
-  if (YOUTUBE_PLAYER_CLIENT) {
-    opts.extractorArgs = `youtube:player_client=${YOUTUBE_PLAYER_CLIENT}`;
-  }
+  // Always pass a player_client chain. Single-client forcing fails too often;
+  // the chain lets yt-dlp probe multiple impersonations until one yields a
+  // non-empty format list.
+  opts.extractorArgs = `youtube:player_client=${YOUTUBE_PLAYER_CLIENT}`;
   if (cookiePath) {
     opts.cookies = cookiePath;
   } else {
@@ -144,6 +142,50 @@ async function fetchVideoMetadata(videoUrl, cookiePath) {
   } catch (e) {
     logger.warn(`[YouTube] Metadata fetch failed: ${e.message}`);
     return {};
+  }
+}
+
+// Run --list-formats to log what yt-dlp can actually see for a video. Useful
+// diagnostic when "Requested format is not available" fires \u2014 if the list is
+// empty, the issue is upstream (PO token / client / cookies), not our
+// selector. Best-effort: never throws.
+async function logAvailableFormats(videoUrl, cookiePath) {
+  try {
+    const opts = {
+      listFormats: true,
+      noWarnings: true,
+      skipDownload: true,
+    };
+    if (cookiePath) opts.cookies = cookiePath;
+    const out = await youtubedl(videoUrl, opts);
+    const text = (typeof out === 'string' ? out : out?.stdout || '').toString().trim();
+    if (text) {
+      logger.warn(`[YouTube] Available formats for ${videoUrl}:\n${text}`);
+    } else {
+      logger.warn(`[YouTube] yt-dlp returned NO formats for ${videoUrl} (empty list).`);
+    }
+  } catch (e) {
+    logger.warn(`[YouTube] --list-formats probe failed: ${e.message}`);
+  }
+}
+
+// Run a yt-dlp download. On "Requested format is not available", probe the
+// available format list (for the operator to see in logs) and retry once
+// with a maximally permissive selector before giving up.
+async function downloadWithFallback(videoUrl, primaryOpts, fallbackFormat, cookiePath) {
+  try {
+    return await youtubedl(videoUrl, primaryOpts);
+  } catch (err) {
+    const msg = (err && err.message) || '';
+    if (!/requested format is not available|no video formats found/i.test(msg)) {
+      throw err;
+    }
+    logger.warn(
+      `[YouTube] Primary format selector failed (${msg.split('\n')[0]}). Probing available formats then retrying with format='${fallbackFormat}'.`
+    );
+    await logAvailableFormats(videoUrl, cookiePath);
+    const retryOpts = { ...primaryOpts, format: fallbackFormat };
+    return youtubedl(videoUrl, retryOpts);
   }
 }
 
@@ -204,19 +246,25 @@ class YouTubeService {
       );
       const outputBase = path.join(DOWNLOAD_DIR, cleanFilename.replace(/\.mp3$/, ''));
 
-      // bestaudio (any codec), fall back to best single muxed file. Use full
-      // names rather than 'ba/b' shorthand for compatibility with older
-      // bundled yt-dlp binaries. extractAudio + audioFormat: 'mp3' transcodes
-      // whatever stream is chosen to mp3 via ffmpeg.
-      await youtubedl(videoUrl, {
-        ...baseOpts,
-        format: 'bestaudio/best',
-        extractAudio: true,
-        audioFormat: 'mp3',
-        audioQuality: '192',
-        output: outputBase,
-        quiet: false,
-      });
+      // bestaudio (any codec), fall back to best single muxed file.
+      // extractAudio + audioFormat: 'mp3' transcodes whatever stream is chosen
+      // to mp3 via ffmpeg. If neither selector is satisfiable, the helper
+      // logs --list-formats output and retries once with format: 'worst' so
+      // we still produce SOME audio file rather than 502'ing the user.
+      await downloadWithFallback(
+        videoUrl,
+        {
+          ...baseOpts,
+          format: 'bestaudio/best',
+          extractAudio: true,
+          audioFormat: 'mp3',
+          audioQuality: '192',
+          output: outputBase,
+          quiet: false,
+        },
+        'worst',
+        cookiePath
+      );
 
       const filepath = `${outputBase}.mp3`;
       if (!fs.existsSync(filepath)) throw new AppError('MP3 file was not created', 502);
@@ -273,9 +321,9 @@ class YouTubeService {
       const outputBase = path.join(DOWNLOAD_DIR, cleanFilename.replace(/\.mp4$/, ''));
 
       // Best single muxed file first, fall back to merging bestvideo +
-      // bestaudio. Full names (not shorthand) for compat with older bundled
-      // yt-dlp binaries. yt-dlp emits mp4/mkv/webm depending on source;
-      // _findOutputFile handles all three.
+      // bestaudio. yt-dlp emits mp4/mkv/webm depending on source;
+      // _findOutputFile handles all three. On format-availability failure,
+      // helper retries once with 'worst' so we still produce some video.
       const downloadParams = {
         format: 'best/bestvideo+bestaudio',
         mergeOutputFormat: 'mp4',
@@ -283,7 +331,7 @@ class YouTubeService {
         quiet: false,
       };
 
-      await youtubedl(videoUrl, { ...baseOpts, ...downloadParams });
+      await downloadWithFallback(videoUrl, { ...baseOpts, ...downloadParams }, 'worst', cookiePath);
 
       const filepath = this._findOutputFile(outputBase, ['mp4', 'mkv', 'webm']);
       if (!filepath) throw new AppError('Video file was not created', 502);

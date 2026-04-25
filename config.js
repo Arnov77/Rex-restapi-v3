@@ -49,10 +49,12 @@ const envSchema = Joi.object({
   // when a single provider is missing. Call sites validate presence as needed
   // and fail with 400/502.
   YOUTUBE_COOKIES_B64: Joi.string().allow('').optional(),
-  // OPT-IN: leave unset for yt-dlp's natural client negotiation. Only force
-  // a specific client when you have a reason — hard-coding can hide formats.
+  // Override the in-code fallback chain. Accepts any comma-separated list of
+  // yt-dlp player client names (e.g. 'android,web' or
+  // 'default,tv,web,android'). Empty/unset uses the in-code default chain.
   YOUTUBE_PLAYER_CLIENT: Joi.string()
-    .valid('android', 'ios', 'web', 'mweb', 'tv', 'android,web', 'web,android')
+    .pattern(/^[a-z0-9_,]+$/i)
+    .allow('')
     .optional(),
   TELEGRAM_BOT_TOKEN: Joi.string().allow('').optional(),
   GEMINI_API_KEY: Joi.string().allow('').optional(),

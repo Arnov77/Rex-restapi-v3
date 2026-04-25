@@ -10,6 +10,22 @@ const { randomUUID } = require('crypto');
 const DOWNLOAD_DIR = path.join(__dirname, '../../../../downloads');
 fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
 
+// Log the bundled yt-dlp binary version once at module load. This makes it
+// trivial to spot when a user's local install has an outdated binary that
+// can no longer extract YouTube formats (a common cause of "Requested format
+// is not available" even when no format selector is passed).
+(async () => {
+  try {
+    const out = await youtubedl.exec('', ['--version']);
+    const stdout = (out && (out.stdout || '')).toString().trim();
+    if (stdout) logger.info(`[YouTube] yt-dlp binary version: ${stdout}`);
+  } catch (err) {
+    logger.warn(
+      `[YouTube] Failed to read yt-dlp version (${err.message}). The bundled binary may be missing — run \`npm install\` to trigger postinstall.`
+    );
+  }
+})();
+
 let playDlCookieReady = false;
 function ensurePlayDlCookies(cookieData) {
   if (playDlCookieReady || !cookieData?.header || typeof play.setToken !== 'function') return;
@@ -106,14 +122,16 @@ function prepareCookies() {
 
 // Minimal options for the metadata (info-dump) call. Critically, this MUST
 // NOT include any format selector — yt-dlp validates the requested format
-// even with --dump-single-json, and a stale selector triggers "Requested
-// format is not available" before we ever reach the download step.
+// even with --dump-single-json. We also force the binary to skip format
+// validation so a transient/changed YouTube response can't fail the dump.
 function getMetadataOptions(cookiePath) {
   const opts = {
     dumpSingleJson: true,
     noWarnings: true,
     quiet: true,
     skipDownload: true,
+    noCheckFormats: true, // --no-check-formats: don't HEAD each format URL
+    ignoreNoFormatsError: true, // --ignore-no-formats-error: don't fail when no playable format found
   };
   if (cookiePath) opts.cookies = cookiePath;
   return opts;
@@ -186,12 +204,13 @@ class YouTubeService {
       );
       const outputBase = path.join(DOWNLOAD_DIR, cleanFilename.replace(/\.mp3$/, ''));
 
-      // 'ba/b' = bestaudio, fall back to best single-file. Pairs with
-      // extractAudio + audioFormat: 'mp3' so ffmpeg transcodes the chosen
-      // stream to mp3 regardless of source codec (m4a, opus, webm-audio).
+      // bestaudio (any codec), fall back to best single muxed file. Use full
+      // names rather than 'ba/b' shorthand for compatibility with older
+      // bundled yt-dlp binaries. extractAudio + audioFormat: 'mp3' transcodes
+      // whatever stream is chosen to mp3 via ffmpeg.
       await youtubedl(videoUrl, {
         ...baseOpts,
-        format: 'ba/b',
+        format: 'bestaudio/best',
         extractAudio: true,
         audioFormat: 'mp3',
         audioQuality: '192',
@@ -253,12 +272,12 @@ class YouTubeService {
       );
       const outputBase = path.join(DOWNLOAD_DIR, cleanFilename.replace(/\.mp4$/, ''));
 
-      // 'b/bv*+ba' = best single muxed file first, fall back to merging best
-      // video + best audio. The fallback handles videos where YouTube only
-      // serves separate AV streams. yt-dlp returns mp4/mkv/webm depending on
-      // the source; _findOutputFile already handles all three.
+      // Best single muxed file first, fall back to merging bestvideo +
+      // bestaudio. Full names (not shorthand) for compat with older bundled
+      // yt-dlp binaries. yt-dlp emits mp4/mkv/webm depending on source;
+      // _findOutputFile handles all three.
       const downloadParams = {
-        format: 'b/bv*+ba',
+        format: 'best/bestvideo+bestaudio',
         mergeOutputFormat: 'mp4',
         output: outputBase,
         quiet: false,

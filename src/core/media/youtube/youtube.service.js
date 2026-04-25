@@ -104,6 +104,31 @@ function prepareCookies() {
   return { cookiePath: cookieData.write() };
 }
 
+// Minimal options for the metadata (info-dump) call. Critically, this MUST
+// NOT include any format selector — yt-dlp validates the requested format
+// even with --dump-single-json, and a stale selector triggers "Requested
+// format is not available" before we ever reach the download step.
+function getMetadataOptions(cookiePath) {
+  const opts = {
+    dumpSingleJson: true,
+    noWarnings: true,
+    quiet: true,
+    skipDownload: true,
+  };
+  if (cookiePath) opts.cookies = cookiePath;
+  return opts;
+}
+
+async function fetchVideoMetadata(videoUrl, cookiePath) {
+  try {
+    const meta = await youtubedl(videoUrl, getMetadataOptions(cookiePath));
+    return typeof meta === 'string' ? JSON.parse(meta) : meta;
+  } catch (e) {
+    logger.warn(`[YouTube] Metadata fetch failed: ${e.message}`);
+    return {};
+  }
+}
+
 class YouTubeService {
   async searchVideos(query, limit = 5) {
     try {
@@ -148,15 +173,12 @@ class YouTubeService {
 
       logger.info(`[YouTube] Downloading MP3 from: ${videoUrl}`);
       ({ cookiePath } = prepareCookies());
-      const baseOpts = getBaseOptions(cookiePath);
 
-      let videoMetadata = {};
-      try {
-        const metadata = await youtubedl(videoUrl, { ...baseOpts, dumpJson: true, quiet: true });
-        videoMetadata = typeof metadata === 'string' ? JSON.parse(metadata) : metadata;
-      } catch (e) {
-        logger.warn(`[YouTube] Metadata fetch failed: ${e.message}`);
-      }
+      // Metadata first, with a separate option set that omits format-related
+      // flags. Download options come from getBaseOptions() and DO carry the
+      // format selector.
+      const videoMetadata = await fetchVideoMetadata(videoUrl, cookiePath);
+      const baseOpts = getBaseOptions(cookiePath);
 
       const cleanFilename = sanitizeFilename(
         videoMetadata.title || videoInfo?.title || 'audio',
@@ -164,11 +186,12 @@ class YouTubeService {
       );
       const outputBase = path.join(DOWNLOAD_DIR, cleanFilename.replace(/\.mp3$/, ''));
 
-      // No `format` selector — let yt-dlp pick the best audio source. Adding
-      // an explicit selector here can clash with the chosen player_client
-      // and triggers "Requested format is not available".
+      // 'ba/b' = bestaudio, fall back to best single-file. Pairs with
+      // extractAudio + audioFormat: 'mp3' so ffmpeg transcodes the chosen
+      // stream to mp3 regardless of source codec (m4a, opus, webm-audio).
       await youtubedl(videoUrl, {
         ...baseOpts,
+        format: 'ba/b',
         extractAudio: true,
         audioFormat: 'mp3',
         audioQuality: '192',
@@ -219,15 +242,10 @@ class YouTubeService {
 
       logger.info(`[YouTube] Downloading MP4 from: ${videoUrl}`);
       ({ cookiePath } = prepareCookies());
-      const baseOpts = getBaseOptions(cookiePath);
 
-      let videoMetadata = {};
-      try {
-        const metadata = await youtubedl(videoUrl, { ...baseOpts, dumpJson: true, quiet: true });
-        videoMetadata = typeof metadata === 'string' ? JSON.parse(metadata) : metadata;
-      } catch (e) {
-        logger.warn(`[YouTube] Metadata fetch failed: ${e.message}`);
-      }
+      // Metadata first, with a stripped-down option set (no format selector).
+      const videoMetadata = await fetchVideoMetadata(videoUrl, cookiePath);
+      const baseOpts = getBaseOptions(cookiePath);
 
       const cleanFilename = sanitizeFilename(
         videoMetadata.title || videoInfo?.title || 'video',
@@ -235,12 +253,13 @@ class YouTubeService {
       );
       const outputBase = path.join(DOWNLOAD_DIR, cleanFilename.replace(/\.mp4$/, ''));
 
-      // format: 'b' (best single muxed file). Avoids merge step which is
-      // fragile when the chosen player_client doesn't expose separate
-      // bestvideo/bestaudio streams. yt-dlp returns mp4/webm/mkv depending
-      // on what's available; we look for any of those in _findOutputFile.
+      // 'b/bv*+ba' = best single muxed file first, fall back to merging best
+      // video + best audio. The fallback handles videos where YouTube only
+      // serves separate AV streams. yt-dlp returns mp4/mkv/webm depending on
+      // the source; _findOutputFile already handles all three.
       const downloadParams = {
-        format: 'b',
+        format: 'b/bv*+ba',
+        mergeOutputFormat: 'mp4',
         output: outputBase,
         quiet: false,
       };

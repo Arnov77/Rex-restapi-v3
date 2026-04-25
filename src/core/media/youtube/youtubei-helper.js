@@ -255,6 +255,57 @@ function pipeReadableToFile(stream, outPath) {
   });
 }
 
+// YouTube heavily throttles single long-running adaptive streams (~50KB/s for
+// non-bypass requests). Splitting a download into ~10MB ranged HTTP requests
+// resets the throttle counter on each chunk and lets us hit normal speeds
+// (hundreds of KB/s to several MB/s). This is what ytdl-core / yt-dlp do
+// internally; youtubei.js itself does not, so we layer it on top.
+const RANGE_CHUNK_SIZE = 10 * 1024 * 1024;
+
+function pipeChunkAppend(stream, ws) {
+  return new Promise((resolve, reject) => {
+    stream.on('error', reject);
+    stream.on('end', resolve);
+    stream.pipe(ws, { end: false });
+  });
+}
+
+async function downloadFormatChunked(meta, format, outPath) {
+  const totalSize = format.content_length || 0;
+
+  // Fall back to the single-shot stream when we don't know the size (older
+  // formats, live, post-live, etc.). Slow path, but safe.
+  if (!totalSize) {
+    const stream = toNodeReadable(await meta.info.download({ itag: format.itag }));
+    await pipeReadableToFile(stream, outPath);
+    return;
+  }
+
+  const ws = fs.createWriteStream(outPath);
+  try {
+    for (let start = 0; start < totalSize; start += RANGE_CHUNK_SIZE) {
+      const end = Math.min(start + RANGE_CHUNK_SIZE - 1, totalSize - 1);
+      const chunk = toNodeReadable(
+        await meta.info.download({ itag: format.itag, range: { start, end } })
+      );
+      await pipeChunkAppend(chunk, ws);
+    }
+    await new Promise((resolve, reject) => {
+      ws.on('finish', resolve);
+      ws.on('error', reject);
+      ws.end();
+    });
+  } catch (err) {
+    ws.destroy();
+    try {
+      fs.unlinkSync(outPath);
+    } catch {
+      /* ignore */
+    }
+    throw err;
+  }
+}
+
 // youtubei.js's info.download() returns a web ReadableStream in some envs and
 // a Node Readable in others. Normalize to Node Readable.
 function toNodeReadable(stream) {
@@ -278,36 +329,43 @@ function toNodeReadable(stream) {
 
 async function downloadMp3(videoUrl, outPath, cookieEntries, providedMeta) {
   const meta = providedMeta || (await getVideoMetadata(videoUrl, cookieEntries));
-  const audioStream = toNodeReadable(await meta.info.download({ type: 'audio', quality: 'best' }));
+  const sd = meta.info.streaming_data || {};
+  const allFormats = [...(sd.formats || []), ...(sd.adaptive_formats || [])];
+  const audioFmt = pickBestFormat(allFormats, (f) => f.has_audio && !f.has_video, null);
+  if (!audioFmt) {
+    throw new Error('youtubei.js: no audio format available');
+  }
 
-  await new Promise((resolve, reject) => {
-    let finished = false;
-    audioStream.on('error', (err) => {
-      if (finished) return;
-      finished = true;
-      reject(err);
+  // Download audio to a tmp file via chunked range requests, then transcode
+  // to MP3 with ffmpeg from disk. This sidesteps YouTube's adaptive stream
+  // throttling and is dramatically faster than streaming the format directly
+  // through ffmpeg over a single HTTP connection.
+  const tmpAudio = `${outPath}.audio.tmp`;
+  try {
+    await downloadFormatChunked(meta, audioFmt, tmpAudio);
+    await new Promise((resolve, reject) => {
+      ffmpeg(tmpAudio)
+        .audioBitrate(192)
+        .audioCodec('libmp3lame')
+        .format('mp3')
+        .on('error', reject)
+        .on('end', () => resolve())
+        .save(outPath);
     });
-    ffmpeg(audioStream)
-      .audioBitrate(192)
-      .audioCodec('libmp3lame')
-      .format('mp3')
-      .on('error', (err) => {
-        if (finished) return;
-        finished = true;
-        try {
-          fs.unlinkSync(outPath);
-        } catch {
-          /* ignore */
-        }
-        reject(err);
-      })
-      .on('end', () => {
-        if (finished) return;
-        finished = true;
-        resolve();
-      })
-      .save(outPath);
-  });
+  } catch (err) {
+    try {
+      fs.unlinkSync(outPath);
+    } catch {
+      /* ignore */
+    }
+    throw err;
+  } finally {
+    try {
+      fs.unlinkSync(tmpAudio);
+    } catch {
+      /* ignore */
+    }
+  }
 
   return meta;
 }
@@ -332,11 +390,10 @@ async function downloadMp4(videoUrl, outPath, cookieEntries, providedMeta, opts 
   const muxed = pickBestFormat(allFormats, (f) => f.has_video && f.has_audio, maxHeight);
   if (muxed) {
     try {
-      const stream = toNodeReadable(await meta.info.download({ itag: muxed.itag }));
-      await pipeReadableToFile(stream, outPath);
       logger.info(
-        `[YouTube] youtubei.js MP4 muxed itag=${muxed.itag} height=${muxed.height || '?'}p`
+        `[YouTube] youtubei.js MP4 muxed itag=${muxed.itag} height=${muxed.height || '?'}p (chunked)`
       );
+      await downloadFormatChunked(meta, muxed, outPath);
       return meta;
     } catch (err) {
       logger.warn(
@@ -363,11 +420,11 @@ async function downloadMp4(videoUrl, outPath, cookieEntries, providedMeta, opts 
   const tmpVideo = `${outPath}.video.tmp`;
   const tmpAudio = `${outPath}.audio.tmp`;
   try {
-    const videoStream = toNodeReadable(await meta.info.download({ itag: videoFmt.itag }));
-    const audioStream = toNodeReadable(await meta.info.download({ itag: audioFmt.itag }));
+    // Run video and audio downloads in parallel; each one is internally
+    // chunked into 10MB range requests to bypass YouTube's adaptive throttle.
     await Promise.all([
-      pipeReadableToFile(videoStream, tmpVideo),
-      pipeReadableToFile(audioStream, tmpAudio),
+      downloadFormatChunked(meta, videoFmt, tmpVideo),
+      downloadFormatChunked(meta, audioFmt, tmpAudio),
     ]);
     await new Promise((resolve, reject) => {
       ffmpeg()

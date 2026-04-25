@@ -5,13 +5,10 @@ const Joi = require('joi');
  */
 
 const downloadInstagramSchema = Joi.object({
-  url: Joi.string()
-    .uri()
-    .required()
-    .messages({
-      'string.uri': 'Must be a valid Instagram URL',
-      'any.required': 'URL parameter is required',
-    }),
+  url: Joi.string().uri().required().messages({
+    'string.uri': 'Must be a valid Instagram URL',
+    'any.required': 'URL parameter is required',
+  }),
 });
 
 module.exports = {

@@ -1,33 +1,48 @@
 const express = require('express');
 const router = express.Router();
-const { promotionDetector } = require('./promosi.service');
-const ResponseHandler = require('../../../shared/utils/response');
+const promosiController = require('./promosi.controller');
+const validateRequest = require('../../../shared/middleware/validateRequest');
+const { analyzePromosiSchema } = require('./promosi.schemas');
 const { asyncHandler } = require('../../../shared/middleware/errorHandler');
 
-router.all(
+/**
+ * @openapi
+ * /api/promosi:
+ *   post:
+ *     summary: Analyze whether a text is promotional using Gemini
+ *     tags: [Tools]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [text]
+ *             properties:
+ *               text: { type: string, maxLength: 5000 }
+ *               threshold: { type: integer, minimum: 0, maximum: 100, default: 70 }
+ *     responses:
+ *       200:
+ *         description: Promotion analysis result
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     percentage: { type: integer }
+ *                     isPromotion: { type: boolean }
+ *                     reason: { type: string }
+ *       503: { description: GEMINI_API_KEY not configured }
+ */
+router.post('/', validateRequest(analyzePromosiSchema), asyncHandler(promosiController.analyze));
+router.get(
   '/',
-  asyncHandler(async (req, res) => {
-    if (!['GET', 'POST'].includes(req.method)) {
-      return ResponseHandler.error(res, 'Method Not Allowed', 405);
-    }
-
-    const obj = req.method === 'GET' ? req.query : req.body;
-    if (!obj.text) {
-      return ResponseHandler.error(res, "Parameter 'text' diperlukan", 400);
-    }
-
-    const threshold = parseInt(obj.threshold, 10) || 70;
-
-    const { percentage, reason } = await promotionDetector(obj.text);
-    const isPromotion = percentage >= threshold;
-
-    return ResponseHandler.success(
-      res,
-      { percentage, isPromotion, reason },
-      'Promotion analysis completed',
-      200
-    );
-  })
+  validateRequest(analyzePromosiSchema, 'query'),
+  asyncHandler(promosiController.analyze)
 );
 
 module.exports = router;

@@ -1,7 +1,32 @@
 const dotenv = require('dotenv');
+const fs = require('fs');
 const Joi = require('joi');
 
 dotenv.config();
+
+// Chromium path auto-detect. When CHROME_BIN is not set, probe common install
+// locations in priority order: Snap (Ubuntu 24.04+), apt/debian, legacy apt,
+// Google Chrome. If nothing exists, fall through to the Docker image default
+// — Playwright will surface a clear error at launch.
+function resolveChromeBin() {
+  if (process.env.CHROME_BIN) return process.env.CHROME_BIN;
+  const candidates = [
+    '/snap/bin/chromium',
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    '/usr/bin/google-chrome',
+    '/usr/bin/google-chrome-stable',
+  ];
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(candidate)) return candidate;
+    } catch {
+      /* ignore probe errors */
+    }
+  }
+  return '/usr/bin/chromium';
+}
+process.env.CHROME_BIN = resolveChromeBin();
 
 const envSchema = Joi.object({
   NODE_ENV: Joi.string().valid('development', 'production', 'test').default('development'),

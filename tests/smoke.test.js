@@ -19,6 +19,7 @@ const routeModules = [
   '../src/core/tools/mcprofile/mcprofile.routes',
   '../src/core/tools/miq/miq.routes',
   '../src/core/tools/telegram/telegram.routes',
+  '../src/core/ai/replicate/replicate.routes',
 ];
 
 describe('route modules', () => {
@@ -56,6 +57,24 @@ describe('relocated modules (PR-4 merger)', () => {
   it('promosi service is reachable', () => {
     const { promotionDetector } = require('../src/core/tools/promosi/promosi.service');
     expect(typeof promotionDetector).toBe('function');
+  });
+
+  it('replicate service + controller export plain functions', () => {
+    const svc = require('../src/core/ai/replicate/replicate.service');
+    const ctl = require('../src/core/ai/replicate/replicate.controller');
+    expect(typeof svc.generateModifiedImage).toBe('function');
+    expect(typeof ctl.generateImage).toBe('function');
+  });
+
+  it('MVC thin modules expose plain-function controllers', () => {
+    const quote = require('../src/core/tools/quote/quote.controller');
+    const gdrive = require('../src/core/tools/gdrive/gdrive.controller');
+    const smeme = require('../src/core/tools/smeme/smeme.controller');
+    const promosi = require('../src/core/tools/promosi/promosi.controller');
+    expect(typeof quote.generate).toBe('function');
+    expect(typeof gdrive.resolve).toBe('function');
+    expect(typeof smeme.generate).toBe('function');
+    expect(typeof promosi.analyze).toBe('function');
   });
 
   it('shared media gif + shared utils upload are reachable', () => {
@@ -159,5 +178,82 @@ describe('server app (end-to-end wiring)', () => {
       .send('{"not valid json');
     expect(res.status).toBe(400);
     expect(res.body).toMatchObject({ success: false, statusCode: 400 });
+  });
+
+  it('exposes the OpenAPI spec at /api/docs.json covering every mounted route', async () => {
+    const res = await request(app).get('/api/docs.json');
+    expect(res.status).toBe(200);
+    expect(res.body.openapi).toMatch(/^3\./);
+    expect(res.body.info.title).toBe('Rex REST API');
+    const paths = Object.keys(res.body.paths || {});
+    // One assertion covers the whole contract: every mount point from
+    // server.js should have at least one documented path.
+    for (const expected of [
+      '/api/brat/image',
+      '/api/brat/video',
+      '/api/instagram/download',
+      '/api/tiktok/download',
+      '/api/youtube/mp3',
+      '/api/gdrive',
+      '/api/quote',
+      '/api/smeme',
+      '/api/promosi',
+      '/api/miq/generate',
+      '/api/telegram/sticker',
+      '/api/telegram/sticker-pack',
+      '/api/replicate/generate',
+    ]) {
+      expect(paths).toContain(expected);
+    }
+  });
+
+  it('serves the Swagger UI at /api/docs', async () => {
+    const res = await request(app).get('/api/docs/').redirects(1);
+    expect(res.status).toBe(200);
+    expect(res.text).toContain('swagger-ui');
+  });
+
+  it('validates missing body fields on MVC routes (quote)', async () => {
+    const res = await request(app).post('/api/quote').send({});
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ success: false, statusCode: 400 });
+  });
+
+  it('validates missing body fields on MVC routes (smeme)', async () => {
+    const res = await request(app).post('/api/smeme').send({});
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ success: false, statusCode: 400 });
+  });
+
+  it('returns 503 envelope when replicate token is unset', async () => {
+    const saved = process.env.REPLICATE_API_TOKEN;
+    delete process.env.REPLICATE_API_TOKEN;
+    try {
+      const res = await request(app)
+        .post('/api/replicate/generate')
+        .send({ image: 'https://example.com/x.png', option: 'nerd' });
+      expect(res.status).toBe(503);
+    } finally {
+      if (saved !== undefined) process.env.REPLICATE_API_TOKEN = saved;
+    }
+  });
+});
+
+describe('config: CHROME_BIN auto-detect', () => {
+  it('honors an explicit CHROME_BIN override', () => {
+    // resolveChromeBin runs at require-time, so test it indirectly by
+    // resetting the module cache and observing the effect.
+    const saved = process.env.CHROME_BIN;
+    process.env.CHROME_BIN = '/custom/path/chromium';
+    delete require.cache[require.resolve('../config')];
+    try {
+      require('../config');
+      expect(process.env.CHROME_BIN).toBe('/custom/path/chromium');
+    } finally {
+      if (saved === undefined) delete process.env.CHROME_BIN;
+      else process.env.CHROME_BIN = saved;
+      delete require.cache[require.resolve('../config')];
+      require('../config');
+    }
   });
 });

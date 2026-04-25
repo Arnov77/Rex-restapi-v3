@@ -22,12 +22,9 @@ const stickerSchema = Joi.object({
       'string.uri': 'url harus berupa URL yang valid (http/https).',
     }),
 
-  botToken: Joi.string()
-    .trim()
-    .optional()
-    .messages({
-      'string.base': 'botToken harus berupa string.',
-    }),
+  botToken: Joi.string().trim().optional().messages({
+    'string.base': 'botToken harus berupa string.',
+  }),
 
   format: Joi.string()
     .valid(...VALID_FORMATS)
@@ -42,4 +39,22 @@ const stickerSchema = Joi.object({
     'object.missing': 'Sediakan fileId atau url.',
   });
 
-module.exports = { stickerSchema };
+const stickerPackSchema = Joi.object({
+  url: Joi.string()
+    .uri({ scheme: ['http', 'https'] })
+    .trim()
+    .optional()
+    .messages({
+      'string.uri': 'url harus berupa URL yang valid (http/https).',
+    }),
+  packName: Joi.string().trim().optional().messages({
+    'string.base': 'packName harus berupa string.',
+  }),
+  botToken: Joi.string().trim().optional(),
+})
+  .or('url', 'packName')
+  .messages({
+    'object.missing': 'Sediakan url atau packName.',
+  });
+
+module.exports = { stickerSchema, stickerPackSchema };

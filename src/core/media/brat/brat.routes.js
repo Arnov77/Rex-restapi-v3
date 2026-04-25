@@ -2,37 +2,67 @@ const express = require('express');
 const router = express.Router();
 const bratController = require('./brat.controller');
 const validateRequest = require('../../../shared/middleware/validateRequest');
-const schemas = require('../../../shared/validators/bratSchemas');
+const schemas = require('./brat.schemas');
 const { asyncHandler } = require('../../../shared/middleware/errorHandler');
 
 /**
- * @route POST /api/brat/image
- * @desc Generate static Brat image
- * @body {string} text - Text to display (required)
- * @body {string} [preset] - Preset name (default: bratdeluxe) - 'brat', 'bratdeluxe', 'custom'
- * @body {string} [bgColor] - Background color hex/name (for custom preset)
- * @body {string} [textColor] - Text color hex/name (for custom preset)
- * @returns {Buffer} PNG image
+ * @openapi
+ * /api/brat/image:
+ *   post:
+ *     summary: Generate a static Brat image
+ *     tags: [Media]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [text]
+ *             properties:
+ *               text: { type: string, maxLength: 500 }
+ *               preset: { type: string, enum: [brat, bratdeluxe, custom], default: bratdeluxe }
+ *               bgColor: { type: string }
+ *               textColor: { type: string }
+ *     responses:
+ *       200:
+ *         description: PNG image bytes
+ *         content:
+ *           image/png: {}
  */
 router.post(
   '/image',
   validateRequest(schemas.generateBratSchema),
-  asyncHandler((req, res, next) => bratController.generateImage(req, res, next))
+  asyncHandler(bratController.generateImage)
 );
 
 /**
- * @route POST /api/brat/video
- * @desc Generate animated Brat video (GIF)
- * @body {string} text - Text to display (required)
- * @body {string} [preset] - Preset name (default: bratdeluxe)
- * @body {string} [bgColor] - Background color hex/name
- * @body {string} [textColor] - Text color hex/name
- * @returns {Buffer} GIF animation
+ * @openapi
+ * /api/brat/video:
+ *   post:
+ *     summary: Generate an animated Brat GIF
+ *     tags: [Media]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [text]
+ *             properties:
+ *               text: { type: string, maxLength: 500 }
+ *               preset: { type: string, enum: [brat, bratdeluxe, custom], default: bratdeluxe }
+ *               bgColor: { type: string }
+ *               textColor: { type: string }
+ *     responses:
+ *       200:
+ *         description: GIF bytes
+ *         content:
+ *           image/gif: {}
  */
 router.post(
   '/video',
   validateRequest(schemas.generateBratSchema),
-  asyncHandler((req, res, next) => bratController.generateVideo(req, res, next))
+  asyncHandler(bratController.generateVideo)
 );
 
 module.exports = router;

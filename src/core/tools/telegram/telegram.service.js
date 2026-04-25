@@ -6,6 +6,7 @@ const zlib = require('zlib');
 const { promisify } = require('util');
 const { PassThrough } = require('stream');
 const fluent = require('fluent-ffmpeg');
+const JSZip = require('jszip');
 const logger = require('../../../shared/utils/logger');
 const { AppError, NotFoundError, ValidationError } = require('../../../shared/utils/errors');
 const browserManager = require('../../../shared/browser/browserManager');
@@ -390,4 +391,161 @@ async function processSticker({ fileId, url, botToken, format = 'png' }) {
   return finalResult;
 }
 
-module.exports = { processSticker, getStickerSet };
+// ─── WASticker pack builder ─────────────────────────────────────────────────
+// Produces a `.wasticker` archive (zip) — or, when the source pack exceeds the
+// WhatsApp per-pack limit (30), a `.zip` of multiple `.wasticker` parts.
+//
+// Layout: most third-party WA sticker importer apps (e.g. Sticker Maker,
+// Personal Stickers) read a flat-text format — `title.txt`, `author.txt`,
+// `tray.png` and the WebP files — instead of a `contents.json` manifest. We
+// emit that flat layout directly at the zip root (no subfolders) so the
+// archive imports cleanly without further repackaging.
+
+const MAX_STICKERS_PER_PACK = 30;
+const DEFAULT_AUTHOR = 'Converted via Rex REST API';
+
+function sanitizeIdentifier(input) {
+  return (
+    (input || 'rex_pack')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 64) || 'rex_pack'
+  );
+}
+
+// WA tray icon must be 96×96 PNG. We generate it by fitting the first sticker
+// (any type) into a 96×96 frame with an opaque white background. TGS/WEBM
+// animations aren't supported as a tray; we grab frame 0 in those cases.
+async function buildTrayIcon(firstStickerBuffer) {
+  try {
+    return await sharp(firstStickerBuffer)
+      .resize(96, 96, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 1 } })
+      .flatten({ background: '#ffffff' })
+      .png()
+      .toBuffer();
+  } catch (err) {
+    logger.warn(`[Telegram] Tray icon fallback (blank): ${err.message}`);
+    // Fallback to a blank 96×96 PNG so the pack is still valid.
+    return sharp({
+      create: { width: 96, height: 96, channels: 4, background: '#ffffff' },
+    })
+      .png()
+      .toBuffer();
+  }
+}
+
+// Process every sticker in the pack in parallel but bounded — running 50+
+// ffmpeg/lottie conversions concurrently would starve the event loop and
+// thrash the shared browser pool. 4 at a time gives good throughput without
+// overwhelming Chromium.
+async function processStickersConcurrent(stickers, botToken, concurrency = 4) {
+  const results = new Array(stickers.length);
+  let cursor = 0;
+
+  async function worker() {
+    while (cursor < stickers.length) {
+      const i = cursor++;
+      const { fileId, emoji } = stickers[i];
+      try {
+        const { buffer } = await processSticker({ fileId, botToken, format: 'wa' });
+        results[i] = { index: i, buffer, emoji };
+      } catch (err) {
+        logger.warn(`[Telegram] Sticker #${i} failed (${fileId}): ${err.message}`);
+        results[i] = null;
+      }
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(concurrency, stickers.length) }, () => worker()));
+  return results.filter(Boolean);
+}
+
+// Build a single .wasticker buffer for `slice` stickers using the flat
+// title.txt + author.txt layout (no contents.json, no subfolders).
+async function buildSingleWAStickerBuffer({ slice, title, author, trayBuffer }) {
+  const zip = new JSZip();
+
+  zip.file('title.txt', title);
+  zip.file('author.txt', author);
+  zip.file('tray.png', trayBuffer);
+  slice.forEach((s, idx) => {
+    zip.file(`${idx + 1}.webp`, s.buffer);
+  });
+
+  return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
+}
+
+async function buildWAStickerPack({
+  packNameOrUrl,
+  botToken,
+  publisher = 'Rex API',
+  author = DEFAULT_AUTHOR,
+  stickersPerPack = MAX_STICKERS_PER_PACK,
+}) {
+  const pack = await getStickerSet(packNameOrUrl, botToken);
+
+  if (!pack.stickers.length) {
+    throw new NotFoundError('Sticker pack kosong atau tidak ada sticker yang bisa diambil.');
+  }
+
+  const limit = Math.min(Math.max(1, stickersPerPack), MAX_STICKERS_PER_PACK);
+  logger.info(
+    `[Telegram] Building .wasticker for "${pack.name}" — ${pack.stickers.length} stickers, ${limit}/part`
+  );
+
+  const processed = await processStickersConcurrent(pack.stickers, botToken);
+  if (!processed.length) {
+    throw new AppError('Tidak ada sticker yang berhasil dikonversi.', 502);
+  }
+
+  const trayBuffer = await buildTrayIcon(processed[0].buffer);
+  const baseIdentifier = sanitizeIdentifier(pack.name);
+  const baseTitle = pack.title || pack.name;
+
+  // Single-part case: return the .wasticker buffer directly.
+  if (processed.length <= limit) {
+    const buffer = await buildSingleWAStickerBuffer({
+      slice: processed,
+      title: `${baseTitle} - ${publisher}`,
+      author,
+      trayBuffer,
+    });
+    return {
+      buffer,
+      filename: `${baseIdentifier}.wasticker`,
+      contentType: 'application/octet-stream',
+      parts: 1,
+      totalStickers: processed.length,
+    };
+  }
+
+  // Multi-part case: one .wasticker per chunk, all bundled in an outer .zip.
+  // Each part's title carries the part suffix so importers display them as
+  // distinct packs instead of overwriting each other.
+  const outerZip = new JSZip();
+  const totalParts = Math.ceil(processed.length / limit);
+
+  for (let part = 0; part < totalParts; part++) {
+    const slice = processed.slice(part * limit, (part + 1) * limit);
+    const partId = `${baseIdentifier}_part${part + 1}`;
+    const partBuffer = await buildSingleWAStickerBuffer({
+      slice,
+      title: `${baseTitle} Part ${part + 1} - ${publisher}`,
+      author,
+      trayBuffer,
+    });
+    outerZip.file(`${partId}.wasticker`, partBuffer);
+  }
+
+  const buffer = await outerZip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
+  return {
+    buffer,
+    filename: `${baseIdentifier}_${totalParts}parts.zip`,
+    contentType: 'application/zip',
+    parts: totalParts,
+    totalStickers: processed.length,
+  };
+}
+
+module.exports = { processSticker, getStickerSet, buildWAStickerPack };

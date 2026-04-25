@@ -38,10 +38,13 @@ function sanitizeFilename(title, ext) {
   return `${uid}-${clean}.${ext}`;
 }
 
-// Player client controls which YouTube internal client yt-dlp impersonates.
-// Override via env if android starts getting throttled too (e.g. "web", "mweb",
-// "tv", "android,web"). yt-dlp accepts a comma-separated list.
-const YOUTUBE_PLAYER_CLIENT = process.env.YOUTUBE_PLAYER_CLIENT || 'android';
+// player_client spoofing is OPT-IN. yt-dlp's default client negotiation works
+// best when paired with a valid Netscape cookies file — hard-coding a single
+// client (e.g. android) routinely causes "Requested format is not available"
+// because that client doesn't expose the format we asked for. Only set this
+// env if you have a specific reason; valid values: android|ios|web|mweb|tv
+// (or comma-separated like "android,web").
+const YOUTUBE_PLAYER_CLIENT = process.env.YOUTUBE_PLAYER_CLIENT;
 
 const PLAYER_CLIENT_USER_AGENTS = {
   android: 'com.google.android.youtube/19.29.39 (Linux; U; Android 14) gzip',
@@ -51,26 +54,37 @@ const PLAYER_CLIENT_USER_AGENTS = {
   tv: 'Mozilla/5.0 (PlayStation; PlayStation 5/2.26) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0 Safari/605.1.15',
 };
 
+// Generic desktop Chrome UA used when no player_client is forced.
+const DEFAULT_USER_AGENT =
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
 function pickUserAgent(playerClient) {
+  if (!playerClient) return DEFAULT_USER_AGENT;
   const primary = String(playerClient).split(',')[0].trim().toLowerCase();
-  return PLAYER_CLIENT_USER_AGENTS[primary] || PLAYER_CLIENT_USER_AGENTS.android;
+  return PLAYER_CLIENT_USER_AGENTS[primary] || DEFAULT_USER_AGENT;
 }
 
 function getBaseOptions(cookiePath) {
   // IMPORTANT: do NOT push "Cookie:" into addHeader. yt-dlp warns this is a
   // security risk and YouTube's anti-bot escalates ("Failed to extract any
-  // player response"). Cookies must come from the Netscape file via opts.cookies.
+  // player response"). Cookies flow ONLY through the Netscape file at
+  // opts.cookies, which is yt-dlp's intended transport.
   const opts = {
     addHeader: [
       `User-Agent: ${pickUserAgent(YOUTUBE_PLAYER_CLIENT)}`,
       'Accept-Language: en-US,en;q=0.9',
     ],
-    extractorArgs: `youtube:player_client=${YOUTUBE_PLAYER_CLIENT}`,
     geoBypass: true,
     retries: 5,
     fragmentRetries: 5,
     noWarnings: true,
   };
+  // extractorArgs is OPT-IN. Forcing a single client tends to hide the
+  // formats we want; let yt-dlp negotiate naturally unless the operator
+  // explicitly opts into a specific client via env.
+  if (YOUTUBE_PLAYER_CLIENT) {
+    opts.extractorArgs = `youtube:player_client=${YOUTUBE_PLAYER_CLIENT}`;
+  }
   if (cookiePath) {
     opts.cookies = cookiePath;
   } else {
@@ -150,9 +164,11 @@ class YouTubeService {
       );
       const outputBase = path.join(DOWNLOAD_DIR, cleanFilename.replace(/\.mp3$/, ''));
 
+      // No `format` selector — let yt-dlp pick the best audio source. Adding
+      // an explicit selector here can clash with the chosen player_client
+      // and triggers "Requested format is not available".
       await youtubedl(videoUrl, {
         ...baseOpts,
-        format: 'bestaudio/best',
         extractAudio: true,
         audioFormat: 'mp3',
         audioQuality: '192',
@@ -219,12 +235,14 @@ class YouTubeService {
       );
       const outputBase = path.join(DOWNLOAD_DIR, cleanFilename.replace(/\.mp4$/, ''));
 
+      // format: 'b' (best single muxed file). Avoids merge step which is
+      // fragile when the chosen player_client doesn't expose separate
+      // bestvideo/bestaudio streams. yt-dlp returns mp4/webm/mkv depending
+      // on what's available; we look for any of those in _findOutputFile.
       const downloadParams = {
-        format: 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/b/best',
-        mergeOutputFormat: 'mp4',
+        format: 'b',
         output: outputBase,
         quiet: false,
-        postprocessorArgs: 'ffmpeg:-c:v copy -c:a aac',
       };
 
       await youtubedl(videoUrl, { ...baseOpts, ...downloadParams });

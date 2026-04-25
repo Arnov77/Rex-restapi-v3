@@ -26,11 +26,20 @@ function getYtdlAgent(cookieEntries) {
   const cookieKey = `${cookieEntries.length}:${cookieEntries[0]?.name || ''}`;
   if (cachedAgent && cachedCookieKey === cookieKey) return cachedAgent;
 
-  // ytdl-core expects {name, value, domain, path, expires, secure, httpOnly}
-  // which is exactly what parseNetscape() emits. Strip entries with empty
-  // name/value just in case.
+  // tough-cookie (used by ytdl-core's agent) rejects any cookie whose declared
+  // domain isn't a parent of the request URL. Real-world Netscape cookie
+  // exports for YouTube include entries like `accounts.google.com` (Google
+  // login session) which trip this check when sent to www.youtube.com.
+  // Filter to youtube-only domains \u2014 the Google login cookies are not used by
+  // ytdl-core's playback path anyway.
+  const isYoutubeCookie = (c) => {
+    const d = String(c.domain || '')
+      .replace(/^\./, '')
+      .toLowerCase();
+    return d === 'youtube.com' || d.endsWith('.youtube.com') || d.endsWith('youtube-nocookie.com');
+  };
   const sanitized = cookieEntries
-    .filter((c) => c && c.name && c.value)
+    .filter((c) => c && c.name && c.value && isYoutubeCookie(c))
     .map((c) => ({
       name: c.name,
       value: c.value,
@@ -40,6 +49,13 @@ function getYtdlAgent(cookieEntries) {
       httpOnly: !!c.httpOnly,
       expires: typeof c.expires === 'number' && c.expires > 0 ? c.expires * 1000 : undefined,
     }));
+
+  if (sanitized.length === 0) {
+    logger.warn(
+      '[YouTube] No youtube-domain cookies after filter \u2014 ytdl-core agent will be unauthenticated.'
+    );
+    return null;
+  }
 
   cachedAgent = ytdl.createAgent(sanitized);
   cachedCookieKey = cookieKey;
@@ -120,12 +136,13 @@ async function downloadMp3(videoUrl, outPath, agent, providedInfo) {
     throw new Error('ytdl-core: no audio-only formats available');
   }
 
-  const audioStream = ytdl.downloadFromInfo(meta.info, {
-    agent,
+  const dlOpts = {
     filter: 'audioonly',
     quality: 'highestaudio',
-    highWaterMark: 1 << 25, // 32MB \u2014 reduce stalls on large videos
-  });
+    highWaterMark: 1 << 25, // 32MB to reduce stalls on large videos
+  };
+  if (agent) dlOpts.agent = agent;
+  const audioStream = ytdl.downloadFromInfo(meta.info, dlOpts);
 
   await new Promise((resolve, reject) => {
     let finished = false;
@@ -172,12 +189,13 @@ async function downloadMp4(videoUrl, outPath, agent, providedInfo) {
   const muxedFormats = formats.filter((f) => f.hasVideo && f.hasAudio);
 
   if (muxedFormats.length > 0) {
-    const stream = ytdl.downloadFromInfo(meta.info, {
-      agent,
+    const muxedOpts = {
       filter: 'videoandaudio',
       quality: 'highest',
       highWaterMark: 1 << 25,
-    });
+    };
+    if (agent) muxedOpts.agent = agent;
+    const stream = ytdl.downloadFromInfo(meta.info, muxedOpts);
     await pipeStreamToFile(stream, outPath);
     return meta;
   }
@@ -188,18 +206,22 @@ async function downloadMp4(videoUrl, outPath, agent, providedInfo) {
     throw new Error('ytdl-core: no muxable video+audio formats available');
   }
 
-  const videoStream = ytdl.downloadFromInfo(meta.info, {
-    agent,
+  const videoOpts = {
     filter: 'videoonly',
     quality: 'highestvideo',
     highWaterMark: 1 << 25,
-  });
-  const audioStream = ytdl.downloadFromInfo(meta.info, {
-    agent,
+  };
+  const audioOpts = {
     filter: 'audioonly',
     quality: 'highestaudio',
     highWaterMark: 1 << 25,
-  });
+  };
+  if (agent) {
+    videoOpts.agent = agent;
+    audioOpts.agent = agent;
+  }
+  const videoStream = ytdl.downloadFromInfo(meta.info, videoOpts);
+  const audioStream = ytdl.downloadFromInfo(meta.info, audioOpts);
 
   await runFfmpeg((cmd) => {
     cmd

@@ -4,6 +4,7 @@ const logger = require('../../../shared/utils/logger');
 const { NotFoundError, AppError } = require('../../../shared/utils/errors');
 const { loadYouTubeCookies, unlinkSilent } = require('../../../shared/utils/cookies');
 const ytdlCore = require('./ytdl-core.helper');
+const youtubei = require('./youtubei-helper');
 const fs = require('fs');
 const path = require('path');
 const { randomUUID } = require('crypto');
@@ -260,9 +261,13 @@ class YouTubeService {
 
       logger.info(`[YouTube] Downloading MP3 from: ${videoUrl}`);
 
-      // Try ytdl-core first — it bypasses the "downgraded player API" path that
-      // strands yt-dlp on storyboards-only responses. Only if it fails do we
-      // fall back to yt-dlp (kept as a safety net for future format changes).
+      // Tier 1: youtubei.js with auto-generated PO Token. Only path that
+      // works on accounts under strict PO Token enforcement.
+      const ytiResult = await this._tryYoutubeiMp3(videoUrl, videoInfo, baseUrl);
+      if (ytiResult) return ytiResult;
+
+      // Tier 2: @distube/ytdl-core. Different extraction codepath; bypasses
+      // some of yt-dlp's failure modes.
       const ytdlResult = await this._tryYtdlCoreMp3(videoUrl, videoInfo, baseUrl);
       if (ytdlResult) return ytdlResult;
 
@@ -316,6 +321,85 @@ class YouTubeService {
       throw error;
     } finally {
       unlinkSilent(cookiePath);
+    }
+  }
+
+  /**
+   * Attempt MP3 download via youtubei.js (auto PO Token). Returns the API
+   * response payload on success, or null when extraction failed (so the
+   * caller can fall back to ytdl-core / yt-dlp).
+   */
+  async _tryYoutubeiMp3(videoUrl, videoInfo, baseUrl) {
+    try {
+      const cookieData = loadYouTubeCookies();
+      const cookies = cookieData?.cookies || [];
+      const meta = await youtubei.getVideoMetadata(videoUrl, cookies);
+
+      const cleanFilename = sanitizeFilename(meta.title || videoInfo?.title || 'audio', 'mp3');
+      const outPath = path.join(DOWNLOAD_DIR, cleanFilename);
+
+      logger.info('[YouTube] MP3 via youtubei.js (primary path, auto PO Token)');
+      await youtubei.downloadMp3(videoUrl, outPath, cookies, meta);
+
+      if (!fs.existsSync(outPath)) {
+        logger.warn('[YouTube] youtubei.js MP3 finished but file missing — falling back');
+        return null;
+      }
+      const stats = fs.statSync(outPath);
+      logger.success(`[YouTube] MP3 ready (youtubei.js): ${cleanFilename}`);
+      return {
+        title: meta.title || videoInfo?.title || 'Audio',
+        download: `${baseUrl}/download/${cleanFilename}`,
+        format: 'audio/mpeg',
+        fileSize: Math.round(stats.size / 1024) + ' KB',
+        duration: meta.duration
+          ? this._formatDuration(meta.duration)
+          : videoInfo?.duration || 'Unknown',
+        author: meta.uploader || videoInfo?.author || 'Unknown',
+        thumbnail: meta.thumbnail || videoInfo?.thumbnail || null,
+        status: 'success',
+      };
+    } catch (err) {
+      logger.warn(`[YouTube] youtubei.js MP3 failed (${err.message}) — falling back to ytdl-core`);
+      youtubei.invalidateSession();
+      return null;
+    }
+  }
+
+  async _tryYoutubeiMp4(videoUrl, videoInfo, baseUrl) {
+    try {
+      const cookieData = loadYouTubeCookies();
+      const cookies = cookieData?.cookies || [];
+      const meta = await youtubei.getVideoMetadata(videoUrl, cookies);
+
+      const cleanFilename = sanitizeFilename(meta.title || videoInfo?.title || 'video', 'mp4');
+      const outPath = path.join(DOWNLOAD_DIR, cleanFilename);
+
+      logger.info('[YouTube] MP4 via youtubei.js (primary path, auto PO Token)');
+      await youtubei.downloadMp4(videoUrl, outPath, cookies, meta);
+
+      if (!fs.existsSync(outPath)) {
+        logger.warn('[YouTube] youtubei.js MP4 finished but file missing — falling back');
+        return null;
+      }
+      const stats = fs.statSync(outPath);
+      logger.success(`[YouTube] MP4 ready (youtubei.js): ${cleanFilename}`);
+      return {
+        title: meta.title || videoInfo?.title || 'Video',
+        download: `${baseUrl}/download/${cleanFilename}`,
+        format: 'video/mp4',
+        fileSize: Math.round((stats.size / (1024 * 1024)) * 100) / 100 + ' MB',
+        duration: meta.duration
+          ? this._formatDuration(meta.duration)
+          : videoInfo?.duration || 'Unknown',
+        author: meta.uploader || videoInfo?.author || 'Unknown',
+        thumbnail: meta.thumbnail || videoInfo?.thumbnail || null,
+        status: 'success',
+      };
+    } catch (err) {
+      logger.warn(`[YouTube] youtubei.js MP4 failed (${err.message}) — falling back to ytdl-core`);
+      youtubei.invalidateSession();
+      return null;
     }
   }
 
@@ -375,6 +459,9 @@ class YouTubeService {
       }
 
       logger.info(`[YouTube] Downloading MP4 from: ${videoUrl}`);
+
+      const ytiResult = await this._tryYoutubeiMp4(videoUrl, videoInfo, baseUrl);
+      if (ytiResult) return ytiResult;
 
       const ytdlResult = await this._tryYtdlCoreMp4(videoUrl, videoInfo, baseUrl);
       if (ytdlResult) return ytdlResult;

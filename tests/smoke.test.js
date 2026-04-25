@@ -31,6 +31,43 @@ describe('route modules', () => {
   });
 });
 
+describe('relocated modules (PR-4 merger)', () => {
+  it('browserManager exposes pool API', () => {
+    const bm = require('../src/shared/browser/browserManager');
+    for (const fn of ['getBrowser', 'withContext', 'withPage', 'shutdown']) {
+      expect(typeof bm[fn]).toBe('function');
+    }
+  });
+
+  it('brat playwright + color helpers are reachable', () => {
+    const { generateBrat, generateBratVideo } = require('../src/core/media/brat/brat.playwright');
+    const { initColorIndex, convertColor } = require('../src/core/media/brat/color');
+    expect(typeof generateBrat).toBe('function');
+    expect(typeof generateBratVideo).toBe('function');
+    expect(typeof initColorIndex).toBe('function');
+    expect(typeof convertColor).toBe('function');
+  });
+
+  it('quote playwright is reachable', () => {
+    const { generateQuoteImage } = require('../src/core/tools/quote/quote.playwright');
+    expect(typeof generateQuoteImage).toBe('function');
+  });
+
+  it('promosi service is reachable', () => {
+    const { promotionDetector } = require('../src/core/tools/promosi/promosi.service');
+    expect(typeof promotionDetector).toBe('function');
+  });
+
+  it('shared media gif + shared utils upload are reachable', () => {
+    const { createGIF } = require('../src/shared/media/gif');
+    const upload = require('../src/shared/utils/upload');
+    expect(typeof createGIF).toBe('function');
+    for (const fn of ['uploadToTmpfiles', 'uploadToDiscordWebhook', 'fetchRemoteImage']) {
+      expect(typeof upload[fn]).toBe('function');
+    }
+  });
+});
+
 describe('shared utilities', () => {
   it('logger exposes expected methods', () => {
     const logger = require('../src/shared/utils/logger');

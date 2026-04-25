@@ -12,6 +12,8 @@ const { errorHandler } = require('./src/shared/middleware/errorHandler');
 const { generalLimiter, apiLimiter, heavyLimiter } = require('./src/shared/middleware/rateLimiter');
 const requestId = require('./src/shared/middleware/requestId');
 const ResponseHandler = require('./src/shared/utils/response');
+const browserManager = require('./src/shared/browser/browserManager');
+const { initColorIndex } = require('./src/core/media/brat/color');
 
 const youtubeRoutes = require('./src/core/media/youtube/youtube.routes');
 const bratRoutes = require('./src/core/media/brat/brat.routes');
@@ -143,8 +145,9 @@ let httpServer;
 
 async function startServer() {
   try {
-    const utils = require('./src/utils/utils');
-    await utils.init();
+    // Pre-warm the brat color index so the first request doesn't pay a one-off
+    // dynamic-import + JSON-parse cost (~150ms on cold start).
+    await initColorIndex();
 
     httpServer = app.listen(env.PORT, () => {
       logger.success(`Server running at http://localhost:${env.PORT}`);
@@ -164,14 +167,19 @@ async function startServer() {
 function shutdown(signal) {
   logger.info(`Received ${signal}, shutting down gracefully...`);
   if (!httpServer) {
-    process.exit(0);
+    browserManager.shutdown().finally(() => process.exit(0));
+    return;
   }
-  httpServer.close((err) => {
+  httpServer.close(async (err) => {
     if (err) {
       logger.error(`Error during shutdown: ${err.message}`);
+      // Still try to close Chromium so we don't leave zombie processes.
+      await browserManager.shutdown().catch(() => {});
       process.exit(1);
     }
-    logger.info('HTTP server closed, bye.');
+    logger.info('HTTP server closed, draining browser pool...');
+    await browserManager.shutdown().catch(() => {});
+    logger.info('Bye.');
     process.exit(0);
   });
   setTimeout(() => {

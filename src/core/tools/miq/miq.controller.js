@@ -1,7 +1,7 @@
 const miqService = require('./miq.service');
 const logger = require('../../../shared/utils/logger');
 const { ValidationError } = require('../../../shared/utils/errors');
-const { uploadToDiscordWebhook, fetchRemoteImage } = require('../../../utils/upload');
+const { uploadToDiscordWebhook, fetchRemoteImage } = require('../../../shared/utils/upload');
 
 const MAX_AVATAR_SIZE = 5 * 1024 * 1024;
 
@@ -62,7 +62,6 @@ class MIQController {
       res.set('Content-Type', 'image/png');
       res.set('Content-Disposition', 'inline; filename="quote.png"');
       return res.send(imageBuffer);
-
     } catch (error) {
       logger.error(`[MIQ Controller] ${error.message}`);
       next(error);

@@ -8,8 +8,8 @@ const { PassThrough } = require('stream'); // Ditambahkan untuk Stream WebM
 const fluent = require('fluent-ffmpeg');
 const logger = require('../../../shared/utils/logger');
 const { AppError, NotFoundError, ValidationError } = require('../../../shared/utils/errors');
-const { getBrowser } = require('../../../utils/browser');
-const { createGIF } = require('../../../utils/gif');
+const browserManager = require('../../../shared/browser/browserManager');
+const { createGIF } = require('../../../shared/media/gif');
 
 const gunzip = promisify(zlib.gunzip);
 
@@ -17,33 +17,24 @@ const gunzip = promisify(zlib.gunzip);
 const stickerCache = new Map();
 const MAX_CACHE_SIZE = 200; // Maksimal simpan 200 hasil di RAM agar tidak berat
 
-// Browser instance global (Shared Browser)
-let globalBrowser = null;
-async function getSharedBrowser() {
-  if (!globalBrowser) {
-    logger.info('[Telegram] Initializing shared browser instance...');
-    globalBrowser = await getBrowser();
-  }
-  return globalBrowser;
-}
-
 const FORMAT_META = {
-  png:  { mime: 'image/png',  ext: 'png'  },
-  jpg:  { mime: 'image/jpeg', ext: 'jpg'  },
-  jpeg: { mime: 'image/jpeg', ext: 'jpg'  },
-  gif:  { mime: 'image/gif',  ext: 'gif'  },
+  png: { mime: 'image/png', ext: 'png' },
+  jpg: { mime: 'image/jpeg', ext: 'jpg' },
+  jpeg: { mime: 'image/jpeg', ext: 'jpg' },
+  gif: { mime: 'image/gif', ext: 'gif' },
   webp: { mime: 'image/webp', ext: 'webp' },
-  wa:   { mime: 'image/webp', ext: 'webp' }, 
+  wa: { mime: 'image/webp', ext: 'webp' },
 };
 
 class TelegramStickerService {
-
   // ─── Telegram API ────────────────────────────────────────────────────────────
 
   async getTelegramFileUrl(fileId, botToken) {
     const token = botToken || process.env.TELEGRAM_BOT_TOKEN;
     if (!token) {
-      throw new ValidationError('Bot token diperlukan. Set env TELEGRAM_BOT_TOKEN atau kirim param botToken.');
+      throw new ValidationError(
+        'Bot token diperlukan. Set env TELEGRAM_BOT_TOKEN atau kirim param botToken.'
+      );
     }
 
     let res;
@@ -88,19 +79,20 @@ class TelegramStickerService {
     }
   }
 
-// ─── Type detection ───────────────────────────────────────────────────────────
+  // ─── Type detection ───────────────────────────────────────────────────────────
 
   detectStickerType(buffer, filePath, contentType) {
     if (buffer && buffer.length >= 4) {
-      if (buffer[0] === 0x1F && buffer[1] === 0x8B) return 'tgs';
-      
-      if (buffer[0] === 0x1A && buffer[1] === 0x45 && buffer[2] === 0xDF && buffer[3] === 0xA3) return 'webm';
+      if (buffer[0] === 0x1f && buffer[1] === 0x8b) return 'tgs';
+
+      if (buffer[0] === 0x1a && buffer[1] === 0x45 && buffer[2] === 0xdf && buffer[3] === 0xa3)
+        return 'webm';
     }
 
     const ext = path.extname((filePath || '').split('?')[0]).toLowerCase();
     if (ext === '.tgs') return 'tgs';
     if (ext === '.webm' || (contentType || '').includes('video')) return 'webm';
-    
+
     return 'webp';
   }
 
@@ -175,47 +167,48 @@ class TelegramStickerService {
     return { buffer: gifBuf, ...FORMAT_META.gif };
   }
 
-  // OPTIMASI: Gunakan shared browser, cukup newPage (buka tab) lalu close tab
+  // Use the app-wide shared browser via browserManager. Per-call isolation is
+  // provided by `browser.newContext()` (incognito profile + no shared
+  // cookies); the browser process itself stays alive across requests.
   async _renderLottieFrame(lottieJson, frameNumber) {
-    const browser = await getSharedBrowser();
-    const page = await browser.newPage();
-    try {
-      await page.setViewportSize({ width: 512, height: 512 });
-      await page.setContent(this._buildLottieHtml(lottieJson), { waitUntil: 'domcontentloaded' });
-      await page.waitForFunction(() => window.animReady, { timeout: 12_000 });
-      await page.evaluate((f) => window.anim.goToAndStop(f, true), frameNumber);
-      await page.waitForTimeout(200);
+    return browserManager.withPage(
+      async (page) => {
+        await page.setContent(this._buildLottieHtml(lottieJson), {
+          waitUntil: 'domcontentloaded',
+        });
+        await page.waitForFunction(() => window.animReady, { timeout: 12_000 });
+        await page.evaluate((f) => window.anim.goToAndStop(f, true), frameNumber);
+        await page.waitForTimeout(200);
 
-      const el = await page.$('#lottie-canvas');
-      return await el.screenshot({ omitBackground: true, type: 'png' });
-    } finally {
-      await page.close(); // Tutup tab-nya saja, BUKAN browser-nya
-    }
+        const el = await page.$('#lottie-canvas');
+        return el.screenshot({ omitBackground: true, type: 'png' });
+      },
+      { viewport: { width: 512, height: 512 } }
+    );
   }
 
-async _renderLottieAllFrames(lottieJson, maxFrames = 60) { // <-- Limit dinaikkan ke 60 frame
-    const browser = await getSharedBrowser();
-    const page = await browser.newPage();
-    try {
-      await page.setViewportSize({ width: 512, height: 512 });
-      await page.setContent(this._buildLottieHtml(lottieJson), { waitUntil: 'domcontentloaded' });
-      await page.waitForFunction(() => window.animReady, { timeout: 12_000 });
+  async _renderLottieAllFrames(lottieJson, maxFrames = 60) {
+    return browserManager.withPage(
+      async (page) => {
+        await page.setContent(this._buildLottieHtml(lottieJson), {
+          waitUntil: 'domcontentloaded',
+        });
+        await page.waitForFunction(() => window.animReady, { timeout: 12_000 });
 
-      const totalFrames = await page.evaluate(() => Math.floor(window.anim.totalFrames));
-      // Dengan maxFrames 60, lebih sedikit frame yang di-skip sehingga animasi jauh lebih mulus
-      const step = Math.max(1, Math.floor(totalFrames / maxFrames)); 
-      const el = await page.$('#lottie-canvas');
-      const frames = [];
+        const totalFrames = await page.evaluate(() => Math.floor(window.anim.totalFrames));
+        const step = Math.max(1, Math.floor(totalFrames / maxFrames));
+        const el = await page.$('#lottie-canvas');
+        const frames = [];
 
-      for (let f = 0; f < totalFrames; f += step) {
-        await page.evaluate((frame) => window.anim.goToAndStop(frame, true), f);
-        await page.waitForTimeout(20); // <-- Waktu tunggu dipercepat agar rendering lebih ngebut
-        frames.push(await el.screenshot({ omitBackground: true, type: 'png' }));
-      }
-      return frames;
-    } finally {
-      await page.close(); 
-    }
+        for (let f = 0; f < totalFrames; f += step) {
+          await page.evaluate((frame) => window.anim.goToAndStop(frame, true), f);
+          await page.waitForTimeout(20);
+          frames.push(await el.screenshot({ omitBackground: true, type: 'png' }));
+        }
+        return frames;
+      },
+      { viewport: { width: 512, height: 512 } }
+    );
   }
 
   _buildLottieHtml(lottieJson) {
@@ -224,7 +217,10 @@ async _renderLottieAllFrames(lottieJson, maxFrames = 60) { // <-- Limit dinaikka
     ];
     let lottieScript = null;
     for (const p of possiblePaths) {
-      if (fs.existsSync(p)) { lottieScript = fs.readFileSync(p, 'utf-8'); break; }
+      if (fs.existsSync(p)) {
+        lottieScript = fs.readFileSync(p, 'utf-8');
+        break;
+      }
     }
     if (!lottieScript) {
       throw new AppError('lottie-web tidak ditemukan. Jalankan: npm install lottie-web', 500);
@@ -285,8 +281,8 @@ try{
       const outputStream = new PassThrough();
       outputStream.on('data', (chunk) => bufs.push(chunk));
       outputStream.on('end', () => {
-          const finalBuf = Buffer.concat(bufs);
-          resolve({ buffer: finalBuf, ...(isjpg ? FORMAT_META.jpg : FORMAT_META.png) });
+        const finalBuf = Buffer.concat(bufs);
+        resolve({ buffer: finalBuf, ...(isjpg ? FORMAT_META.jpg : FORMAT_META.png) });
       });
       outputStream.on('error', reject);
 
@@ -298,7 +294,7 @@ try{
     });
   }
 
-async _webmToGifStream(buffer) {
+  async _webmToGifStream(buffer) {
     return new Promise((resolve, reject) => {
       const inputStream = new PassThrough();
       inputStream.end(buffer);
@@ -343,7 +339,7 @@ async _webmToGifStream(buffer) {
       if (!res.data?.ok) throw new NotFoundError('Sticker pack tidak ditemukan.');
 
       const pack = res.data.result;
-      
+
       // Susun ulang datanya biar rapi saat dikirim ke frontend
       return {
         title: pack.title,
@@ -358,7 +354,7 @@ async _webmToGifStream(buffer) {
       };
     } catch (err) {
       if (err.response?.status === 400) {
-         throw new NotFoundError('Nama Sticker Pack tidak valid atau tidak ditemukan.');
+        throw new NotFoundError('Nama Sticker Pack tidak valid atau tidak ditemukan.');
       }
       throw new AppError(`Gagal mengambil data pack: ${err.message}`, 502);
     }
@@ -400,9 +396,15 @@ async _webmToGifStream(buffer) {
 
     let result;
     switch (stickerType) {
-      case 'tgs':   result = await this.convertTgs(buffer, fmt);   break;
-      case 'webm':  result = await this.convertWebm(buffer, fmt);  break;
-      default:      result = await this.convertWebp(buffer, fmt);  break;
+      case 'tgs':
+        result = await this.convertTgs(buffer, fmt);
+        break;
+      case 'webm':
+        result = await this.convertWebm(buffer, fmt);
+        break;
+      default:
+        result = await this.convertWebp(buffer, fmt);
+        break;
     }
 
     const finalResult = { ...result, stickerType };

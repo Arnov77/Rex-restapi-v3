@@ -15,15 +15,14 @@ class InstagramService {
   async download(url) {
     try {
       logger.info(`[Instagram] Fetching from: ${url}`);
-      
-      // Use ruhend-scraper for Instagram downloads
+
       const res = await igdl(url);
 
       if (!res || !res.data || res.data.length === 0) {
         throw new NotFoundError('No downloadable content found');
       }
 
-      const downloadLinks = res.data.map(media => ({
+      const downloadLinks = res.data.map((media) => ({
         url: media.url,
         type: media.type || 'unknown',
       }));
@@ -34,7 +33,6 @@ class InstagramService {
         downloadLinks,
         count: downloadLinks.length,
       };
-
     } catch (error) {
       logger.error(`[Instagram] Error: ${error.message}`);
       throw error;

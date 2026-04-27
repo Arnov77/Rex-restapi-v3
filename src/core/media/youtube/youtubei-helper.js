@@ -370,8 +370,6 @@ async function downloadMp3(videoUrl, outPath, cookieEntries, providedMeta) {
   return meta;
 }
 
-// Pick the highest-quality format from a list, optionally capped at maxHeight.
-// Returns null when no candidate satisfies the predicate.
 function pickBestFormat(formats, predicate, maxHeight) {
   const filtered = formats
     .filter(predicate)

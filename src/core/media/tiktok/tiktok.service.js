@@ -54,7 +54,7 @@ class TiktokService {
           username: result.username,
           avatar: result.avatar,
         },
-        audioUrl: result.music || result.video, // Fallback if no separate audio
+        audioUrl: result.music || result.video,
         format: 'audio/mpeg',
       };
     } catch (error) {

@@ -188,8 +188,6 @@ async function downloadMp4(videoUrl, outPath, agent, providedInfo, opts = {}) {
   const maxHeight = opts.maxHeight || null;
   const formats = meta.info?.formats || [];
 
-  // Pick highest-quality format that satisfies (hasVideo / hasAudio) predicates
-  // and -- when specified -- has height <= maxHeight.
   const pickBest = (predicate) =>
     formats
       .filter(predicate)

@@ -5,6 +5,7 @@ const { NotFoundError, AppError } = require('../../../shared/utils/errors');
 const { loadYouTubeCookies, unlinkSilent } = require('../../../shared/utils/cookies');
 const ytdlCore = require('./ytdl-core.helper');
 const youtubei = require('./youtubei-helper');
+const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs');
 const path = require('path');
 const { randomUUID } = require('crypto');
@@ -46,6 +47,25 @@ function parseQualityToHeight(quality) {
   if (quality == null || quality === 'best') return null;
   const n = typeof quality === 'string' ? parseInt(quality, 10) : Number(quality);
   return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+// Probe the actual video stream height of a finished MP4. Returns a string
+// like "1080p" or null on failure. Used so the API response can show the
+// resolution that was actually delivered (which can differ from what the
+// caller requested when the requested cap exceeds what YouTube has on file).
+function probeResolution(filepath) {
+  return new Promise((resolve) => {
+    ffmpeg.ffprobe(filepath, (err, data) => {
+      if (err) return resolve(null);
+      try {
+        const video = (data?.streams || []).find((s) => s.codec_type === 'video');
+        const h = video?.height;
+        resolve(Number.isFinite(h) && h > 0 ? `${h}p` : null);
+      } catch {
+        resolve(null);
+      }
+    });
+  });
 }
 
 function sanitizeFilename(title, ext) {
@@ -395,11 +415,15 @@ class YouTubeService {
         return null;
       }
       const stats = fs.statSync(outPath);
-      logger.success(`[YouTube] MP4 ready (youtubei.js): ${cleanFilename}`);
+      const resolution = await probeResolution(outPath);
+      logger.success(
+        `[YouTube] MP4 ready (youtubei.js): ${cleanFilename}${resolution ? ` (${resolution})` : ''}`
+      );
       return {
         title: meta.title || videoInfo?.title || (meta.videoId ? `Video ${meta.videoId}` : 'Video'),
         download: `${baseUrl}/downloads/${cleanFilename}`,
         format: 'video/mp4',
+        resolution,
         fileSize: Math.round((stats.size / (1024 * 1024)) * 100) / 100 + ' MB',
         duration: meta.duration
           ? this._formatDuration(meta.duration)
@@ -515,12 +539,16 @@ class YouTubeService {
 
       const stats = fs.statSync(filepath);
       const actualFilename = path.basename(filepath);
-      logger.success(`[YouTube] MP4 ready (yt-dlp fallback): ${actualFilename}`);
+      const resolution = await probeResolution(filepath);
+      logger.success(
+        `[YouTube] MP4 ready (yt-dlp fallback): ${actualFilename}${resolution ? ` (${resolution})` : ''}`
+      );
 
       return {
         title: videoMetadata.title || videoInfo?.title || 'Video',
         download: `${baseUrl}/downloads/${actualFilename}`,
         format: 'video/mp4',
+        resolution,
         fileSize: Math.round((stats.size / (1024 * 1024)) * 100) / 100 + ' MB',
         duration: videoMetadata.duration
           ? this._formatDuration(videoMetadata.duration)
@@ -558,11 +586,15 @@ class YouTubeService {
         return null;
       }
       const stats = fs.statSync(outPath);
-      logger.success(`[YouTube] MP4 ready (ytdl-core): ${cleanFilename}`);
+      const resolution = await probeResolution(outPath);
+      logger.success(
+        `[YouTube] MP4 ready (ytdl-core): ${cleanFilename}${resolution ? ` (${resolution})` : ''}`
+      );
       return {
         title: meta.title || videoInfo?.title || 'Video',
         download: `${baseUrl}/downloads/${cleanFilename}`,
         format: 'video/mp4',
+        resolution,
         fileSize: Math.round((stats.size / (1024 * 1024)) * 100) / 100 + ' MB',
         duration: meta.duration
           ? this._formatDuration(meta.duration)

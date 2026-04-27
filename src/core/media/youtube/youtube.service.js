@@ -121,7 +121,6 @@ const PLAYER_CLIENT_USER_AGENTS = {
   tv: 'Mozilla/5.0 (PlayStation; PlayStation 5/2.26) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0 Safari/605.1.15',
 };
 
-// Generic desktop Chrome UA used when no player_client is forced.
 const DEFAULT_USER_AGENT =
   'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
@@ -184,8 +183,8 @@ function getMetadataOptions(cookiePath) {
     noWarnings: true,
     quiet: true,
     skipDownload: true,
-    noCheckFormats: true, // --no-check-formats: don't HEAD each format URL
-    ignoreNoFormatsError: true, // --ignore-no-formats-error: don't fail when no playable format found
+    noCheckFormats: true,
+    ignoreNoFormatsError: true,
   };
   if (cookiePath) opts.cookies = cookiePath;
   return opts;
@@ -289,13 +288,9 @@ class YouTubeService {
 
       logger.info(`[YouTube] Downloading MP3 from: ${videoUrl}`);
 
-      // Tier 1: youtubei.js with auto-generated PO Token. Only path that
-      // works on accounts under strict PO Token enforcement.
       const ytiResult = await this._tryYoutubeiMp3(videoUrl, videoInfo, baseUrl);
       if (ytiResult) return ytiResult;
 
-      // Tier 2: @distube/ytdl-core. Different extraction codepath; bypasses
-      // some of yt-dlp's failure modes.
       const ytdlResult = await this._tryYtdlCoreMp3(videoUrl, videoInfo, baseUrl);
       if (ytdlResult) return ytdlResult;
 
@@ -617,17 +612,15 @@ class YouTubeService {
     return null;
   }
 
-  // Pass an Error or a string. Returns an AppError with the right HTTP code +
-  // user-facing message, or null if the error doesn't match any known pattern
-  // (caller should rethrow as-is in that case).
+  // Returns an AppError with the right HTTP code + user-facing message, or
+  // null when the error doesn't match a known pattern (caller rethrows as-is).
   _classifyDownloadError(input) {
     const message = (input && input.message) || String(input || '');
     const m = message.toLowerCase();
 
-    // Format negotiation failure. After our retry chain + 'worst' fallback
-    // still couldn't pick a usable format, the most likely root cause is
-    // YouTube serving a "downgraded" player response (storyboards only) due
-    // to PO Token enforcement on this account. Cookies alone are insufficient.
+    // PO Token enforcement: YouTube serves a "downgraded" player response
+    // (storyboards only) when the account is gated. Cookies alone aren't
+    // enough -- operator must set YOUTUBE_PO_TOKEN.
     if (m.includes('requested format is not available') || m.includes('no video formats found')) {
       return new AppError(
         'YouTube tidak mengembalikan format media yang bisa di-download. ' +
@@ -637,7 +630,6 @@ class YouTubeService {
       );
     }
 
-    // Video genuinely unavailable.
     if (
       m.includes('video unavailable') ||
       m.includes('this video is no longer available') ||
@@ -647,7 +639,6 @@ class YouTubeService {
       return new AppError('Video tidak tersedia atau sudah dihapus.', 404);
     }
 
-    // Age-gated content — needs cookies from a logged-in adult account.
     if (m.includes('age-restricted') || m.includes('confirm your age')) {
       return new AppError(
         'Video age-restricted. Cookies harus dari akun yang sudah login dewasa.',
@@ -655,7 +646,6 @@ class YouTubeService {
       );
     }
 
-    // Genuine anti-bot block — server IP flagged.
     if (
       m.includes('sign in to confirm') ||
       m.includes("confirm you're not a bot") ||

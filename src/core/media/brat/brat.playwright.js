@@ -72,7 +72,6 @@ async function generateBratVideo(text, presetValue = 'brat', bgColor = null, tex
       await page.keyboard.press('Backspace');
       await page.waitForTimeout(500);
 
-      // Frame 0: blank canvas before any words have been typed.
       let downloadPromise = page.waitForEvent('download');
       await page.click('section.export button:first-child');
       let download = await downloadPromise;

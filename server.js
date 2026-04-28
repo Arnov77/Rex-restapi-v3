@@ -37,6 +37,7 @@ const mcprofileRoute = require('./src/core/tools/mcprofile/mcprofile.routes');
 const miqRoute = require('./src/core/tools/miq/miq.routes');
 const telegramRoute = require('./src/core/tools/telegram/telegram.routes');
 const replicateRoute = require('./src/core/ai/replicate/replicate.routes');
+const ttsRoute = require('./src/core/tools/tts/tts.routes');
 const adminRoute = require('./src/core/admin/admin.routes');
 
 const app = express();
@@ -122,6 +123,7 @@ app.use('/api/tiktok', dailyQuota, tiktokRoutes);
 app.use('/api/instagram', dailyQuota, instagramRoutes);
 app.use('/api/twitter', dailyQuota, twitterRoutes);
 app.use('/api/pinterest', dailyQuota, pinterestRoutes);
+app.use('/api/tts', dailyQuota, ttsRoute);
 app.use('/api/gdrive', dailyQuota, gdriveRoute);
 app.use('/api/quote', dailyQuota, quoteRoute);
 app.use('/api/smeme', dailyQuota, smemeRoute);

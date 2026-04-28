@@ -1440,7 +1440,7 @@ function renderAnonBanner() {
     <div class="anon-text">
       Mode <strong>anon</strong>: 30 hit/hari (shared)
       <span class="sep">·</span>
-      Daftar gratis untuk <strong>1000 hit/hari</strong> + API key personal
+      Daftar gratis untuk <strong>250 hit/hari</strong> + API key personal
     </div>
     <div class="anon-actions">
       <button type="button" class="anon-btn primary" onclick="openAuthModal('register')">Daftar gratis</button>
@@ -1468,7 +1468,7 @@ function openAuthModal(mode) {
   const body = document.getElementById('authBody');
   if (mode === 'register') {
     titleEl.textContent = 'Daftar Akun';
-    subEl.textContent = 'Buat akun baru — kamu otomatis dapat API key dengan kuota 1000 hit/hari.';
+    subEl.textContent = 'Buat akun baru — kamu otomatis dapat API key dengan kuota 250 hit/hari.';
     body.innerHTML = renderRegisterForm();
     queueMicrotask(() => document.getElementById('regUsername')?.focus());
   } else {

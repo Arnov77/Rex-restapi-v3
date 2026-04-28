@@ -7,7 +7,7 @@ const logger = require('../../shared/utils/logger');
 const { ConflictError, UnauthorizedError, AppError } = require('../../shared/utils/errors');
 
 const BCRYPT_ROUNDS = Math.max(8, Math.min(14, parseInt(process.env.BCRYPT_ROUNDS, 10) || 10));
-const DEFAULT_USER_DAILY_LIMIT = parseInt(process.env.QUOTA_USER_DAILY, 10) || 1000;
+const DEFAULT_USER_DAILY_LIMIT = parseInt(process.env.QUOTA_USER_DAILY, 10) || 250;
 
 async function register(req, res) {
   const { username, email, password } = req.validated;

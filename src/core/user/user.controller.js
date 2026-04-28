@@ -5,7 +5,7 @@ const ResponseHandler = require('../../shared/utils/response');
 const { NotFoundError, AppError } = require('../../shared/utils/errors');
 const logger = require('../../shared/utils/logger');
 
-const DEFAULT_USER_DAILY_LIMIT = parseInt(process.env.QUOTA_USER_DAILY, 10) || 1000;
+const DEFAULT_USER_DAILY_LIMIT = parseInt(process.env.QUOTA_USER_DAILY, 10) || 250;
 
 function nextMidnightIso() {
   const next = new Date();

@@ -97,7 +97,6 @@ Rex-RESTAPI/
 ├── public/                # Landing page + frontend assets
 ├── src/
 │   ├── core/
-│   │   ├── ai/replicate/
 │   │   ├── media/
 │   │   │   ├── brat/
 │   │   │   ├── instagram/

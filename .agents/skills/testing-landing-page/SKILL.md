@@ -20,7 +20,6 @@ Server listens on `7860`. Health check: `curl http://localhost:7860/health` retu
 - `/api/docs` — Swagger UI (redirects to `/api/docs/`).
 - `/api/docs.json` — raw OpenAPI spec.
 - `/api/telegram/sticker-pack/download` — POST. Empty body → `400 {success:false, message:"Sediakan url atau packName."}`. Heavy tier rate limit (10/min/IP).
-- `/api/replicate/generate` — POST. Was renamed from `/api/ai/gemini/generate`; old action paths must not appear anywhere in the frontend.
 - `/api/smeme` — POST. Canvas-based, **no Playwright dependency** — use this when verifying the image-preview branch on a dev VM that lacks Chromium.
 
 ## Rate limit tiers (`src/shared/middleware/rateLimiter.js`)
@@ -65,8 +64,7 @@ When testing error rendering, the adversarial check is **"is the panel showing t
 ## Devin Secrets Needed
 
 - `TELEGRAM_BOT_TOKEN` (optional) — only if you want to exercise a real sticker-pack download end-to-end.
-- `REPLICATE_API_TOKEN` (optional) — for the AI Image (Replicate) endpoint.
-- Both upstream tokens are optional at boot; the server starts cleanly without them and the corresponding endpoints fail with 503 until configured.
+- This upstream token is optional at boot; the server starts cleanly without it and the corresponding endpoint fails with 503 until configured.
 
 ## Linters / formatters / tests
 

@@ -20,6 +20,7 @@ const routeModules = [
   '../src/core/tools/miq/miq.routes',
   '../src/core/tools/telegram/telegram.routes',
   '../src/core/ai/replicate/replicate.routes',
+  '../src/core/admin/admin.routes',
 ];
 
 describe('route modules', () => {

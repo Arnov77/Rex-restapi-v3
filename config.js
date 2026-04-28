@@ -64,6 +64,10 @@ const envSchema = Joi.object({
   DISCORD_WEBHOOK_URL: Joi.string().uri().allow('').optional(),
   REPLICATE_API_TOKEN: Joi.string().allow('').optional(),
 
+  // Master API key (plaintext). Hash-checked against data/api-keys.json on
+  // boot. Leave empty for first-run auto-generation (see apiKeyStore).
+  MASTER_API_KEY: Joi.string().pattern(/^rex_/).allow('').optional(),
+
   BEDROCK_PREFIXES: Joi.string().default('.'),
   FILE_IO_API_URL: Joi.string().uri().default('https://tmpfiles.org'),
   API_VERSION: Joi.string().default('2.0.0'),

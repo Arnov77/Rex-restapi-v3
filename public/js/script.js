@@ -1420,6 +1420,38 @@ function renderSidebarAuth() {
       <button type="button" class="auth-btn" onclick="openAuthModal('login')">Login</button>
     `;
   }
+  renderAnonBanner();
+}
+
+/* ─── ANON HEADER BANNER ─── */
+const ANON_BANNER_DISMISSED_KEY = 'rex.anonBannerDismissed';
+function renderAnonBanner() {
+  const el = document.getElementById('anonBanner');
+  if (!el) return;
+  const hide = Auth.isAuthed() || localStorage.getItem(ANON_BANNER_DISMISSED_KEY) === '1';
+  if (hide) {
+    el.hidden = true;
+    el.innerHTML = '';
+    return;
+  }
+  el.hidden = false;
+  el.innerHTML = `
+    <span class="anon-icon" aria-hidden="true">⚡</span>
+    <div class="anon-text">
+      Mode <strong>anon</strong>: 30 hit/hari (shared)
+      <span class="sep">·</span>
+      Daftar gratis untuk <strong>1000 hit/hari</strong> + API key personal
+    </div>
+    <div class="anon-actions">
+      <button type="button" class="anon-btn primary" onclick="openAuthModal('register')">Daftar gratis</button>
+      <button type="button" class="anon-btn" onclick="openAuthModal('login')">Login</button>
+    </div>
+    <button type="button" class="anon-dismiss" aria-label="Tutup" title="Tutup" onclick="dismissAnonBanner()">✕</button>
+  `;
+}
+function dismissAnonBanner() {
+  localStorage.setItem(ANON_BANNER_DISMISSED_KEY, '1');
+  renderAnonBanner();
 }
 
 function escapeHtml(value) {
@@ -1570,6 +1602,7 @@ async function submitRegister() {
 
 function doLogout() {
   Auth.clear();
+  localStorage.removeItem(ANON_BANNER_DISMISSED_KEY);
   renderSidebarAuth();
   Toast.info('Logout berhasil');
   if (PROFILE_STATE.active) {

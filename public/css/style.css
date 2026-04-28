@@ -568,6 +568,44 @@ body {
 }
 .profile-snippet .copy-btn-mini:hover { color: var(--tx); border-color: var(--b2); }
 
+/* ─── ANON BANNER (header CTA when not logged in) ─── */
+.anon-banner {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 24px;
+  background: linear-gradient(90deg, rgba(16,232,160,.08), rgba(16,232,160,.02));
+  border-bottom: 1px solid rgba(16,232,160,.2);
+  font-family: var(--sans);
+  color: var(--tx2);
+  font-size: 13px;
+}
+.anon-banner[hidden] { display: none; }
+.anon-banner .anon-icon {
+  font-size: 16px; flex-shrink: 0; color: var(--accent);
+}
+.anon-banner .anon-text { flex: 1; min-width: 0; line-height: 1.45; }
+.anon-banner .anon-text strong { color: var(--tx); font-weight: 600; }
+.anon-banner .anon-text .sep { color: var(--tx3); margin: 0 6px; }
+.anon-banner .anon-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.anon-banner .anon-btn {
+  font-family: var(--sans); font-size: 12px; font-weight: 500;
+  padding: 6px 12px; border-radius: var(--r); cursor: pointer;
+  border: 1px solid var(--b1); background: var(--card); color: var(--tx);
+  transition: all .15s;
+}
+.anon-banner .anon-btn:hover { border-color: var(--b2); background: var(--card2); }
+.anon-banner .anon-btn.primary {
+  background: var(--accent); color: var(--bg); border-color: var(--accent);
+}
+.anon-banner .anon-btn.primary:hover { opacity: .85; }
+.anon-banner .anon-dismiss {
+  width: 26px; height: 26px; flex-shrink: 0;
+  border-radius: var(--r); border: 1px solid transparent;
+  background: transparent; color: var(--tx3); cursor: pointer;
+  font-size: 14px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.anon-banner .anon-dismiss:hover { color: var(--tx); border-color: var(--b1); background: var(--card); }
+
 /* ─── TOAST ─── */
 .toast-container {
   position: fixed; top: 18px; right: 18px;
@@ -615,6 +653,16 @@ body {
   .profile-snippet { font-size: 10.5px; padding: 10px 11px; padding-right: 38px; }
   .api-key-actions { width: 100%; }
   .btn-line { padding: 8px 12px; }
+
+  /* ANON BANNER — stack vertically + tighter padding */
+  .anon-banner {
+    flex-wrap: wrap; padding: 10px 14px; font-size: 12px; gap: 8px;
+  }
+  .anon-banner .anon-text { flex: 1 1 100%; order: 1; }
+  .anon-banner .anon-icon { order: 0; }
+  .anon-banner .anon-dismiss { order: 0; margin-left: auto; }
+  .anon-banner .anon-actions { order: 2; flex: 1 1 100%; }
+  .anon-banner .anon-btn { flex: 1; text-align: center; }
 
   /* TOAST — push below sticky mobile bar */
   .toast-container { top: 60px; right: 12px; max-width: calc(100vw - 24px); }

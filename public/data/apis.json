@@ -463,6 +463,33 @@
           "required": false
         }
       ]
+    },
+    {
+      "id": 2,
+      "name": "Google TTS (WhatsApp Voice Note)",
+      "method": "POST",
+      "action": "/api/tts/google",
+      "description": "Sintesis teks ke voice note ogg/opus (16kHz mono 32kbps voip) siap kirim sebagai PTT WhatsApp. Pakai google-tts-api gratis tanpa API key.",
+      "params": [
+        {
+          "name": "text",
+          "type": "string",
+          "example": "Halo, ini contoh voice note dari REX API.",
+          "required": true
+        },
+        {
+          "name": "lang",
+          "type": "string",
+          "example": "id",
+          "required": false
+        },
+        {
+          "name": "slow",
+          "type": "boolean",
+          "example": false,
+          "required": false
+        }
+      ]
     }
   ],
   "Minecraft": [

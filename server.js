@@ -10,12 +10,14 @@ const swaggerUi = require('swagger-ui-express');
 const { env } = require('./config');
 const logger = require('./src/shared/utils/logger');
 const { errorHandler } = require('./src/shared/middleware/errorHandler');
+const { generalLimiter } = require('./src/shared/middleware/rateLimiter');
 const {
-  generalLimiter,
-  apiLimiter,
-  heavyLimiter,
-  aiLimiter,
-} = require('./src/shared/middleware/rateLimiter');
+  tieredApiLimiter,
+  tieredHeavyLimiter,
+  tieredAiLimiter,
+} = require('./src/shared/middleware/tieredLimiter');
+const { apiKeyAuth } = require('./src/shared/auth/apiKeyAuth');
+const apiKeyStore = require('./src/shared/auth/apiKeyStore');
 const requestId = require('./src/shared/middleware/requestId');
 const ResponseHandler = require('./src/shared/utils/response');
 const browserManager = require('./src/shared/browser/browserManager');
@@ -36,6 +38,7 @@ const mcprofileRoute = require('./src/core/tools/mcprofile/mcprofile.routes');
 const miqRoute = require('./src/core/tools/miq/miq.routes');
 const telegramRoute = require('./src/core/tools/telegram/telegram.routes');
 const replicateRoute = require('./src/core/ai/replicate/replicate.routes');
+const adminRoute = require('./src/core/admin/admin.routes');
 
 const app = express();
 
@@ -105,21 +108,28 @@ app.use('/downloads', express.static(path.join(__dirname, 'downloads')));
 
 app.use(generalLimiter);
 
+// API key middleware runs before per-route limiters so each limiter can
+// branch on req.apiKey?.tier (anon / user / master). Unauthenticated requests
+// still pass through — the tiered limiters apply tighter caps to them.
+app.use(apiKeyAuth);
+
 // ── Route mounts ─────────────────────────────────────────────────────────────
 // Heavy endpoints (browser automation + large transcodes) get the tighter
-// heavyLimiter; everything else gets the standard apiLimiter.
-app.use('/api/youtube', heavyLimiter, youtubeRoutes);
-app.use('/api/brat', heavyLimiter, bratRoutes);
-app.use('/api/tiktok', apiLimiter, tiktokRoutes);
-app.use('/api/instagram', apiLimiter, instagramRoutes);
-app.use('/api/gdrive', apiLimiter, gdriveRoute);
-app.use('/api/quote', heavyLimiter, quoteRoute);
-app.use('/api/smeme', apiLimiter, smemeRoute);
-app.use('/api/promosi', apiLimiter, promosiRoute);
-app.use('/api/miq', apiLimiter, miqRoute);
-app.use('/api/telegram', heavyLimiter, telegramRoute);
-app.use('/api/replicate', aiLimiter, replicateRoute);
-app.use('/mcapi', apiLimiter, mcprofileRoute);
+// tieredHeavyLimiter; everything else gets tieredApiLimiter. Each limiter
+// scales the cap by req.apiKey.tier (anon / user / master).
+app.use('/api/admin', adminRoute);
+app.use('/api/youtube', tieredHeavyLimiter, youtubeRoutes);
+app.use('/api/brat', tieredHeavyLimiter, bratRoutes);
+app.use('/api/tiktok', tieredApiLimiter, tiktokRoutes);
+app.use('/api/instagram', tieredApiLimiter, instagramRoutes);
+app.use('/api/gdrive', tieredApiLimiter, gdriveRoute);
+app.use('/api/quote', tieredHeavyLimiter, quoteRoute);
+app.use('/api/smeme', tieredApiLimiter, smemeRoute);
+app.use('/api/promosi', tieredApiLimiter, promosiRoute);
+app.use('/api/miq', tieredApiLimiter, miqRoute);
+app.use('/api/telegram', tieredHeavyLimiter, telegramRoute);
+app.use('/api/replicate', tieredAiLimiter, replicateRoute);
+app.use('/mcapi', tieredApiLimiter, mcprofileRoute);
 
 // OpenAPI / Swagger UI — the JSON spec is published at /api/docs.json for
 // scripted clients and the interactive explorer at /api/docs for humans.
@@ -164,6 +174,8 @@ async function startServer() {
     // dynamic-import + JSON-parse cost (~150ms on cold start).
     await initColorIndex();
 
+    apiKeyStore.ensureMasterKey();
+
     // Sweep stale files in /downloads on a TTL so the disk doesn't fill up
     // with old YouTube/TikTok artefacts. Runs an initial pass synchronously,
     // then schedules an interval. unref()'d so it never blocks shutdown.
@@ -187,6 +199,7 @@ async function startServer() {
 function shutdown(signal) {
   logger.info(`Received ${signal}, shutting down gracefully...`);
   downloadsCleanup.stopCleanup();
+  apiKeyStore.flushPendingTouches();
   if (!httpServer) {
     browserManager.shutdown().finally(() => process.exit(0));
     return;

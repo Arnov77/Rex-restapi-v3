@@ -19,10 +19,26 @@ const spec = swaggerJsdoc({
         'Drive link resolution, Minecraft profile lookup, and SDXL image generation.',
     },
     servers: [{ url: '/', description: 'Current host' }],
+    components: {
+      securitySchemes: {
+        apiKey: {
+          type: 'apiKey',
+          in: 'header',
+          name: 'X-API-Key',
+          description:
+            'Plaintext API key (format: rex_<base64url>). Bearer token in the ' +
+            'Authorization header is also accepted. Endpoints are accessible ' +
+            'without a key (anon tier) at a tighter rate limit; supplying a ' +
+            'user-tier key unlocks the higher quota; master keys bypass limits ' +
+            'and grant /api/admin/* access.',
+        },
+      },
+    },
     tags: [
       { name: 'Media', description: 'YouTube, TikTok, Instagram, Brat' },
       { name: 'Tools', description: 'Quote, MIQ, Smeme, GDrive, Telegram, Promosi' },
       { name: 'AI', description: 'SDXL / Replicate image generation' },
+      { name: 'Admin', description: 'API key management (master only)' },
     ],
   },
   apis: [ROUTES_GLOB],

@@ -61,35 +61,51 @@ async function fetchHtml(url) {
 }
 
 /**
- * Resolve a Pinterest pin via OpenGraph meta tags. Pinterest server-renders
- * og:image / og:image:width / og:image:height / og:title / og:description
- * for every pin (image *and* video) and additionally og:video for videos.
- * This is the cheapest and most reliable extraction path — no headless
- * browser, no internal API auth, no CSRF.
+ * Pinterest server-renders inline mp4 URLs for video pins inside the HTML
+ * body (specifically a JSON blob containing /videos/iht/720p/<hash>.mp4 and
+ * /videos/iht/hls/<hash>.m3u8). Image pins never contain those URLs, so
+ * presence of `v1.pinimg.com/videos/.../720p/...mp4` is a reliable
+ * "this is a video pin" signal. og:video meta is unreliable on Pinterest.
+ */
+function extractVideoUrls(html) {
+  const out = {};
+  const mp4 = html.match(/https:\/\/v1?\.pinimg\.com\/videos\/iht\/720p\/[^"'\s]+\.mp4/);
+  if (mp4) out.mp4 = mp4[0];
+  const hls = html.match(/https:\/\/v1?\.pinimg\.com\/videos\/iht\/hls\/[^"'\s]+\.m3u8/);
+  if (hls) out.hls = hls[0];
+  return out;
+}
+
+/**
+ * Resolve a Pinterest pin via inline HTML scrape. OG meta tags give us the
+ * cover image / title / description for every pin; for video pins we also
+ * extract the inline mp4 URL Pinterest embeds in a JSON blob (og:video meta
+ * is unreliable — it's frequently absent even when the pin IS a video).
+ *
+ * Single HTTP roundtrip — no headless browser, no API auth, no CSRF.
  */
 async function tryOpenGraph(url) {
   const { html, finalUrl } = await fetchHtml(url);
 
   const ogImage = extractMeta(html, 'og:image');
-  const ogVideo = extractMeta(html, 'og:video');
   const ogTitle = extractMeta(html, 'og:title');
   const ogDescription = extractMeta(html, 'og:description');
   const width = extractMeta(html, 'og:image:width');
   const height = extractMeta(html, 'og:image:height');
 
-  if (!ogImage && !ogVideo) {
+  const videoUrls = extractVideoUrls(html);
+
+  if (!ogImage && !videoUrls.mp4) {
     throw new NotFoundError('Pin has no OpenGraph media tags');
   }
 
   const media = [];
-  if (ogVideo) {
-    const videoWidth = extractMeta(html, 'og:video:width');
-    const videoHeight = extractMeta(html, 'og:video:height');
+
+  if (videoUrls.mp4) {
     media.push({
       type: 'video',
-      url: ogVideo,
-      width: videoWidth ? Number(videoWidth) : null,
-      height: videoHeight ? Number(videoHeight) : null,
+      url: videoUrls.mp4,
+      hls: videoUrls.hls || null,
       thumbnail: ogImage ? upgradePinimgUrl(ogImage) : null,
     });
   } else if (ogImage) {
@@ -177,5 +193,5 @@ async function download(url) {
 
 module.exports = {
   download,
-  _internal: { upgradePinimgUrl, extractMeta, tryOpenGraph, tryYtDlp },
+  _internal: { upgradePinimgUrl, extractMeta, extractVideoUrls, tryOpenGraph, tryYtDlp },
 };

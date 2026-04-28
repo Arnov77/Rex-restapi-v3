@@ -27,6 +27,25 @@ describe('pinterest.upgradePinimgUrl', () => {
   });
 });
 
+describe('pinterest.extractVideoUrls', () => {
+  const videoHtml = `
+    "videoUrls":["https://v1.pinimg.com/videos/iht/hevcMp4V2/aa/bb/cc/abc_t1.mp4",
+    "https://v1.pinimg.com/videos/iht/hls/aa/bb/cc/abc.m3u8",
+    "https://v1.pinimg.com/videos/iht/720p/aa/bb/cc/abc.mp4"]
+  `;
+  const imageHtml = '<meta name="og:image" content="https://i.pinimg.com/736x/aa/bb/cc/img.jpg"/>';
+
+  it('finds 720p mp4 + hls in video pin HTML', () => {
+    const result = _internal.extractVideoUrls(videoHtml);
+    expect(result.mp4).toBe('https://v1.pinimg.com/videos/iht/720p/aa/bb/cc/abc.mp4');
+    expect(result.hls).toBe('https://v1.pinimg.com/videos/iht/hls/aa/bb/cc/abc.m3u8');
+  });
+
+  it('returns empty object for image pin HTML', () => {
+    expect(_internal.extractVideoUrls(imageHtml)).toEqual({});
+  });
+});
+
 describe('pinterest.extractMeta', () => {
   const html = `
     <meta property="og:title" content="Test Pin"/>

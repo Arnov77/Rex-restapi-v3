@@ -1506,12 +1506,10 @@ async function submitLogin() {
   submit.disabled = true;
   submit.textContent = 'Memproses…';
   try {
-    const isEmail = identifier.includes('@');
-    const body = isEmail ? { email: identifier, password } : { username: identifier, password };
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ identifier, password }),
     });
     const json = await res.json().catch(() => ({}));
     if (!res.ok) {

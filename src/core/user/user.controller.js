@@ -73,6 +73,13 @@ async function regenerateKey(req, res) {
     throw new AppError(`Failed to regenerate API key: ${err.message}`, 500);
   }
 
+  // Carry today's quota usage from the old key id onto the new one so users
+  // can't reset their daily counter by regenerating. Quota is per-user-per-day,
+  // not per-key-per-day.
+  if (previous) {
+    usageStore.transfer(`key:${previous.id}`, `key:${result.record.id}`);
+  }
+
   usersStore.updateApiKeyId(user.id, result.record.id);
   logger.info(
     `[user] Regenerated API key for "${user.username}" (revoked ${previous?.id || 'none'})`

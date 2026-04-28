@@ -173,4 +173,39 @@ describe('POST /api/user/regenerate-key', () => {
       .set('Authorization', `Bearer ${token}`);
     expect(profile.body.data.apiKey.key).toBe(res.body.data.apiKey.key);
   });
+
+  it("carries today's used quota onto the new key (anti-abuse)", async () => {
+    const usageStore = require('../src/shared/auth/usageStore');
+    usageStore._resetForTests();
+    usageStore.start({ flushIntervalSec: 9999 });
+
+    const reg = await request(app)
+      .post('/api/auth/register')
+      .send({ username: 'alice', email: 'a@x.com', password: 'hunter22pass' });
+    const token = reg.body.data.token;
+    const oldKeyId = reg.body.data.apiKey.id;
+
+    // Simulate 5 paid hits on the old key.
+    usageStore.increment(`key:${oldKeyId}`);
+    usageStore.increment(`key:${oldKeyId}`);
+    usageStore.increment(`key:${oldKeyId}`);
+    usageStore.increment(`key:${oldKeyId}`);
+    usageStore.increment(`key:${oldKeyId}`);
+
+    const regen = await request(app)
+      .post('/api/user/regenerate-key')
+      .set('Authorization', `Bearer ${token}`);
+    const newKeyId = regen.body.data.apiKey.id;
+
+    expect(usageStore.getCount(`key:${oldKeyId}`)).toBe(0);
+    expect(usageStore.getCount(`key:${newKeyId}`)).toBe(5);
+
+    const profile = await request(app)
+      .get('/api/user/profile')
+      .set('Authorization', `Bearer ${token}`);
+    expect(profile.body.data.usage.used).toBe(5);
+    expect(profile.body.data.usage.remaining).toBe(profile.body.data.usage.limit - 5);
+
+    usageStore.stop();
+  });
 });

@@ -41,9 +41,13 @@ const { asyncHandler } = require('../../../shared/middleware/errorHandler');
  *                 default: false
  *     responses:
  *       200:
- *         description: ogg/opus audio bytes
+ *         description: ogg/opus audio bytes (Content-Type audio/ogg). Forward
+ *           the .ogg file to WhatsApp to have it surface as a voice note (PTT).
  *         content:
- *           audio/ogg: {}
+ *           audio/ogg:
+ *             schema:
+ *               type: string
+ *               format: binary
  *       400: { description: Validation failed }
  *       502: { description: Upstream Google TTS error }
  */

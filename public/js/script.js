@@ -1302,6 +1302,22 @@ async function handleApiResponse(response, { isTelegramStickerDownload } = {}) {
     return;
   }
 
+  if (contentType.includes('audio/')) {
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const ext = contentType.includes('ogg')
+      ? 'ogg'
+      : contentType.includes('mpeg') || contentType.includes('mp3')
+        ? 'mp3'
+        : contentType.includes('wav')
+          ? 'wav'
+          : 'audio';
+    const filename = parseContentDispositionFilename(response.headers.get('content-disposition'))
+      || `voice-note.${ext}`;
+    showAudio(url, filename, blob.size, response.status, contentType);
+    return;
+  }
+
   if (isJson) {
     const json = await response.json();
     showJSON(json, response.status);
@@ -1411,6 +1427,17 @@ function showImage(url, ext, status, contentType) {
       <br>
       <a href="${url}" download="result.${ext}" class="img-dl">Download ${ext.toUpperCase()}</a>
       <div class="img-note">Gunakan hasil ini untuk preview atau unduh filenya langsung.</div>
+    </div>
+  </div>`;
+}
+
+function showAudio(url, filename, size, status, contentType) {
+  document.getElementById('responseArea').innerHTML = `<div class="response-area">
+    <div class="res-bar"><span class="res-label">Response</span><span class="res-status s-ok">${status} OK - ${contentType}</span></div>
+    <div class="img-result">
+      <audio controls preload="metadata" src="${url}" style="width:100%;max-width:380px;display:block;margin:0 auto 12px"></audio>
+      <a href="${url}" download="${escHtml(filename)}" class="img-dl">Download ${escHtml(filename.split('.').pop().toUpperCase())}</a>
+      <div class="img-note">${formatBytes(size)} • ${escHtml(contentType)} • Forward .ogg ke chat WhatsApp untuk tampil sebagai voice note.</div>
     </div>
   </div>`;
 }

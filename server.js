@@ -26,6 +26,8 @@ const youtubeRoutes = require('./src/core/media/youtube/youtube.routes');
 const bratRoutes = require('./src/core/media/brat/brat.routes');
 const tiktokRoutes = require('./src/core/media/tiktok/tiktok.routes');
 const instagramRoutes = require('./src/core/media/instagram/instagram.routes');
+const twitterRoutes = require('./src/core/media/twitter/twitter.routes');
+const pinterestRoutes = require('./src/core/media/pinterest/pinterest.routes');
 
 const gdriveRoute = require('./src/core/tools/gdrive/gdrive.routes');
 const quoteRoute = require('./src/core/tools/quote/quote.routes');
@@ -118,6 +120,8 @@ app.use('/api/youtube', dailyQuota, youtubeRoutes);
 app.use('/api/brat', dailyQuota, bratRoutes);
 app.use('/api/tiktok', dailyQuota, tiktokRoutes);
 app.use('/api/instagram', dailyQuota, instagramRoutes);
+app.use('/api/twitter', dailyQuota, twitterRoutes);
+app.use('/api/pinterest', dailyQuota, pinterestRoutes);
 app.use('/api/gdrive', dailyQuota, gdriveRoute);
 app.use('/api/quote', dailyQuota, quoteRoute);
 app.use('/api/smeme', dailyQuota, smemeRoute);

@@ -573,6 +573,7 @@ body {
   position: fixed; top: 18px; right: 18px;
   z-index: 9999; display: flex; flex-direction: column; gap: 8px;
   pointer-events: none;
+  max-width: calc(100vw - 36px);
 }
 .toast {
   pointer-events: auto;
@@ -590,6 +591,47 @@ body {
 @keyframes toastOut { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(40px); } }
 
 @media (max-width: 768px) {
+  /* AUTH MODAL */
   .auth-modal { max-width: 100%; }
-  .profile-wrap { padding: 16px; }
+  .auth-top { padding: 18px 18px 0; }
+  .auth-body { padding: 14px 18px 22px; }
+  .auth-title { font-size: 16px; }
+  .auth-sub { font-size: 12px; }
+
+  /* PROFILE PANEL */
+  .profile-wrap { padding: 16px 14px 60px; }
+  .profile-header { gap: 12px; margin-bottom: 16px; }
+  .profile-avatar { width: 48px; height: 48px; font-size: 18px; }
+  .profile-name { font-size: 16px; }
+  .profile-meta { word-break: break-word; }
+  .profile-card { padding: 14px; }
+  .profile-card-head { gap: 8px; flex-wrap: wrap; }
+  .api-key-row { gap: 6px; padding: 8px 10px; }
+  .api-key-text { font-size: 11px; }
+  .quota-row { flex-wrap: wrap; gap: 6px; }
+  .quota-meta { font-size: 10px; text-align: left; }
+  .profile-row { gap: 8px; }
+  .profile-row > div { min-width: 100%; }
+  .profile-snippet { font-size: 10.5px; padding: 10px 11px; padding-right: 38px; }
+  .api-key-actions { width: 100%; }
+  .btn-line { padding: 8px 12px; }
+
+  /* TOAST — push below sticky mobile bar */
+  .toast-container { top: 60px; right: 12px; max-width: calc(100vw - 24px); }
+  .toast { font-size: 12px; min-width: 0; max-width: 100%; padding: 9px 12px; }
+
+  /* ENDPOINT MODAL TABS — tighter at narrow widths */
+  .tabs { padding: 0 14px; gap: 0; }
+  .tab { font-size: 12px; padding: 9px 11px; }
+
+  /* CONTENT HEADER — search bar smaller so title doesn't get cramped */
+  .search-wrap { max-width: 180px; }
+}
+
+@media (max-width: 380px) {
+  .auth-form .field input { font-size: 13px; }
+  .profile-card-tier { font-size: 9px; padding: 2px 7px; }
+  .quota-num { font-size: 20px; }
+  .search-wrap { max-width: 140px; }
+  .tab { font-size: 11px; padding: 8px 8px; }
 }

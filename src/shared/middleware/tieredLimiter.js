@@ -1,4 +1,4 @@
-const rateLimit = require('express-rate-limit');
+const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 const ResponseHandler = require('../utils/response');
 
 const buildHandler = (message) => (req, res) => ResponseHandler.error(res, message, 429);
@@ -8,10 +8,12 @@ const buildHandler = (message) => (req, res) => ResponseHandler.error(res, messa
  * API-key tier set by `apiKeyAuth`:
  *   - master tier: skipped entirely (unlimited)
  *   - user tier:   `userMax` per window, scoped per key id
- *   - anon:        `anonMax` per window, scoped per IP
+ *   - anon:        `anonMax` per window, scoped per IP (IPv6-subnet aware)
  *
  * Tiers share a window and message but have independent quotas because the
- * `keyGenerator` returns different identifiers.
+ * `keyGenerator` returns different identifiers. The IP branch routes through
+ * `ipKeyGenerator()` so IPv6 clients get bucketed by /56 prefix instead of
+ * full address (otherwise express-rate-limit v8 throws ERR_ERL_KEY_GEN_IPV6).
  */
 function tieredLimiter({ anonMax, userMax, windowMs = 60 * 1000, message }) {
   return rateLimit({
@@ -19,7 +21,7 @@ function tieredLimiter({ anonMax, userMax, windowMs = 60 * 1000, message }) {
     standardHeaders: true,
     legacyHeaders: false,
     skip: (req) => req.apiKey?.tier === 'master',
-    keyGenerator: (req) => (req.apiKey ? `key:${req.apiKey.id}` : `ip:${req.ip}`),
+    keyGenerator: (req) => (req.apiKey ? `key:${req.apiKey.id}` : `ip:${ipKeyGenerator(req.ip)}`),
     max: (req) => (req.apiKey?.tier === 'user' ? userMax : anonMax),
     handler: buildHandler(message || 'Rate limit exceeded for your tier.'),
   });

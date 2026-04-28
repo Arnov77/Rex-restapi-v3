@@ -68,6 +68,12 @@ const envSchema = Joi.object({
   // boot. Leave empty for first-run auto-generation (see apiKeyStore).
   MASTER_API_KEY: Joi.string().pattern(/^rex_/).allow('').optional(),
 
+  // JWT signing secret + expiry for /api/auth dashboard tokens. Empty
+  // secret triggers auto-bootstrap to data/jwt-secret.txt.
+  JWT_SECRET: Joi.string().allow('').optional(),
+  JWT_EXPIRES_IN: Joi.string().default('7d'),
+  BCRYPT_ROUNDS: Joi.number().integer().min(8).max(14).default(10),
+
   // Anti-spam burst guard (technical, applied to all tiers including master).
   ANTI_SPAM_PER_SECOND: Joi.number().integer().min(1).max(1000).default(5),
 

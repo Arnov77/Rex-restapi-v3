@@ -161,6 +161,26 @@ function increment(key) {
   return next;
 }
 
+/**
+ * Move a counter to a new key, summing into any existing value at the
+ * destination. Used when a user regenerates their API key — the old key's
+ * `used` count is carried over to the new key id so the daily quota cannot
+ * be reset by churning keys. Old key entry is deleted afterwards.
+ */
+function transfer(fromKey, toKey) {
+  if (!state || fromKey === toKey) return 0;
+  const carry = state.counters.get(fromKey) || 0;
+  if (carry === 0) {
+    state.counters.delete(fromKey);
+    return 0;
+  }
+  const merged = (state.counters.get(toKey) || 0) + carry;
+  state.counters.set(toKey, merged);
+  state.counters.delete(fromKey);
+  dirty = true;
+  return merged;
+}
+
 function snapshot() {
   if (!state) return { date: todayLocalIsoDate(), counters: {} };
   return {
@@ -183,6 +203,7 @@ module.exports = {
   stop,
   getCount,
   increment,
+  transfer,
   snapshot,
   resetForNewDay,
   flush,

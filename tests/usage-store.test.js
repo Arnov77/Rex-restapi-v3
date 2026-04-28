@@ -33,6 +33,47 @@ afterEach(() => {
   fs.rmSync(tmpRoot, { recursive: true, force: true });
 });
 
+describe('usageStore.transfer', () => {
+  it('moves a counter to a new key id and deletes the old entry', () => {
+    const store = require('../src/shared/auth/usageStore');
+    store._resetForTests();
+    store.start({ flushIntervalSec: 9999 });
+    store.increment('key:old');
+    store.increment('key:old');
+    store.increment('key:old');
+    expect(store.getCount('key:old')).toBe(3);
+
+    const merged = store.transfer('key:old', 'key:new');
+    expect(merged).toBe(3);
+    expect(store.getCount('key:old')).toBe(0);
+    expect(store.getCount('key:new')).toBe(3);
+    store.stop();
+  });
+
+  it('sums into an existing destination counter', () => {
+    const store = require('../src/shared/auth/usageStore');
+    store._resetForTests();
+    store.start({ flushIntervalSec: 9999 });
+    store.increment('key:old');
+    store.increment('key:old');
+    store.increment('key:new');
+    const merged = store.transfer('key:old', 'key:new');
+    expect(merged).toBe(3);
+    expect(store.getCount('key:old')).toBe(0);
+    expect(store.getCount('key:new')).toBe(3);
+    store.stop();
+  });
+
+  it('no-ops when source has no counter', () => {
+    const store = require('../src/shared/auth/usageStore');
+    store._resetForTests();
+    store.start({ flushIntervalSec: 9999 });
+    expect(store.transfer('key:nope', 'key:dest')).toBe(0);
+    expect(store.getCount('key:dest')).toBe(0);
+    store.stop();
+  });
+});
+
 describe('usageStore', () => {
   it('start() initialises today fresh and persists', () => {
     store.start({ flushIntervalSec: 60 });

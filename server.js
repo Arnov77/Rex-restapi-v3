@@ -38,6 +38,8 @@ const miqRoute = require('./src/core/tools/miq/miq.routes');
 const telegramRoute = require('./src/core/tools/telegram/telegram.routes');
 const replicateRoute = require('./src/core/ai/replicate/replicate.routes');
 const ttsRoute = require('./src/core/tools/tts/tts.routes');
+const authRoute = require('./src/core/auth/auth.routes');
+const userRoute = require('./src/core/user/user.routes');
 const adminRoute = require('./src/core/admin/admin.routes');
 
 const app = express();
@@ -116,6 +118,8 @@ app.use(apiKeyAuth);
 // /api/docs, and the static landing page do NOT consume quota. Admin routes
 // also bypass — they're already master-only and master is unlimited anyway.
 // ── Route mounts ─────────────────────────────────────────────────────────────
+app.use('/api/auth', authRoute);
+app.use('/api/user', userRoute);
 app.use('/api/admin', adminRoute);
 app.use('/api/youtube', dailyQuota, youtubeRoutes);
 app.use('/api/brat', dailyQuota, bratRoutes);

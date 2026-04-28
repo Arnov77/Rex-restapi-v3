@@ -1079,6 +1079,9 @@ function sendReq() {
   showLoading();
 
   const requestOptions = { method: api.method };
+  const baseHeaders = {};
+  const authedKey = Auth.getApiKey();
+  if (authedKey) baseHeaders['X-API-Key'] = authedKey;
   if (api.method !== 'GET') {
     if (hasFile) {
       const form = new FormData();
@@ -1092,10 +1095,13 @@ function sendReq() {
         });
 
       requestOptions.body = form;
+      if (Object.keys(baseHeaders).length) requestOptions.headers = baseHeaders;
     } else {
-      requestOptions.headers = { 'Content-Type': 'application/json' };
+      requestOptions.headers = { 'Content-Type': 'application/json', ...baseHeaders };
       requestOptions.body = JSON.stringify(body);
     }
+  } else if (Object.keys(baseHeaders).length) {
+    requestOptions.headers = baseHeaders;
   }
 
   fetch(api.action, requestOptions)
@@ -1313,3 +1319,493 @@ function toggleMobileMenu() {
 
 if (mobileMenuBtn) mobileMenuBtn.addEventListener('click', toggleMobileMenu);
 if (mobileOverlay) mobileOverlay.addEventListener('click', closeMobileMenu);
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * AUTH STATE + UI (Phase 4.5)
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+const Auth = (() => {
+  const TK_KEY = 'rex.token';
+  const USR_KEY = 'rex.user';
+  const KEY_KEY = 'rex.apiKey';
+
+  function getToken() {
+    return localStorage.getItem(TK_KEY);
+  }
+  function getUser() {
+    try {
+      const raw = localStorage.getItem(USR_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+  function getApiKey() {
+    return localStorage.getItem(KEY_KEY);
+  }
+  function setSession(token, user, apiKey) {
+    if (token) localStorage.setItem(TK_KEY, token);
+    if (user) localStorage.setItem(USR_KEY, JSON.stringify(user));
+    if (apiKey) localStorage.setItem(KEY_KEY, apiKey);
+  }
+  function setApiKey(apiKey) {
+    if (apiKey) localStorage.setItem(KEY_KEY, apiKey);
+  }
+  function clear() {
+    localStorage.removeItem(TK_KEY);
+    localStorage.removeItem(USR_KEY);
+    localStorage.removeItem(KEY_KEY);
+  }
+  function isAuthed() {
+    return !!getToken();
+  }
+  async function fetchAuthed(url, opts = {}) {
+    const token = getToken();
+    const headers = { ...(opts.headers || {}) };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const res = await fetch(url, { ...opts, headers });
+    if (res.status === 401) {
+      clear();
+      renderSidebarAuth();
+      Toast.error('Sesi berakhir, silakan login lagi');
+      openAuthModal('login');
+      throw new Error('Unauthorized');
+    }
+    return res;
+  }
+  return { getToken, getUser, getApiKey, setSession, setApiKey, clear, isAuthed, fetchAuthed };
+})();
+
+const Toast = (() => {
+  function show(message, type = 'info', timeoutMs = 3200) {
+    const container = document.getElementById('toastContainer');
+    if (!container) return;
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.textContent = message;
+    container.appendChild(el);
+    setTimeout(() => {
+      el.classList.add('fade');
+      setTimeout(() => el.remove(), 280);
+    }, timeoutMs);
+  }
+  return {
+    info: (m) => show(m, 'info'),
+    success: (m) => show(m, 'success'),
+    error: (m) => show(m, 'error', 4500),
+  };
+})();
+
+/* ─── SIDEBAR AUTH SLOT ─── */
+function renderSidebarAuth() {
+  const slot = document.getElementById('authSlot');
+  if (!slot) return;
+  const user = Auth.getUser();
+  if (Auth.isAuthed() && user) {
+    const initial = (user.username || '?').charAt(0).toUpperCase();
+    slot.innerHTML = `
+      <div class="auth-userbox">
+        <div class="auth-avatar">${initial}</div>
+        <div class="auth-userinfo">
+          <div class="auth-username">${escapeHtml(user.username)}</div>
+          <div class="auth-useremail">${escapeHtml(user.email)}</div>
+        </div>
+      </div>
+      <button type="button" class="auth-btn primary" onclick="showProfileView()">Profile</button>
+      <button type="button" class="auth-btn danger" onclick="doLogout()">Logout</button>
+    `;
+  } else {
+    slot.innerHTML = `
+      <button type="button" class="auth-btn primary" onclick="openAuthModal('register')">Daftar</button>
+      <button type="button" class="auth-btn" onclick="openAuthModal('login')">Login</button>
+    `;
+  }
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[c]);
+}
+
+/* ─── AUTH MODAL ─── */
+function openAuthModal(mode) {
+  const overlay = document.getElementById('authOverlay');
+  const titleEl = document.getElementById('authTitle');
+  const subEl = document.getElementById('authSub');
+  const body = document.getElementById('authBody');
+  if (mode === 'register') {
+    titleEl.textContent = 'Daftar Akun';
+    subEl.textContent = 'Buat akun baru — kamu otomatis dapat API key dengan kuota 1000 hit/hari.';
+    body.innerHTML = renderRegisterForm();
+    queueMicrotask(() => document.getElementById('regUsername')?.focus());
+  } else {
+    titleEl.textContent = 'Masuk';
+    subEl.textContent = 'Masuk dengan email atau username kamu.';
+    body.innerHTML = renderLoginForm();
+    queueMicrotask(() => document.getElementById('loginIdentifier')?.focus());
+  }
+  overlay.classList.add('open');
+  overlay.onclick = (event) => {
+    if (event.target === overlay) closeAuthModal();
+  };
+}
+
+function closeAuthModal() {
+  document.getElementById('authOverlay').classList.remove('open');
+}
+
+function renderLoginForm() {
+  return `
+    <form class="auth-form" onsubmit="event.preventDefault(); submitLogin();">
+      <div class="auth-error" id="loginError" style="display:none"></div>
+      <div class="field">
+        <label for="loginIdentifier">Email atau Username</label>
+        <input id="loginIdentifier" type="text" autocomplete="username" required>
+      </div>
+      <div class="field">
+        <label for="loginPassword">Password</label>
+        <input id="loginPassword" type="password" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="auth-submit" id="loginSubmit">Masuk</button>
+      <div class="auth-switch">Belum punya akun? <a onclick="openAuthModal('register')">Daftar</a></div>
+    </form>
+  `;
+}
+
+function renderRegisterForm() {
+  return `
+    <form class="auth-form" onsubmit="event.preventDefault(); submitRegister();">
+      <div class="auth-error" id="regError" style="display:none"></div>
+      <div class="field">
+        <label for="regUsername">Username</label>
+        <input id="regUsername" type="text" autocomplete="username" minlength="3" maxlength="32" required>
+        <div class="hint">Huruf, angka, garis bawah; 3–32 karakter.</div>
+      </div>
+      <div class="field">
+        <label for="regEmail">Email</label>
+        <input id="regEmail" type="email" autocomplete="email" required>
+      </div>
+      <div class="field">
+        <label for="regPassword">Password</label>
+        <input id="regPassword" type="password" autocomplete="new-password" minlength="8" required>
+        <div class="hint">Minimal 8 karakter.</div>
+      </div>
+      <button type="submit" class="auth-submit" id="regSubmit">Daftar</button>
+      <div class="auth-switch">Sudah punya akun? <a onclick="openAuthModal('login')">Masuk</a></div>
+    </form>
+  `;
+}
+
+async function submitLogin() {
+  const identifier = document.getElementById('loginIdentifier').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errBox = document.getElementById('loginError');
+  const submit = document.getElementById('loginSubmit');
+  errBox.style.display = 'none';
+  submit.disabled = true;
+  submit.textContent = 'Memproses…';
+  try {
+    const isEmail = identifier.includes('@');
+    const body = isEmail ? { email: identifier, password } : { username: identifier, password };
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      errBox.textContent = json?.message || 'Login gagal';
+      errBox.style.display = '';
+      return;
+    }
+    const data = json.data || {};
+    Auth.setSession(data.token, data.user, data.apiKey?.key);
+    closeAuthModal();
+    renderSidebarAuth();
+    Toast.success(`Selamat datang kembali, ${data.user.username}`);
+    showProfileView();
+  } catch (err) {
+    errBox.textContent = err.message || 'Network error';
+    errBox.style.display = '';
+  } finally {
+    submit.disabled = false;
+    submit.textContent = 'Masuk';
+  }
+}
+
+async function submitRegister() {
+  const username = document.getElementById('regUsername').value.trim();
+  const email = document.getElementById('regEmail').value.trim();
+  const password = document.getElementById('regPassword').value;
+  const errBox = document.getElementById('regError');
+  const submit = document.getElementById('regSubmit');
+  errBox.style.display = 'none';
+  submit.disabled = true;
+  submit.textContent = 'Memproses…';
+  try {
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, email, password }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      errBox.textContent = json?.message || 'Pendaftaran gagal';
+      errBox.style.display = '';
+      return;
+    }
+    const data = json.data || {};
+    Auth.setSession(data.token, data.user, data.apiKey?.key);
+    closeAuthModal();
+    renderSidebarAuth();
+    Toast.success(`Akun dibuat, selamat datang ${data.user.username}`);
+    showProfileView();
+  } catch (err) {
+    errBox.textContent = err.message || 'Network error';
+    errBox.style.display = '';
+  } finally {
+    submit.disabled = false;
+    submit.textContent = 'Daftar';
+  }
+}
+
+function doLogout() {
+  Auth.clear();
+  renderSidebarAuth();
+  Toast.info('Logout berhasil');
+  if (PROFILE_STATE.active) {
+    PROFILE_STATE.active = false;
+    stopProfilePolling();
+    showAll(document.querySelector('.nav-item'));
+  }
+}
+
+/* ─── PROFILE VIEW ─── */
+const PROFILE_STATE = { active: false, pollTimer: null, lastData: null, keyMasked: true };
+
+async function showProfileView() {
+  if (!Auth.isAuthed()) {
+    openAuthModal('login');
+    return;
+  }
+  setActive(null);
+  document.getElementById('activeTitle').textContent = 'Profile';
+  document.getElementById('mainContent').innerHTML = `
+    <div class="profile-wrap" id="profileWrap">
+      <div class="profile-card" style="text-align:center;color:var(--tx2);font-size:13px">
+        Memuat profil…
+      </div>
+    </div>
+  `;
+  PROFILE_STATE.active = true;
+  if (window.innerWidth <= 768) closeMobileMenu();
+  await refreshProfile({ initial: true });
+  startProfilePolling();
+}
+
+async function refreshProfile({ initial = false } = {}) {
+  if (!PROFILE_STATE.active || !Auth.isAuthed()) return;
+  try {
+    const res = await Auth.fetchAuthed('/api/user/profile');
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      throw new Error(json?.message || `HTTP ${res.status}`);
+    }
+    const json = await res.json();
+    const data = json.data;
+    PROFILE_STATE.lastData = data;
+    if (data?.apiKey?.key) Auth.setApiKey(data.apiKey.key);
+    renderProfile(data);
+  } catch (err) {
+    if (initial) {
+      const wrap = document.getElementById('profileWrap');
+      if (wrap) {
+        wrap.innerHTML = `<div class="profile-card auth-error">Gagal memuat: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+  }
+}
+
+function renderProfile(data) {
+  const wrap = document.getElementById('profileWrap');
+  if (!wrap) return;
+  const user = data.user || {};
+  const apiKey = data.apiKey || {};
+  const usage = data.usage || {};
+  const initial = (user.username || '?').charAt(0).toUpperCase();
+  const created = user.createdAt ? new Date(user.createdAt).toLocaleString('id-ID') : '—';
+  const lastLogin = user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString('id-ID') : '—';
+
+  const used = Number(usage.used || 0);
+  const limit = usage.unlimited ? null : Number(usage.limit || 0);
+  const pct = limit ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+  const fillClass = pct >= 100 ? 'full' : pct >= 80 ? 'warn' : '';
+  const remaining = usage.unlimited ? '∞' : Math.max(0, limit - used);
+  const resetIso = usage.resetAt;
+  const resetCountdown = resetIso ? formatCountdown(new Date(resetIso) - Date.now()) : '—';
+
+  const masked = PROFILE_STATE.keyMasked;
+  const keyDisplay = apiKey.key
+    ? (masked ? `rex_${'•'.repeat(28)}` : apiKey.key)
+    : 'Tidak ada API key';
+  const keyClass = masked && apiKey.key ? 'api-key-text masked' : 'api-key-text';
+  const showLabel = masked ? 'Show' : 'Hide';
+
+  const snippet = apiKey.key
+    ? `curl -H "X-API-Key: ${apiKey.key}" \\\n  ${window.location.origin}/api/quote`
+    : '';
+
+  wrap.innerHTML = `
+    <div class="profile-header">
+      <div class="profile-avatar">${initial}</div>
+      <div>
+        <div class="profile-name">${escapeHtml(user.username)}</div>
+        <div class="profile-email">${escapeHtml(user.email)}</div>
+        <div class="profile-meta">Member sejak ${escapeHtml(created)}</div>
+      </div>
+    </div>
+
+    <div class="profile-grid">
+      <div class="profile-card">
+        <div class="profile-card-head">
+          <div class="profile-card-title">API Key</div>
+          <div class="profile-card-tier">${escapeHtml(apiKey.tier || 'user')}</div>
+        </div>
+        <div class="api-key-row">
+          <div class="${keyClass}" id="apiKeyText">${apiKey.key ? escapeHtml(keyDisplay) : '—'}</div>
+          ${apiKey.key ? `
+            <button type="button" class="icon-btn" title="${showLabel}" onclick="toggleKeyMask()" aria-label="${showLabel}">${masked ? '👁' : '⊘'}</button>
+            <button type="button" class="icon-btn" title="Salin" onclick="copyApiKey()" aria-label="Copy">⧉</button>
+          ` : ''}
+        </div>
+        <div class="api-key-actions">
+          <button type="button" class="btn-line accent" onclick="regenerateKey()">Regenerate Key</button>
+          ${apiKey.key ? `<button type="button" class="btn-line" onclick="copyApiKey()">Salin Key</button>` : ''}
+        </div>
+        <div class="profile-row" style="margin-top:14px">
+          <div><div class="lbl">Key ID</div><div class="val">${escapeHtml(apiKey.id || '—')}</div></div>
+          <div><div class="lbl">Dibuat</div><div class="val">${escapeHtml(apiKey.createdAt ? new Date(apiKey.createdAt).toLocaleString('id-ID') : '—')}</div></div>
+        </div>
+      </div>
+
+      <div class="profile-card">
+        <div class="profile-card-head">
+          <div class="profile-card-title">Kuota Harian</div>
+          <div class="profile-card-tier" style="background:var(--blue2);color:var(--blue);border-color:rgba(79,158,255,.2)">Live</div>
+        </div>
+        <div class="quota-row">
+          <div class="quota-num">
+            ${used}<span class="quota-limit">${usage.unlimited ? ' / ∞' : ` / ${limit}`}</span>
+          </div>
+          <div class="quota-meta">
+            ${remaining} tersisa<br>reset dalam ${resetCountdown}
+          </div>
+        </div>
+        <div class="quota-bar">
+          <div class="quota-fill ${fillClass}" style="width:${usage.unlimited ? 100 : pct}%"></div>
+        </div>
+        <div class="quota-foot">${pct}% terpakai · auto refresh tiap 30 detik</div>
+      </div>
+
+      ${snippet ? `
+      <div class="profile-card">
+        <div class="profile-card-head">
+          <div class="profile-card-title">Quick Start</div>
+        </div>
+        <div class="profile-snippet" id="snippetBox">${escapeHtml(snippet)}<button type="button" class="copy-btn-mini" onclick="copySnippet()" aria-label="Salin">⧉</button></div>
+        <div class="quota-foot" style="margin-top:8px">Sertakan header <code>X-API-Key</code> di tiap request. Endpoint "Coba Langsung" otomatis pakai key ini saat kamu login.</div>
+      </div>` : ''}
+    </div>
+  `;
+}
+
+function formatCountdown(ms) {
+  if (!ms || ms < 0) return '0d';
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h}j ${m}m`;
+  if (m > 0) return `${m}m ${s}d`;
+  return `${s}d`;
+}
+
+function toggleKeyMask() {
+  PROFILE_STATE.keyMasked = !PROFILE_STATE.keyMasked;
+  if (PROFILE_STATE.lastData) renderProfile(PROFILE_STATE.lastData);
+}
+
+async function copyApiKey() {
+  const key = Auth.getApiKey();
+  if (!key) return;
+  try {
+    await navigator.clipboard.writeText(key);
+    Toast.success('API key disalin');
+  } catch {
+    Toast.error('Gagal menyalin');
+  }
+}
+
+async function copySnippet() {
+  const box = document.getElementById('snippetBox');
+  if (!box) return;
+  const text = box.childNodes[0]?.textContent || '';
+  try {
+    await navigator.clipboard.writeText(text);
+    Toast.success('Snippet disalin');
+  } catch {
+    Toast.error('Gagal menyalin');
+  }
+}
+
+async function regenerateKey() {
+  if (!confirm('Regenerate API key?\nKey lama akan langsung tidak valid. Kuota harian yang sudah terpakai TIDAK ikut tereset.')) return;
+  try {
+    const res = await Auth.fetchAuthed('/api/user/regenerate-key', { method: 'POST' });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      Toast.error(json?.message || 'Gagal regenerate');
+      return;
+    }
+    const newKey = json.data?.apiKey?.key;
+    if (newKey) Auth.setApiKey(newKey);
+    Toast.success('API key di-regenerate');
+    PROFILE_STATE.keyMasked = false;
+    await refreshProfile();
+  } catch (err) {
+    Toast.error(err.message || 'Gagal regenerate');
+  }
+}
+
+function startProfilePolling() {
+  stopProfilePolling();
+  PROFILE_STATE.pollTimer = setInterval(() => {
+    if (!PROFILE_STATE.active || document.hidden) return;
+    refreshProfile();
+  }, 30000);
+}
+
+function stopProfilePolling() {
+  if (PROFILE_STATE.pollTimer) {
+    clearInterval(PROFILE_STATE.pollTimer);
+    PROFILE_STATE.pollTimer = null;
+  }
+}
+
+// Leave profile view when user clicks any other nav item.
+const _origShowAll = window.showAll || showAll;
+const _origShowCat = window.showCat || showCat;
+window.showAll = function (element) {
+  PROFILE_STATE.active = false;
+  stopProfilePolling();
+  _origShowAll(element);
+};
+window.showCat = function (category, element) {
+  PROFILE_STATE.active = false;
+  stopProfilePolling();
+  _origShowCat(category, element);
+};
+
+document.addEventListener('DOMContentLoaded', renderSidebarAuth);
+if (document.readyState !== 'loading') renderSidebarAuth();

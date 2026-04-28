@@ -44,6 +44,7 @@
           <div class="clock-status">Server aktif</div>
         </div>
       </div>
+      <div id="authSlot" class="auth-slot"></div>
       <a class="docs-btn" href="/api/docs" target="_blank" rel="noopener noreferrer">API Documentation</a>
     </div>
   </aside>
@@ -62,6 +63,21 @@
       </div>
     </div>
     <div id="mainContent"></div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<div class="overlay" id="authOverlay">
+  <div class="modal auth-modal">
+    <div class="auth-top">
+      <div class="auth-titlerow">
+        <div class="auth-title" id="authTitle">Masuk</div>
+        <button class="close-btn" onclick="closeAuthModal()">✕</button>
+      </div>
+      <p class="auth-sub" id="authSub">Masuk ke akun Rex API kamu</p>
+    </div>
+    <div class="auth-body" id="authBody"></div>
   </div>
 </div>
 

@@ -62,7 +62,6 @@ const envSchema = Joi.object({
   TELEGRAM_BOT_TOKEN: Joi.string().allow('').optional(),
   GEMINI_API_KEY: Joi.string().allow('').optional(),
   DISCORD_WEBHOOK_URL: Joi.string().uri().allow('').optional(),
-  REPLICATE_API_TOKEN: Joi.string().allow('').optional(),
 
   // Master API key (plaintext). Hash-checked against data/api-keys.json on
   // boot. Leave empty for first-run auto-generation (see apiKeyStore).

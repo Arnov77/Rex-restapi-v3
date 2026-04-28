@@ -40,7 +40,6 @@ const spec = swaggerJsdoc({
     tags: [
       { name: 'Media', description: 'YouTube, TikTok, Instagram, Brat' },
       { name: 'Tools', description: 'Quote, MIQ, Smeme, GDrive, Telegram, Promosi' },
-      { name: 'AI', description: 'SDXL / Replicate image generation' },
       { name: 'Admin', description: 'API key management (master only)' },
     ],
   },

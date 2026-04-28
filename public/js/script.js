@@ -25,7 +25,6 @@ let DATA = {};
 let currentApi = null;
 let activeTab = 'docs';
 let selectedPreset = 'bratdeluxe';
-let selectedOption = 'hitam';
 
 fetch('data/apis.json')
   .then((response) => response.json())
@@ -278,7 +277,6 @@ function openModal(api) {
   currentApi = api;
   activeTab = 'docs';
   selectedPreset = 'bratdeluxe';
-  selectedOption = 'hitam';
 
   const methodClass = api.method === 'GET' ? 'm-get' : 'm-post';
   document.getElementById('mName').textContent = api.name;
@@ -387,7 +385,6 @@ function buildDocsTab(api) {
 
 function buildTryTab(api) {
   const isBrat = api.name.toLowerCase().includes('brat');
-  const isReplicate = api.action === '/api/replicate/generate';
   const isTelegramSticker = api.action === '/api/telegram/sticker';
 
   const authedKey = Auth.getApiKey() || '';
@@ -470,17 +467,6 @@ function buildTryTab(api) {
           <div class="color-text-wrap"><input type="text" class="form-input" id="f-textColor" value="#000000" placeholder="#000000" oninput="syncP('textColor')"></div>
         </div>
       </div>
-    </div>`;
-  }
-
-  if (isReplicate) {
-    extra = `<div class="form-section">
-      <div class="form-label"><span class="form-label-text">option</span><span class="chip-req" style="font-size:10px">wajib</span></div>
-      <div class="preset-row">
-        <div class="preset-btn sel" onclick="selOpt('hitam', this)">hitam</div>
-        <div class="preset-btn" onclick="selOpt('nerd', this)">nerd</div>
-      </div>
-      <input type="hidden" id="f-option" value="hitam">
     </div>`;
   }
 
@@ -1100,7 +1086,7 @@ function selPreset(value, element) {
   selectedPreset = value;
   document.querySelectorAll('.preset-btn').forEach((button) => {
     const onclick = button.getAttribute('onclick') || '';
-    if (!onclick.includes('selOpt') && !onclick.includes('selFormat')) {
+    if (!onclick.includes('selFormat')) {
       button.classList.remove('sel');
     }
   });
@@ -1108,18 +1094,6 @@ function selPreset(value, element) {
 
   const colorWrap = document.getElementById('colorWrap');
   if (colorWrap) colorWrap.style.display = value === 'custom' ? 'block' : 'none';
-}
-
-function selOpt(value, element) {
-  selectedOption = value;
-  document.querySelectorAll('.preset-btn').forEach((button) => {
-    const onclick = button.getAttribute('onclick') || '';
-    if (onclick.includes('selOpt')) button.classList.remove('sel');
-  });
-  element.classList.add('sel');
-
-  const hiddenInput = document.getElementById('f-option');
-  if (hiddenInput) hiddenInput.value = value;
 }
 
 function selFormat(value, element) {
@@ -1156,7 +1130,6 @@ function sendReq() {
   const isTelegramSticker = api.action === '/api/telegram/sticker';
   const isTelegramStickerDownload = api.action === '/api/telegram/sticker-pack/download';
   const isBrat = api.name.toLowerCase().includes('brat');
-  const isReplicate = api.action === '/api/replicate/generate';
 
   const body = {};
   if (api.params) {
@@ -1191,11 +1164,6 @@ function sendReq() {
       if (bg) body.bgColor = bg.value;
       if (textColor) body.textColor = textColor.value;
     }
-  }
-
-  if (isReplicate) {
-    const option = document.getElementById('f-option');
-    if (option) body.option = option.value;
   }
 
   if (isTelegramSticker) {

@@ -1,5 +1,14 @@
 // Vitest globals (describe/it/expect) are enabled via vitest.config.js — no
 // require('vitest') here since this project is CommonJS and vitest v4+ is ESM.
+//
+// The smoke suite fires a burst of supertest calls against a single server
+// instance; those run faster than the per-IP antiSpam burst guard's default
+// (5/sec). Bump it well past anything the tests can produce so the assertions
+// reflect real route behaviour, not the burst limiter.
+process.env.ANTI_SPAM_PER_SECOND = '1000';
+process.env.QUOTA_ANON_DAILY = '100000';
+process.env.QUOTA_USER_DAILY = '100000';
+
 const express = require('express');
 const request = require('supertest');
 

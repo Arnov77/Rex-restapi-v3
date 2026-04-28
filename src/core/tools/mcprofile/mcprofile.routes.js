@@ -74,12 +74,14 @@ async function tryBedrockGamertag(name) {
 function unify(mc, source) {
   const edition = source;
   const linked = Boolean(mc?.linked);
-  const skinUrl = mc?.skin ?? (mc?.textureid ? `https://textures.minecraft.net/texture/${mc.textureid}` : null);
+  const skinUrl =
+    mc?.skin ?? (mc?.textureid ? `https://textures.minecraft.net/texture/${mc.textureid}` : null);
 
   const out = {
     edition,
-    username: edition === 'bedrock' ? mc?.gamertag ?? mc?.username : mc?.java_name ?? mc?.username,
-    id: edition === 'bedrock' ? mc?.xuid : mc?.java_uuid ?? mc?.uuid,
+    username:
+      edition === 'bedrock' ? (mc?.gamertag ?? mc?.username) : (mc?.java_name ?? mc?.username),
+    id: edition === 'bedrock' ? mc?.xuid : (mc?.java_uuid ?? mc?.uuid),
     linked,
     java: undefined,
     bedrock: undefined,
@@ -184,7 +186,9 @@ router.get('/profile', async (req, res, next) => {
           );
 
           if (geyser?.data?.bedrock && geyser?.data?.xuid) {
-            const data = await mcGet(`/api/v1/bedrock/xuid/${encodeURIComponent(geyser.data.xuid)}`);
+            const data = await mcGet(
+              `/api/v1/bedrock/xuid/${encodeURIComponent(geyser.data.xuid)}`
+            );
             const out = unify(data, 'bedrock');
             cache.set(key, out);
             return sendSuccess(res, out);
@@ -256,17 +260,16 @@ router.get('/profile/:edition/:id/skin', async (req, res, next) => {
         : `/api/v1/bedrock/gamertag/${id}`;
       data = await mcGet(path);
     } else if (edition === 'java') {
-      const path = id.includes('-')
-        ? `/api/v1/java/uuid/${id}`
-        : `/api/v1/java/username/${id}`;
+      const path = id.includes('-') ? `/api/v1/java/uuid/${id}` : `/api/v1/java/username/${id}`;
       data = await mcGet(path);
     } else {
       return sendError(res, "edition harus 'java' atau 'bedrock'", 400);
     }
 
-    const skin = data?.skin
-      ?? (data?.textureid ? `https://textures.minecraft.net/texture/${data.textureid}` : null)
-      ?? DEFAULT_STEVE;
+    const skin =
+      data?.skin ??
+      (data?.textureid ? `https://textures.minecraft.net/texture/${data.textureid}` : null) ??
+      DEFAULT_STEVE;
 
     return res.redirect(skin);
   } catch (error) {
@@ -328,8 +331,11 @@ router.get('/render/head', async (req, res, next) => {
       try {
         const gamertag = hasBedrockPrefix(username) ? stripBedrockPrefix(username) : username;
         const bedrock = await tryBedrockGamertag(gamertag);
-        const atlasUrl = bedrock?.skin
-          ?? (bedrock?.textureid ? `https://textures.minecraft.net/texture/${bedrock.textureid}` : null);
+        const atlasUrl =
+          bedrock?.skin ??
+          (bedrock?.textureid
+            ? `https://textures.minecraft.net/texture/${bedrock.textureid}`
+            : null);
 
         if (!atlasUrl) throw new Error('No bedrock skin url');
 
@@ -361,8 +367,9 @@ router.get('/render/head', async (req, res, next) => {
 
     try {
       const java = await mcGet(`/api/v1/java/username/${encodeURIComponent(username)}`);
-      const atlasUrl = java?.skin
-        ?? (java?.textureid ? `https://textures.minecraft.net/texture/${java.textureid}` : null);
+      const atlasUrl =
+        java?.skin ??
+        (java?.textureid ? `https://textures.minecraft.net/texture/${java.textureid}` : null);
 
       if (atlasUrl) {
         const atlasBuf = await fetchFirstOk([atlasUrl]);

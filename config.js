@@ -68,6 +68,15 @@ const envSchema = Joi.object({
   // boot. Leave empty for first-run auto-generation (see apiKeyStore).
   MASTER_API_KEY: Joi.string().pattern(/^rex_/).allow('').optional(),
 
+  // Anti-spam burst guard (technical, applied to all tiers including master).
+  ANTI_SPAM_PER_SECOND: Joi.number().integer().min(1).max(1000).default(5),
+
+  // Daily quota caps (business, 1 hit = 1 unit; reset at local midnight).
+  // Master bypasses; per-key dailyLimit override possible via /api/admin/keys.
+  QUOTA_ANON_DAILY: Joi.number().integer().min(0).default(30),
+  QUOTA_USER_DAILY: Joi.number().integer().min(0).default(1000),
+  QUOTA_FLUSH_INTERVAL_SEC: Joi.number().integer().min(5).max(3600).default(60),
+
   BEDROCK_PREFIXES: Joi.string().default('.'),
   FILE_IO_API_URL: Joi.string().uri().default('https://tmpfiles.org'),
   API_VERSION: Joi.string().default('2.0.0'),

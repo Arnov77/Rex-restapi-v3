@@ -53,7 +53,7 @@ When testing error rendering, the adversarial check is **"is the panel showing t
 
 1. **Sidebar count match**: `apis.json` length per category should match the count badge. A regression that drops/duplicates an entry surfaces here first.
 2. **Form fields = Joi schema**: open the Try-It modal, enumerate every input id (`f-<fieldName>`), compare against the schema in `src/core/<domain>/<feature>/<feature>.schemas.js`. Mismatch = drift.
-3. **Empty-body POST → envelope rendering**: any endpoint with required fields will echo a deterministic Joi message that you can grep for (e.g. `Sediakan url atau packName.` for sticker-pack download). Asserting on the *parsed* message (not the raw JSON) distinguishes the new dispatcher from the old.
+3. **Empty-body POST → envelope rendering**: any endpoint with required fields will echo a deterministic Joi message that you can grep for (e.g. `Sediakan url atau packName.` for sticker-pack download). Asserting on the _parsed_ message (not the raw JSON) distinguishes the new dispatcher from the old.
 4. **Spam to trip rate limit**: 12 rapid clicks on any heavy endpoint should produce `429 Error` + the Indonesian Retry-After tail.
 5. **Code tab matches data**: the cURL/fetch/axios/Python snippets are generated from `apis.json#action`. If a rename was missed, the snippet will still show the old path. Read the snippet, do not trust the title alone.
 

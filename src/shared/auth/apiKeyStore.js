@@ -80,7 +80,7 @@ function verifyKey(plaintext) {
   return { id: record.id, name: record.name, tier: record.tier };
 }
 
-function createKey({ name, tier = 'user' }) {
+function createKey({ name, tier = 'user', dailyLimit = null }) {
   if (!VALID_TIERS.has(tier)) {
     throw new Error(`Invalid tier "${tier}". Must be one of: ${[...VALID_TIERS].join(', ')}`);
   }
@@ -90,6 +90,7 @@ function createKey({ name, tier = 'user' }) {
     name: String(name || '').slice(0, 80) || 'unnamed',
     tier,
     keyHash: hashKey(plaintext),
+    dailyLimit: dailyLimit == null ? null : Math.max(0, Math.floor(dailyLimit)),
     createdAt: new Date().toISOString(),
     lastUsedAt: null,
     revoked: false,
@@ -97,6 +98,24 @@ function createKey({ name, tier = 'user' }) {
   load().keys.push(record);
   persist();
   return { plaintext, record: { ...record, keyHash: undefined } };
+}
+
+function updateKey(id, patch = {}) {
+  const record = findById(id);
+  if (!record) return null;
+  if (patch.name != null) record.name = String(patch.name).slice(0, 80) || record.name;
+  if (patch.dailyLimit !== undefined) {
+    record.dailyLimit = patch.dailyLimit == null ? null : Math.max(0, Math.floor(patch.dailyLimit));
+  }
+  if (patch.tier != null) {
+    if (!VALID_TIERS.has(patch.tier)) {
+      throw new Error(`Invalid tier "${patch.tier}"`);
+    }
+    record.tier = patch.tier;
+  }
+  record.updatedAt = new Date().toISOString();
+  persist();
+  return { ...record, keyHash: undefined };
 }
 
 function revokeKey(id) {
@@ -191,8 +210,10 @@ module.exports = {
   hashKey,
   verifyKey,
   createKey,
+  updateKey,
   revokeKey,
   touchKey,
+  findById,
   listKeys,
   ensureMasterKey,
   flushPendingTouches,

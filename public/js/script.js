@@ -110,9 +110,115 @@ function doSearch(query) {
 }
 
 function renderAll(data) {
-  document.getElementById('mainContent').innerHTML = Object.entries(data)
+  document.getElementById('mainContent').innerHTML = renderAuthInfoCard() + Object.entries(data)
     .map(([category, apis]) => renderSection(category, apis))
     .join('');
+}
+
+const AUTH_INFO_COLLAPSED_KEY = 'rex.authInfoCollapsed';
+const AUTH_SNIPPET_LANG_KEY = 'rex.authSnippetLang';
+
+function renderAuthInfoCard() {
+  const collapsed = localStorage.getItem(AUTH_INFO_COLLAPSED_KEY) === '1';
+  const lang = localStorage.getItem(AUTH_SNIPPET_LANG_KEY) || 'curl';
+  const isAuthed = Auth.isAuthed();
+  const userKey = Auth.getApiKey();
+  const sampleKey = userKey || 'rex_YOUR_KEY_HERE';
+  const origin = window.location.origin;
+
+  const langs = ['curl', 'js', 'py'];
+  const labels = { curl: 'cURL', js: 'JavaScript', py: 'Python' };
+  const tabs = langs
+    .map((l) => `<div class="ai-tab ${l === lang ? 'active' : ''}" onclick="switchAuthSnippet('${l}')">${labels[l]}</div>`)
+    .join('');
+
+  const ctaButtons = isAuthed
+    ? '<button class="ai-cta primary" onclick="showProfileView()">Lihat Profile →</button>'
+    : `<button class="ai-cta primary" onclick="openAuthModal('register')">Daftar gratis</button>
+       <button class="ai-cta" onclick="openAuthModal('login')">Login</button>`;
+
+  return `<div class="auth-info-card" id="authInfoCard">
+    <button class="auth-info-toggle" onclick="toggleAuthInfo()" aria-label="Toggle">
+      <span class="ai-icon">⚡</span>
+      <span class="ai-title">Autentikasi & Quota</span>
+      <span class="ai-sub">Cara pakai API key (opsional)</span>
+      <span class="ai-chevron">${collapsed ? '▸' : '▾'}</span>
+    </button>
+    <div class="auth-info-body" ${collapsed ? 'hidden' : ''}>
+      <div class="auth-info-grid">
+        <div class="ai-tier">
+          <div class="ai-tier-name">Anonim</div>
+          <div class="ai-tier-quota"><strong>30</strong> hit/hari</div>
+          <div class="ai-tier-desc">Tanpa API key. Quota dibagi ke semua IP anon — bisa cepat habis.</div>
+        </div>
+        <div class="ai-tier highlighted">
+          <div class="ai-tier-name">User (login)</div>
+          <div class="ai-tier-quota"><strong>250</strong> hit/hari</div>
+          <div class="ai-tier-desc">API key personal di header <code>X-API-Key</code>. Quota private, tracking di Profile.</div>
+        </div>
+      </div>
+
+      <div class="ai-tabs">${tabs}</div>
+      <pre class="ai-snippet" id="aiSnippet">${buildAuthSnippet(lang, sampleKey, origin)}</pre>
+
+      <div class="ai-actions">${ctaButtons}</div>
+    </div>
+  </div>`;
+}
+
+function buildAuthSnippet(lang, key, origin) {
+  if (lang === 'curl') {
+    return `curl -H "X-API-Key: ${key}" \\
+  -H "Content-Type: application/json" \\
+  -d '{"message":"hello"}' \\
+  ${origin}/api/quote`;
+  }
+  if (lang === 'js') {
+    return `await fetch('${origin}/api/quote', {
+  method: 'POST',
+  headers: {
+    'X-API-Key': '${key}',
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({ message: 'hello' }),
+});`;
+  }
+  return `import requests
+
+requests.post(
+    '${origin}/api/quote',
+    headers={'X-API-Key': '${key}'},
+    json={'message': 'hello'},
+)`;
+}
+
+function switchAuthSnippet(lang) {
+  localStorage.setItem(AUTH_SNIPPET_LANG_KEY, lang);
+  const card = document.getElementById('authInfoCard');
+  if (!card) return;
+  card.querySelectorAll('.ai-tab').forEach((tab) => tab.classList.remove('active'));
+  const target = Array.from(card.querySelectorAll('.ai-tab')).find((tab) =>
+    tab.getAttribute('onclick')?.includes(`'${lang}'`));
+  target?.classList.add('active');
+  const sampleKey = Auth.getApiKey() || 'rex_YOUR_KEY_HERE';
+  card.querySelector('#aiSnippet').textContent = buildAuthSnippet(lang, sampleKey, window.location.origin);
+}
+
+function toggleAuthInfo() {
+  const card = document.getElementById('authInfoCard');
+  if (!card) return;
+  const body = card.querySelector('.auth-info-body');
+  const chev = card.querySelector('.ai-chevron');
+  const collapsed = !body.hasAttribute('hidden');
+  if (collapsed) {
+    body.setAttribute('hidden', '');
+    chev.textContent = '▸';
+    localStorage.setItem(AUTH_INFO_COLLAPSED_KEY, '1');
+  } else {
+    body.removeAttribute('hidden');
+    chev.textContent = '▾';
+    localStorage.removeItem(AUTH_INFO_COLLAPSED_KEY);
+  }
 }
 
 function renderSection(category, apis) {
@@ -284,6 +390,27 @@ function buildTryTab(api) {
   const isReplicate = api.action === '/api/replicate/generate';
   const isTelegramSticker = api.action === '/api/telegram/sticker';
 
+  const authedKey = Auth.getApiKey() || '';
+  const authStatus = Auth.isAuthed()
+    ? '<span class="auth-field-chip authed">key terdeteksi</span>'
+    : '<span class="auth-field-chip anon">mode anon</span>';
+  const authHint = Auth.isAuthed()
+    ? 'Otomatis pakai key kamu (kuota user 250/hari). Hapus untuk hit anonim.'
+    : 'Kosongkan = pakai kuota <strong>anon 30/hari</strong> (shared). <a href="#" onclick="event.preventDefault(); closeModal(); openAuthModal(\'register\')">Daftar gratis</a> untuk dapat key sendiri (250/hari).';
+
+  const authField = `<div class="form-section auth-field-section">
+    <div class="form-label">
+      <span class="form-label-text">X-API-Key</span>
+      <span class="chip-opt" style="font-size:10px">opsional</span>
+      ${authStatus}
+    </div>
+    <input type="text" class="form-input mono" id="f-apikey"
+      placeholder="rex_... (kosongkan untuk anon)"
+      value="${authedKey.replace(/"/g, '&quot;')}"
+      autocomplete="off" spellcheck="false">
+    <div class="form-hint">${authHint}</div>
+  </div>`;
+
   let fields = '';
   if (api.params) {
     api.params.forEach((param) => {
@@ -372,7 +499,7 @@ function buildTryTab(api) {
     </div>`;
   }
 
-  return `${fields}${extra}
+  return `${authField}${fields}${extra}
   <div class="modal-actions">
     <button class="btn-cancel" onclick="closeModal()">Tutup</button>
     <button class="btn-primary" id="sendBtn" onclick="sendReq()">Kirim Request</button>
@@ -1080,7 +1207,8 @@ function sendReq() {
 
   const requestOptions = { method: api.method };
   const baseHeaders = {};
-  const authedKey = Auth.getApiKey();
+  const fieldKey = (document.getElementById('f-apikey')?.value || '').trim();
+  const authedKey = fieldKey || Auth.getApiKey();
   if (authedKey) baseHeaders['X-API-Key'] = authedKey;
   if (api.method !== 'GET') {
     if (hasFile) {

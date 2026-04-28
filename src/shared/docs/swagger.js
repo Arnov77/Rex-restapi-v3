@@ -34,6 +34,9 @@ const spec = swaggerJsdoc({
         },
       },
     },
+    // Two alternatives: anonymous ({}) or apiKey. Operations stay open to anon
+    // by default; supplying the key just unlocks the higher quota tier.
+    security: [{}, { apiKey: [] }],
     tags: [
       { name: 'Media', description: 'YouTube, TikTok, Instagram, Brat' },
       { name: 'Tools', description: 'Quote, MIQ, Smeme, GDrive, Telegram, Promosi' },

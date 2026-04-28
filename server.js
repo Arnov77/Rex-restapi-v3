@@ -10,14 +10,11 @@ const swaggerUi = require('swagger-ui-express');
 const { env } = require('./config');
 const logger = require('./src/shared/utils/logger');
 const { errorHandler } = require('./src/shared/middleware/errorHandler');
-const { generalLimiter } = require('./src/shared/middleware/rateLimiter');
-const {
-  tieredApiLimiter,
-  tieredHeavyLimiter,
-  tieredAiLimiter,
-} = require('./src/shared/middleware/tieredLimiter');
+const { antiSpamLimiter } = require('./src/shared/middleware/antiSpam');
+const { dailyQuota } = require('./src/shared/middleware/dailyQuota');
 const { apiKeyAuth } = require('./src/shared/auth/apiKeyAuth');
 const apiKeyStore = require('./src/shared/auth/apiKeyStore');
+const usageStore = require('./src/shared/auth/usageStore');
 const requestId = require('./src/shared/middleware/requestId');
 const ResponseHandler = require('./src/shared/utils/response');
 const browserManager = require('./src/shared/browser/browserManager');
@@ -61,7 +58,9 @@ for (const dirname of ['temp', 'logs', 'downloads']) {
 // 3. cors — after helmet so its headers aren't shadowed.
 // 4. pino-http request log (structured, reuses req.id from step 1).
 // 5. body parsers — tight limit (multipart uploads bypass these).
-// 6. generalLimiter — blanket abuse guard before route dispatch.
+// 6. antiSpam — burst guard (per-second cap per IP, all tiers).
+// 7. apiKeyAuth — resolves req.apiKey from header (anon / user / master).
+// 8. dailyQuota — business cap (1 hit = 1 unit, daily, per tier).
 app.use(requestId);
 app.use(
   helmet({
@@ -106,30 +105,27 @@ app.use(express.urlencoded({ limit: bodyLimit, extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/downloads', express.static(path.join(__dirname, 'downloads')));
 
-app.use(generalLimiter);
-
-// API key middleware runs before per-route limiters so each limiter can
-// branch on req.apiKey?.tier (anon / user / master). Unauthenticated requests
-// still pass through — the tiered limiters apply tighter caps to them.
+// Anti-spam burst guard runs before auth so flooders pay no auth cost.
+app.use(antiSpamLimiter);
 app.use(apiKeyAuth);
 
+// Daily quota is mounted per-router (not globally) so /health, /api/status,
+// /api/docs, and the static landing page do NOT consume quota. Admin routes
+// also bypass — they're already master-only and master is unlimited anyway.
 // ── Route mounts ─────────────────────────────────────────────────────────────
-// Heavy endpoints (browser automation + large transcodes) get the tighter
-// tieredHeavyLimiter; everything else gets tieredApiLimiter. Each limiter
-// scales the cap by req.apiKey.tier (anon / user / master).
 app.use('/api/admin', adminRoute);
-app.use('/api/youtube', tieredHeavyLimiter, youtubeRoutes);
-app.use('/api/brat', tieredHeavyLimiter, bratRoutes);
-app.use('/api/tiktok', tieredApiLimiter, tiktokRoutes);
-app.use('/api/instagram', tieredApiLimiter, instagramRoutes);
-app.use('/api/gdrive', tieredApiLimiter, gdriveRoute);
-app.use('/api/quote', tieredHeavyLimiter, quoteRoute);
-app.use('/api/smeme', tieredApiLimiter, smemeRoute);
-app.use('/api/promosi', tieredApiLimiter, promosiRoute);
-app.use('/api/miq', tieredApiLimiter, miqRoute);
-app.use('/api/telegram', tieredHeavyLimiter, telegramRoute);
-app.use('/api/replicate', tieredAiLimiter, replicateRoute);
-app.use('/mcapi', tieredApiLimiter, mcprofileRoute);
+app.use('/api/youtube', dailyQuota, youtubeRoutes);
+app.use('/api/brat', dailyQuota, bratRoutes);
+app.use('/api/tiktok', dailyQuota, tiktokRoutes);
+app.use('/api/instagram', dailyQuota, instagramRoutes);
+app.use('/api/gdrive', dailyQuota, gdriveRoute);
+app.use('/api/quote', dailyQuota, quoteRoute);
+app.use('/api/smeme', dailyQuota, smemeRoute);
+app.use('/api/promosi', dailyQuota, promosiRoute);
+app.use('/api/miq', dailyQuota, miqRoute);
+app.use('/api/telegram', dailyQuota, telegramRoute);
+app.use('/api/replicate', dailyQuota, replicateRoute);
+app.use('/mcapi', dailyQuota, mcprofileRoute);
 
 // OpenAPI / Swagger UI — the JSON spec is published at /api/docs.json for
 // scripted clients and the interactive explorer at /api/docs for humans.
@@ -175,6 +171,7 @@ async function startServer() {
     await initColorIndex();
 
     apiKeyStore.ensureMasterKey();
+    usageStore.start({ flushIntervalSec: env.QUOTA_FLUSH_INTERVAL_SEC });
 
     // Sweep stale files in /downloads on a TTL so the disk doesn't fill up
     // with old YouTube/TikTok artefacts. Runs an initial pass synchronously,
@@ -200,6 +197,7 @@ function shutdown(signal) {
   logger.info(`Received ${signal}, shutting down gracefully...`);
   downloadsCleanup.stopCleanup();
   apiKeyStore.flushPendingTouches();
+  usageStore.stop();
   if (!httpServer) {
     browserManager.shutdown().finally(() => process.exit(0));
     return;

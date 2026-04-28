@@ -3,8 +3,11 @@ const ResponseHandler = require('../utils/response');
 
 /**
  * Extract a plaintext API key from the request. Honours the dedicated
- * `X-API-Key` header first; falls back to `Authorization: Bearer <key>` so
- * standard HTTP tooling that defaults to that header still works.
+ * `X-API-Key` header first; falls back to `Authorization: Bearer <key>`
+ * BUT only when the value looks like an API key (starts with `rex_`). The
+ * latter check is what lets `Authorization: Bearer <jwt>` coexist with API
+ * keys on the same header — non-rex_ Bearer values fall through to the JWT
+ * middleware on protected dashboard routes.
  */
 function extractKey(req) {
   const direct = req.get('x-api-key');
@@ -13,7 +16,10 @@ function extractKey(req) {
   const auth = req.get('authorization');
   if (typeof auth === 'string') {
     const match = auth.match(/^Bearer\s+(.+)$/i);
-    if (match && match[1].trim()) return match[1].trim();
+    if (match && match[1].trim()) {
+      const value = match[1].trim();
+      if (value.startsWith(KEY_PREFIX)) return value;
+    }
   }
 
   return null;
@@ -25,8 +31,13 @@ function extractKey(req) {
  *   - user   (valid non-master key)
  *   - master (valid master key; bypasses limits, can call /api/admin)
  *
- * Invalid or revoked keys hard-fail with 401 — we never silently downgrade
- * to anon, otherwise typos in client config would look like quota issues.
+ * Bearer tokens that don't start with `rex_` are ignored here — they're
+ * treated as JWTs by the dashboard auth middleware (verifyToken). That
+ * lets the same Authorization header serve both flows on different routes.
+ *
+ * Invalid or revoked API keys (X-API-Key header or rex_ Bearer that fails
+ * verification) hard-fail with 401 — we never silently downgrade to anon,
+ * otherwise typos in client config would look like quota issues.
  */
 function apiKeyAuth(req, res, next) {
   const supplied = extractKey(req);

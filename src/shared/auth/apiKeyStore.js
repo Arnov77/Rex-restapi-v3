@@ -58,7 +58,18 @@ function persist() {
 }
 
 function listKeys() {
-  return load().keys.map(({ keyHash: _h, ...rest }) => rest);
+  return load().keys.map(({ keyHash: _h, key: _k, ...rest }) => rest);
+}
+
+/**
+ * Return the plaintext API key value for a record. Used by the user-facing
+ * profile endpoint so members can re-display & copy their key without
+ * needing admin help. Master / admin-created keys (Phase 1, hash-only) have
+ * no `key` field stored — returns null in that case.
+ */
+function getPlaintextById(id) {
+  const record = findById(id);
+  return record && typeof record.key === 'string' ? record.key : null;
 }
 
 function findByHash(hash) {
@@ -90,6 +101,10 @@ function createKey({ name, tier = 'user', dailyLimit = null }) {
     name: String(name || '').slice(0, 80) || 'unnamed',
     tier,
     keyHash: hashKey(plaintext),
+    // Plaintext stored alongside the hash so /api/user/profile can re-display
+    // it (member self-service: 'click to show', 'click to copy'). Hash is
+    // still the source of truth for verification — see verifyKey().
+    key: plaintext,
     dailyLimit: dailyLimit == null ? null : Math.max(0, Math.floor(dailyLimit)),
     createdAt: new Date().toISOString(),
     lastUsedAt: null,
@@ -97,7 +112,7 @@ function createKey({ name, tier = 'user', dailyLimit = null }) {
   };
   load().keys.push(record);
   persist();
-  return { plaintext, record: { ...record, keyHash: undefined } };
+  return { plaintext, record: { ...record, keyHash: undefined, key: undefined } };
 }
 
 function updateKey(id, patch = {}) {
@@ -115,7 +130,7 @@ function updateKey(id, patch = {}) {
   }
   record.updatedAt = new Date().toISOString();
   persist();
-  return { ...record, keyHash: undefined };
+  return { ...record, keyHash: undefined, key: undefined };
 }
 
 function revokeKey(id) {
@@ -126,7 +141,7 @@ function revokeKey(id) {
     record.revokedAt = new Date().toISOString();
     persist();
   }
-  return { ...record, keyHash: undefined };
+  return { ...record, keyHash: undefined, key: undefined };
 }
 
 /**
@@ -215,6 +230,7 @@ module.exports = {
   touchKey,
   findById,
   listKeys,
+  getPlaintextById,
   ensureMasterKey,
   flushPendingTouches,
   _resetForTests,

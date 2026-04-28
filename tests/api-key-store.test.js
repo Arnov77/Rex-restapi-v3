@@ -34,17 +34,27 @@ afterEach(() => {
 });
 
 describe('apiKeyStore', () => {
-  it('createKey returns plaintext once and persists only the hash', () => {
+  it('createKey returns plaintext, persists hash + plaintext, and listKeys/getPlaintextById expose the right view', () => {
     const { plaintext, record } = store.createKey({ name: 'test', tier: 'user' });
     expect(plaintext).toMatch(/^rex_/);
     expect(record.name).toBe('test');
     expect(record.tier).toBe('user');
     expect(record.keyHash).toBeUndefined();
+    expect(record.key).toBeUndefined();
 
     const onDisk = JSON.parse(fs.readFileSync(path.join(tmpRoot, 'api-keys.json'), 'utf-8'));
     expect(onDisk.keys).toHaveLength(1);
     expect(onDisk.keys[0].keyHash).toBeDefined();
     expect(onDisk.keys[0].keyHash).not.toBe(plaintext);
+    expect(onDisk.keys[0].key).toBe(plaintext);
+
+    expect(store.getPlaintextById(record.id)).toBe(plaintext);
+    expect(store.getPlaintextById('does-not-exist')).toBeNull();
+
+    for (const entry of store.listKeys()) {
+      expect(entry.keyHash).toBeUndefined();
+      expect(entry.key).toBeUndefined();
+    }
   });
 
   it('verifyKey accepts the plaintext, rejects revoked + unknown', () => {

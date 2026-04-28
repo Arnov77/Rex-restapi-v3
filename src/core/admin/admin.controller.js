@@ -1,5 +1,6 @@
 const apiKeyStore = require('../../shared/auth/apiKeyStore');
 const usageStore = require('../../shared/auth/usageStore');
+const usersStore = require('../../shared/auth/usersStore');
 const ResponseHandler = require('../../shared/utils/response');
 const { NotFoundError } = require('../../shared/utils/errors');
 const { env } = require('../../../config');
@@ -51,10 +52,13 @@ async function getUsage(req, res) {
     if (counterKey.startsWith('key:')) {
       const id = counterKey.slice(4);
       const record = keyRecordsById.get(id);
+      const owner = usersStore.findByApiKeyId(id);
       return {
         scope: 'key',
         id,
         name: record?.name ?? null,
+        username: owner?.username ?? null,
+        email: owner?.email ?? null,
         used,
         limit: record?.dailyLimit ?? env.QUOTA_USER_DAILY,
         revoked: record?.revoked ?? false,

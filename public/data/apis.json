@@ -7,7 +7,12 @@
       "action": "/api/youtube/mp3",
       "description": "Download audio dari YouTube. Masukkan judul lagu atau URL video YouTube.",
       "params": [
-        { "name": "query", "type": "string", "example": "never gonna give you up", "required": true }
+        {
+          "name": "query",
+          "type": "string",
+          "example": "never gonna give you up",
+          "required": true
+        }
       ]
     },
     {
@@ -17,14 +22,29 @@
       "action": "/api/youtube/mp4",
       "description": "Download video dari YouTube dalam format MP4. Resolusi dapat dipilih; jika resolusi yang diminta tidak tersedia, server otomatis pakai yang terdekat di bawahnya.",
       "params": [
-        { "name": "query", "type": "string", "example": "never gonna give you up official mv", "required": true },
+        {
+          "name": "query",
+          "type": "string",
+          "example": "never gonna give you up official mv",
+          "required": true
+        },
         {
           "name": "quality",
           "type": "select",
           "required": false,
           "default": "best",
           "example": "best",
-          "options": ["best", "2160", "1440", "1080", "720", "480", "360", "240", "144"],
+          "options": [
+            "best",
+            "2160",
+            "1440",
+            "1080",
+            "720",
+            "480",
+            "360",
+            "240",
+            "144"
+          ],
           "description": "Resolusi maksimum (height). 'best' = kualitas tertinggi yang tersedia."
         }
       ]
@@ -36,7 +56,12 @@
       "action": "/api/tiktok/download",
       "description": "Download video TikTok tanpa watermark beserta info akun dan statistik.",
       "params": [
-        { "name": "url", "type": "string", "example": "https://vt.tiktok.com/ZSxxxxxxx/", "required": true }
+        {
+          "name": "url",
+          "type": "string",
+          "example": "https://vt.tiktok.com/ZSxxxxxxx/",
+          "required": true
+        }
       ]
     },
     {
@@ -46,7 +71,12 @@
       "action": "/api/tiktok/audio",
       "description": "Ambil audio atau musik dari video TikTok.",
       "params": [
-        { "name": "url", "type": "string", "example": "https://vt.tiktok.com/ZSxxxxxxx/", "required": true }
+        {
+          "name": "url",
+          "type": "string",
+          "example": "https://vt.tiktok.com/ZSxxxxxxx/",
+          "required": true
+        }
       ]
     },
     {
@@ -56,21 +86,61 @@
       "action": "/api/instagram/download",
       "description": "Download foto atau video dari postingan Instagram.",
       "params": [
-        { "name": "url", "type": "string", "example": "https://www.instagram.com/p/xxxxxxxx/", "required": true }
+        {
+          "name": "url",
+          "type": "string",
+          "example": "https://www.instagram.com/p/xxxxxxxx/",
+          "required": true
+        }
       ]
     },
     {
       "id": 6,
+      "name": "Twitter / X Download",
+      "method": "POST",
+      "action": "/api/twitter/download",
+      "description": "Resolve URL tweet (twitter.com / x.com) menjadi link download foto / video langsung dengan fallback 3-tier (vxtwitter, fxtwitter, yt-dlp).",
+      "params": [
+        {
+          "name": "url",
+          "type": "string",
+          "example": "https://x.com/elonmusk/status/1349129669258448897",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "name": "Pinterest Download",
+      "method": "POST",
+      "action": "/api/pinterest/download",
+      "description": "Ambil URL gambar (resolusi original) atau video dari pin Pinterest. Auto-upgrade dari /736x/ ke /originals/.",
+      "params": [
+        {
+          "name": "url",
+          "type": "string",
+          "example": "https://www.pinterest.com/pin/5277724542091034/",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": 8,
       "name": "Google Drive",
       "method": "POST",
       "action": "/api/gdrive",
       "description": "Ambil link download langsung dari Google Drive beserta info file.",
       "params": [
-        { "name": "url", "type": "string", "example": "https://drive.google.com/file/d/1Gz6fjY5GLuFI_jIp1RGYL8MisrKchsfP/view?usp=drivesdk", "required": true }
+        {
+          "name": "url",
+          "type": "string",
+          "example": "https://drive.google.com/file/d/1Gz6fjY5GLuFI_jIp1RGYL8MisrKchsfP/view?usp=drivesdk",
+          "required": true
+        }
       ]
     }
   ],
-"Sticker": [
+  "Sticker": [
     {
       "id": 1,
       "name": "Get Sticker Pack Info",
@@ -155,7 +225,6 @@
       ]
     }
   ],
-
   "Image Generator": [
     {
       "id": 1,
@@ -164,10 +233,29 @@
       "action": "/api/brat/image",
       "description": "Buat gambar bergaya brat. Bisa pakai preset atau atur warna sendiri.",
       "params": [
-        { "name": "text", "type": "string", "example": "i am so brat", "required": true },
-        { "name": "preset", "type": "select", "required": false },
-        { "name": "bgColor", "type": "string", "example": "#e4ff3d", "required": false },
-        { "name": "textColor", "type": "string", "example": "#000000", "required": false }
+        {
+          "name": "text",
+          "type": "string",
+          "example": "i am so brat",
+          "required": true
+        },
+        {
+          "name": "preset",
+          "type": "select",
+          "required": false
+        },
+        {
+          "name": "bgColor",
+          "type": "string",
+          "example": "#e4ff3d",
+          "required": false
+        },
+        {
+          "name": "textColor",
+          "type": "string",
+          "example": "#000000",
+          "required": false
+        }
       ]
     },
     {
@@ -177,10 +265,29 @@
       "action": "/api/brat/video",
       "description": "Buat GIF bergaya brat dengan animasi teks bertahap.",
       "params": [
-        { "name": "text", "type": "string", "example": "i am so brat", "required": true },
-        { "name": "preset", "type": "select", "required": false },
-        { "name": "bgColor", "type": "string", "example": "#e4ff3d", "required": false },
-        { "name": "textColor", "type": "string", "example": "#000000", "required": false }
+        {
+          "name": "text",
+          "type": "string",
+          "example": "i am so brat",
+          "required": true
+        },
+        {
+          "name": "preset",
+          "type": "select",
+          "required": false
+        },
+        {
+          "name": "bgColor",
+          "type": "string",
+          "example": "#e4ff3d",
+          "required": false
+        },
+        {
+          "name": "textColor",
+          "type": "string",
+          "example": "#000000",
+          "required": false
+        }
       ]
     },
     {
@@ -190,8 +297,18 @@
       "action": "/api/replicate/generate",
       "description": "Modifikasi gambar karakter anime menggunakan AI (Replicate SDXL). Ubah jadi 'hitam' atau 'nerd'.",
       "params": [
-        { "name": "image", "type": "string", "example": "https://i.ibb.co/contoh.jpg", "required": true },
-        { "name": "option", "type": "string", "example": "hitam", "required": true }
+        {
+          "name": "image",
+          "type": "string",
+          "example": "https://i.ibb.co/contoh.jpg",
+          "required": true
+        },
+        {
+          "name": "option",
+          "type": "string",
+          "example": "hitam",
+          "required": true
+        }
       ]
     },
     {
@@ -201,9 +318,24 @@
       "action": "/api/quote",
       "description": "Buat gambar quote bergaya chat WhatsApp dengan nama, pesan, dan avatar opsional.",
       "params": [
-        { "name": "name", "type": "string", "example": "Anonymous", "required": true },
-        { "name": "message", "type": "string", "example": "Hidup itu indah jika kita mau bersyukur", "required": true },
-        { "name": "avatarUrl", "type": "string", "example": "https://example.com/avatar.jpg", "required": false }
+        {
+          "name": "name",
+          "type": "string",
+          "example": "Anonymous",
+          "required": true
+        },
+        {
+          "name": "message",
+          "type": "string",
+          "example": "Hidup itu indah jika kita mau bersyukur",
+          "required": true
+        },
+        {
+          "name": "avatarUrl",
+          "type": "string",
+          "example": "https://example.com/avatar.jpg",
+          "required": false
+        }
       ]
     },
     {
@@ -213,15 +345,61 @@
       "action": "/api/smeme",
       "description": "Buat meme dari gambar sendiri dengan teks atas dan bawah.",
       "params": [
-        { "name": "image", "type": "string", "example": "https://www.gstatic.com/webp/gallery/1.png", "required": true },
-        { "name": "top", "type": "string", "example": "TEKS ATAS", "required": false },
-        { "name": "bottom", "type": "string", "example": "TEKS BAWAH", "required": false },
-        { "name": "format", "type": "string", "example": "png", "required": false },
-        { "name": "width", "type": "number", "example": "800", "required": false },
-        { "name": "height", "type": "number", "example": "600", "required": false },
-        { "name": "font", "type": "string", "example": "impact", "required": false },
-        { "name": "color", "type": "string", "example": "white,black", "required": false, "description": "Warna teks meme, contoh: white,black" },
-        { "name": "layout", "type": "string", "example": "top", "required": false }
+        {
+          "name": "image",
+          "type": "string",
+          "example": "https://www.gstatic.com/webp/gallery/1.png",
+          "required": true
+        },
+        {
+          "name": "top",
+          "type": "string",
+          "example": "TEKS ATAS",
+          "required": false
+        },
+        {
+          "name": "bottom",
+          "type": "string",
+          "example": "TEKS BAWAH",
+          "required": false
+        },
+        {
+          "name": "format",
+          "type": "string",
+          "example": "png",
+          "required": false
+        },
+        {
+          "name": "width",
+          "type": "number",
+          "example": "800",
+          "required": false
+        },
+        {
+          "name": "height",
+          "type": "number",
+          "example": "600",
+          "required": false
+        },
+        {
+          "name": "font",
+          "type": "string",
+          "example": "impact",
+          "required": false
+        },
+        {
+          "name": "color",
+          "type": "string",
+          "example": "white,black",
+          "required": false,
+          "description": "Warna teks meme, contoh: white,black"
+        },
+        {
+          "name": "layout",
+          "type": "string",
+          "example": "top",
+          "required": false
+        }
       ]
     },
     {
@@ -231,11 +409,36 @@
       "action": "/api/miq/generate",
       "description": "Buat quote bergaya Discord dengan avatar dari file atau URL gambar publik.",
       "params": [
-        { "name": "text", "type": "string", "example": "Hidup tidak harus sempurna untuk bisa disyukuri.", "required": true },
-        { "name": "author", "type": "string", "example": "Anonymous", "required": false },
-        { "name": "avatar", "type": "file", "required": false },
-        { "name": "avatarUrl", "type": "string", "example": "https://example.com/avatar.jpg", "required": false },
-        { "name": "color", "type": "boolean", "example": "true", "required": false, "description": "Aktifkan warna pada quote: true atau false" }
+        {
+          "name": "text",
+          "type": "string",
+          "example": "Hidup tidak harus sempurna untuk bisa disyukuri.",
+          "required": true
+        },
+        {
+          "name": "author",
+          "type": "string",
+          "example": "Anonymous",
+          "required": false
+        },
+        {
+          "name": "avatar",
+          "type": "file",
+          "required": false
+        },
+        {
+          "name": "avatarUrl",
+          "type": "string",
+          "example": "https://example.com/avatar.jpg",
+          "required": false
+        },
+        {
+          "name": "color",
+          "type": "boolean",
+          "example": "true",
+          "required": false,
+          "description": "Aktifkan warna pada quote: true atau false"
+        }
       ]
     }
   ],
@@ -247,8 +450,18 @@
       "action": "/api/promosi",
       "description": "Analisis teks untuk mendeteksi apakah mengandung unsur promosi.",
       "params": [
-        { "name": "text", "type": "string", "example": "Promo spesial join server kami sekarang", "required": true },
-        { "name": "threshold", "type": "number", "example": "70", "required": false }
+        {
+          "name": "text",
+          "type": "string",
+          "example": "Promo spesial join server kami sekarang",
+          "required": true
+        },
+        {
+          "name": "threshold",
+          "type": "number",
+          "example": "70",
+          "required": false
+        }
       ]
     }
   ],
@@ -260,10 +473,30 @@
       "action": "/mcapi/profile",
       "description": "Lihat profil Minecraft Java atau Bedrock berdasarkan username, XUID, atau UUID.",
       "params": [
-        { "name": "username", "type": "string", "example": "Dream", "required": false },
-        { "name": "edition", "type": "string", "example": "auto", "required": false },
-        { "name": "xuid", "type": "string", "example": "2535469446571234", "required": false },
-        { "name": "uuid", "type": "string", "example": "8667ba71-b85a-4004-af54-457a9734eed7", "required": false }
+        {
+          "name": "username",
+          "type": "string",
+          "example": "Dream",
+          "required": false
+        },
+        {
+          "name": "edition",
+          "type": "string",
+          "example": "auto",
+          "required": false
+        },
+        {
+          "name": "xuid",
+          "type": "string",
+          "example": "2535469446571234",
+          "required": false
+        },
+        {
+          "name": "uuid",
+          "type": "string",
+          "example": "8667ba71-b85a-4004-af54-457a9734eed7",
+          "required": false
+        }
       ]
     },
     {
@@ -273,8 +506,18 @@
       "action": "/mcapi/profile/:edition/:id/skin",
       "description": "Arahkan ke URL skin Minecraft berdasarkan edition dan ID.",
       "params": [
-        { "name": "edition", "type": "string", "example": "java", "required": true },
-        { "name": "id", "type": "string", "example": "8667ba71-b85a-4004-af54-457a9734eed7", "required": true }
+        {
+          "name": "edition",
+          "type": "string",
+          "example": "java",
+          "required": true
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "example": "8667ba71-b85a-4004-af54-457a9734eed7",
+          "required": true
+        }
       ]
     },
     {
@@ -284,10 +527,30 @@
       "action": "/mcapi/render/head",
       "description": "Buat render kepala Minecraft dari skin URL atau username.",
       "params": [
-        { "name": "skin", "type": "string", "example": "https://textures.minecraft.net/texture/...", "required": false },
-        { "name": "username", "type": "string", "example": "Dream", "required": false },
-        { "name": "edition", "type": "string", "example": "auto", "required": false },
-        { "name": "size", "type": "number", "example": "100", "required": false }
+        {
+          "name": "skin",
+          "type": "string",
+          "example": "https://textures.minecraft.net/texture/...",
+          "required": false
+        },
+        {
+          "name": "username",
+          "type": "string",
+          "example": "Dream",
+          "required": false
+        },
+        {
+          "name": "edition",
+          "type": "string",
+          "example": "auto",
+          "required": false
+        },
+        {
+          "name": "size",
+          "type": "number",
+          "example": "100",
+          "required": false
+        }
       ]
     }
   ],

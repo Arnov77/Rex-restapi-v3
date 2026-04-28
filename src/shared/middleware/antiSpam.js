@@ -17,6 +17,10 @@ const antiSpamLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => `ip:${ipKeyGenerator(req.ip)}`,
+  // Skip docs: a single page-load fans out into swagger-ui assets +
+  // /api/docs.json + the binary-patch's own spec fetch, which legitimately
+  // exceeds the per-second cap. Docs are static and harmless to flood.
+  skip: (req) => req.path === '/api/docs.json' || req.path.startsWith('/api/docs'),
   handler: (req, res) =>
     ResponseHandler.error(res, 'Too many requests per second. Slow down.', 429),
 });

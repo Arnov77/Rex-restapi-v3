@@ -1,27 +1,27 @@
-// Swagger UI 4.x renders binary audio/video responses as
-//   <audio controls><source src="<endpoint URL>" type="audio/ogg"></audio>
+// Swagger UI 4.x has two known limitations for binary responses:
 //
-// For *POST* endpoints (like /api/tts/google) this is broken: the <audio>
-// element issues a GET to that URL, which fails (the route only serves POST),
-// so duration shows 0:00 and the play button does nothing. The actual response
-// blob from the user's clicked-Execute request is discarded by Swagger UI's
-// renderer.
+//   1. It renders <audio>/<video> with `<source src="<endpoint URL>">` pointing
+//      back at the same URL the user just POSTed to. The browser then issues a
+//      GET to that URL with no body — fails for POST routes — so duration
+//      shows 0:00 and the play button is dead.
 //
-// We can't fix this from OpenAPI metadata — Swagger UI's behavior is hardcoded
-// in its `BinaryResponseBody` component. So we patch it client-side: monkey
-// patch `URL.createObjectURL` (Swagger UI uses it under the hood for binary
-// responses since 4.18) to make sure the audio element gets a working blob
-// URL, AND fall back to a friendly notice when that path is unavailable.
+//   2. The cURL snippet it generates omits `--output <file>` even when the
+//      response is `audio/ogg` / `application/octet-stream` / etc. Running the
+//      command as-is dumps raw bytes to the terminal (curl prints the famous
+//      "Binary output can mess up your terminal" warning and bails).
 //
-// Concretely: a MutationObserver watches `.swagger-ui` for newly-rendered
-// <audio>/<video> elements whose <source> points back at a non-GET endpoint
-// (i.e. matches an operation in the spec where `method !== 'get'`). When found,
-// we replace the broken player with a notice telling the user to either copy
-// the curl command shown above or use the landing page's "Coba Langsung" tab.
+// Neither can be fixed via OpenAPI metadata — both behaviours are hardcoded in
+// Swagger UI. So we patch the rendered DOM client-side via `customJsStr`:
 //
-// This is injected via swagger-ui-express's `customJsStr` option, so it runs
-// after Swagger UI bootstraps and stays in sync with whatever responses the
-// user generates by clicking Execute.
+//   • Replace the broken <audio>/<video> player with a notice that points the
+//     user at the cURL command (now patched, see below) or the landing page's
+//     "Coba Langsung" tab where the in-page player works.
+//   • Append `--output '<filename>.<ext>'` to the cURL snippet so the user can
+//     copy-and-run it and get a usable file. Filename is derived from the path
+//     (last segment) and the response Content-Type declared in the spec.
+//
+// Both patches use a single MutationObserver on `#swagger-ui` so they apply on
+// every Execute click without needing to re-bootstrap.
 
 const PATCH_SCRIPT = `
 (function () {
@@ -29,17 +29,52 @@ const PATCH_SCRIPT = `
 
   var SPEC_URL = '/api/docs.json';
   var nonGetPaths = new Set();
+  // Map<pathname, filename> for endpoints whose response is binary. Used to
+  // (a) decide whether a curl snippet needs --output, (b) suggest a sensible
+  // filename in the patched curl command.
+  var binaryFiles = {};
 
-  // Pull the operation map once so we know which (path, method) pairs are POST
-  // and therefore can't be re-fetched by an <audio> element. Best-effort: if
-  // this fails we still render the notice for any audio element whose source
-  // URL has no extension (heuristic for "is an API endpoint, not a static
-  // file"). Network is local; this is fast.
+  function deriveExt(contentType) {
+    if (!contentType) return 'bin';
+    if (/ogg/.test(contentType)) return 'ogg';
+    if (/mpeg|mp3/.test(contentType)) return 'mp3';
+    if (/wav/.test(contentType)) return 'wav';
+    if (/mp4/.test(contentType)) return 'mp4';
+    if (/webm/.test(contentType)) return 'webm';
+    if (/png/.test(contentType)) return 'png';
+    if (/jpe?g/.test(contentType)) return 'jpg';
+    if (/gif/.test(contentType)) return 'gif';
+    if (/zip/.test(contentType)) return 'zip';
+    return 'bin';
+  }
+
+  function deriveFilename(pathname, contentType) {
+    var parts = pathname.split('/').filter(Boolean);
+    var last = parts[parts.length - 1] || 'response';
+    return last + '.' + deriveExt(contentType);
+  }
+
+  // Pull the spec once so we know which routes are non-GET (to fix the audio
+  // element) and which return binary (to fix the curl snippet). Best-effort:
+  // if this fails the patches simply don't apply.
   fetch(SPEC_URL).then(function (r) { return r.json(); }).then(function (spec) {
     var paths = (spec && spec.paths) || {};
     Object.keys(paths).forEach(function (p) {
-      Object.keys(paths[p] || {}).forEach(function (m) {
-        if (m && m.toLowerCase() !== 'get') nonGetPaths.add(p);
+      var ops = paths[p] || {};
+      Object.keys(ops).forEach(function (m) {
+        if (!m || typeof m !== 'string') return;
+        var ml = m.toLowerCase();
+        if (ml === 'parameters' || ml === 'summary' || ml === 'description' || ml === 'servers') return;
+        if (ml !== 'get') nonGetPaths.add(p);
+        var resps = (ops[m] && ops[m].responses) || {};
+        Object.keys(resps).forEach(function (code) {
+          var content = (resps[code] && resps[code].content) || {};
+          Object.keys(content).forEach(function (ct) {
+            if (/^audio\\/|^video\\/|^image\\/|application\\/octet-stream|application\\/zip/.test(ct)) {
+              binaryFiles[p] = deriveFilename(p, ct);
+            }
+          });
+        });
       });
     });
   }).catch(function () {});
@@ -48,21 +83,27 @@ const PATCH_SCRIPT = `
     if (!url) return false;
     try {
       var pathname = new URL(url, window.location.origin).pathname;
-      // Matches the most specific spec path first (handles /api/foo prefix).
       var iter = nonGetPaths.values();
       var hit = iter.next();
       while (!hit.done) {
         if (pathname === hit.value || pathname.endsWith(hit.value)) return true;
         hit = iter.next();
       }
-      // Fallback heuristic: pathname has no file extension AND is under /api
       return /^\\/api\\//.test(pathname) && !/\\.[a-z0-9]{2,5}$/i.test(pathname);
     } catch (e) {
       return false;
     }
   }
 
-  function buildNotice(url) {
+  function findBinaryFilenameInCurl(text) {
+    var paths = Object.keys(binaryFiles);
+    for (var i = 0; i < paths.length; i++) {
+      if (text.indexOf(paths[i]) !== -1) return binaryFiles[paths[i]];
+    }
+    return null;
+  }
+
+  function buildNotice() {
     var div = document.createElement('div');
     div.style.cssText =
       'padding:12px 14px;background:#fef3c7;border-left:3px solid #f59e0b;' +
@@ -71,10 +112,11 @@ const PATCH_SCRIPT = `
       '<strong>Audio preview unavailable in Swagger UI</strong><br>' +
       'This is a <code>POST</code> endpoint, so the embedded audio player ' +
       'cannot replay it (Swagger UI tries to <code>GET</code> the URL ' +
-      'instead). The actual <code>.ogg</code> file is in the request that ' +
-      'just ran — copy the cURL command above to download it, or test on ' +
+      'instead). The cURL command above has been patched with ' +
+      '<code>--output</code> — copy and run it to save the file, or test on ' +
       'the <a href="/" style="color:#1e40af;text-decoration:underline">' +
-      'Rex landing page</a>\\'s "Coba Langsung" tab where the player works.';
+      'Rex landing page</a>\\'s "Coba Langsung" tab where the in-page player ' +
+      'works.';
     return div;
   }
 
@@ -88,22 +130,95 @@ const PATCH_SCRIPT = `
         (el.querySelector('source') && el.querySelector('source').src);
       if (!isNonGetEndpoint(src)) return;
       el.dataset.rexPatched = '1';
-      el.replaceWith(buildNotice(src));
+      el.replaceWith(buildNotice());
     });
   }
 
+  function patchCurlBlocks(root) {
+    // Swagger UI's curl block lives inside .responses-wrapper .curl-command
+    // (a textarea on some versions, a <pre><code> on others). Cover both
+    // and also fall back to scanning all <pre> for one that starts with curl.
+    var candidates = [];
+    if (root.querySelectorAll) {
+      candidates = candidates.concat(
+        Array.prototype.slice.call(
+          root.querySelectorAll('.curl-command, .copy-to-clipboard textarea, pre code, pre'),
+        ),
+      );
+    }
+    candidates.forEach(function (el) {
+      if (el.dataset.rexCurlPatched === '1') return;
+      var text = (el.value !== undefined ? el.value : el.textContent) || '';
+      if (!/^\\s*curl\\b/.test(text)) return;
+      if (/--output\\b|\\s-o\\s/.test(text)) {
+        el.dataset.rexCurlPatched = '1';
+        return;
+      }
+      var filename = findBinaryFilenameInCurl(text);
+      if (!filename) return;
+      // Insert "--output 'filename'" right after the initial "curl" token so
+      // the rest of the command (-X, -H, -d) renders unchanged.
+      var patched = text.replace(/^(\\s*curl)\\b/, "$1 --output '" + filename + "'");
+      if (el.value !== undefined) {
+        el.value = patched;
+      } else {
+        el.textContent = patched;
+      }
+      el.dataset.rexCurlPatched = '1';
+    });
+  }
+
+  function patchAll(root) {
+    patchMediaElements(root);
+    patchCurlBlocks(root);
+  }
+
+  // Swagger UI re-renders the curl <pre> in place by mutating its text node
+  // (not by replacing the whole element), so a childList-only observer misses
+  // updates after the second Execute click. Watch characterData too, and fall
+  // back to a re-scan of the whole #swagger-ui root when text changes.
   var obs = new MutationObserver(function (muts) {
+    var needsFullRescan = false;
     muts.forEach(function (m) {
+      if (m.type === 'characterData') {
+        needsFullRescan = true;
+        return;
+      }
       m.addedNodes.forEach(function (node) {
-        if (node.nodeType === 1) patchMediaElements(node);
+        if (node.nodeType === 1) patchAll(node);
       });
     });
+    if (needsFullRescan) {
+      var root = document.querySelector('#swagger-ui') || document.body;
+      patchAll(root);
+    }
   });
 
   function start() {
     var root = document.querySelector('#swagger-ui') || document.body;
-    obs.observe(root, { childList: true, subtree: true });
-    patchMediaElements(root);
+    obs.observe(root, { childList: true, subtree: true, characterData: true });
+    patchAll(root);
+    // Also force a re-scan whenever the user clicks Execute, since the
+    // MutationObserver sometimes misses the moment Swagger UI swaps in a
+    // freshly-built curl <pre> (timing varies per swagger-ui-dist version).
+    document.addEventListener(
+      'click',
+      function (e) {
+        var target = e.target;
+        if (!target || !target.closest) return;
+        var btn = target.closest('.try-out__btn, .execute, .btn.execute, button');
+        if (!btn) return;
+        var label = (btn.textContent || '').trim().toLowerCase();
+        if (label === 'execute' || label === 'try it out') {
+          // Two passes: now (catches GET endpoints that resolve instantly)
+          // and after the response comes back (~700 ms is plenty for local).
+          patchAll(root);
+          setTimeout(function () { patchAll(root); }, 800);
+          setTimeout(function () { patchAll(root); }, 2000);
+        }
+      },
+      true,
+    );
   }
 
   if (document.readyState === 'loading') {

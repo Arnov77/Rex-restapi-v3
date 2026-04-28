@@ -80,7 +80,7 @@ const envSchema = Joi.object({
   // Daily quota caps (business, 1 hit = 1 unit; reset at local midnight).
   // Master bypasses; per-key dailyLimit override possible via /api/admin/keys.
   QUOTA_ANON_DAILY: Joi.number().integer().min(0).default(30),
-  QUOTA_USER_DAILY: Joi.number().integer().min(0).default(1000),
+  QUOTA_USER_DAILY: Joi.number().integer().min(0).default(250),
   QUOTA_FLUSH_INTERVAL_SEC: Joi.number().integer().min(5).max(3600).default(60),
 
   BEDROCK_PREFIXES: Joi.string().default('.'),

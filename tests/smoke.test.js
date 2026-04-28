@@ -33,7 +33,6 @@ const routeModules = [
   '../src/core/tools/mcprofile/mcprofile.routes',
   '../src/core/tools/miq/miq.routes',
   '../src/core/tools/telegram/telegram.routes',
-  '../src/core/ai/replicate/replicate.routes',
   '../src/core/admin/admin.routes',
 ];
 
@@ -72,13 +71,6 @@ describe('relocated modules (PR-4 merger)', () => {
   it('promosi service is reachable', () => {
     const { promotionDetector } = require('../src/core/tools/promosi/promosi.service');
     expect(typeof promotionDetector).toBe('function');
-  });
-
-  it('replicate service + controller export plain functions', () => {
-    const svc = require('../src/core/ai/replicate/replicate.service');
-    const ctl = require('../src/core/ai/replicate/replicate.controller');
-    expect(typeof svc.generateModifiedImage).toBe('function');
-    expect(typeof ctl.generateImage).toBe('function');
   });
 
   it('MVC thin modules expose plain-function controllers', () => {
@@ -224,7 +216,6 @@ describe('server app (end-to-end wiring)', () => {
       '/api/telegram/sticker',
       '/api/telegram/sticker-pack',
       '/api/telegram/sticker-pack/download',
-      '/api/replicate/generate',
     ]) {
       expect(paths).toContain(expected);
     }
@@ -257,19 +248,6 @@ describe('server app (end-to-end wiring)', () => {
     const res = await request(app).post('/api/smeme').send({});
     expect(res.status).toBe(400);
     expect(res.body).toMatchObject({ success: false, statusCode: 400 });
-  });
-
-  it('returns 503 envelope when replicate token is unset', async () => {
-    const saved = process.env.REPLICATE_API_TOKEN;
-    delete process.env.REPLICATE_API_TOKEN;
-    try {
-      const res = await request(app)
-        .post('/api/replicate/generate')
-        .send({ image: 'https://example.com/x.png', option: 'nerd' });
-      expect(res.status).toBe(503);
-    } finally {
-      if (saved !== undefined) process.env.REPLICATE_API_TOKEN = saved;
-    }
   });
 });
 

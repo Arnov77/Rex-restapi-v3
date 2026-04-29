@@ -20,6 +20,7 @@ const ResponseHandler = require('./src/shared/utils/response');
 const browserManager = require('./src/shared/browser/browserManager');
 const { initColorIndex } = require('./src/core/media/brat/color');
 const swaggerSpec = require('./src/shared/docs/swagger');
+const { PATCH_SCRIPT: SWAGGER_BINARY_PATCH } = require('./src/shared/docs/swagger-binary-patch');
 const downloadsCleanup = require('./src/shared/utils/downloadsCleanup');
 
 const youtubeRoutes = require('./src/core/media/youtube/youtube.routes');
@@ -138,7 +139,11 @@ app.use('/mcapi', dailyQuota, mcprofileRoute);
 // OpenAPI / Swagger UI — the JSON spec is published at /api/docs.json for
 // scripted clients and the interactive explorer at /api/docs for humans.
 app.get('/api/docs.json', (req, res) => res.json(swaggerSpec));
-app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, { explorer: true }));
+app.use(
+  '/api/docs',
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerSpec, { explorer: true, customJsStr: SWAGGER_BINARY_PATCH })
+);
 
 app.get('/health', (req, res) =>
   ResponseHandler.success(

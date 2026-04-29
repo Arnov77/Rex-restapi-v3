@@ -4,6 +4,7 @@ const authController = require('./auth.controller');
 const validateRequest = require('../../shared/middleware/validateRequest');
 const { registerSchema, loginSchema } = require('./auth.schemas');
 const { asyncHandler } = require('../../shared/middleware/errorHandler');
+const { loginLimiter } = require('../../shared/middleware/loginLimiter');
 
 /**
  * @openapi
@@ -51,6 +52,11 @@ const { asyncHandler } = require('../../shared/middleware/errorHandler');
  *       401: { description: Invalid credentials }
  */
 router.post('/register', validateRequest(registerSchema), asyncHandler(authController.register));
-router.post('/login', validateRequest(loginSchema), asyncHandler(authController.login));
+router.post(
+  '/login',
+  ...loginLimiter,
+  validateRequest(loginSchema),
+  asyncHandler(authController.login)
+);
 
 module.exports = router;

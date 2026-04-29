@@ -129,7 +129,11 @@ async function convertWebp(buffer, format) {
 
 // ─── Convert: TGS (animated Lottie) ─────────────────────────────────────────
 
-function buildLottieHtml(lottieJson) {
+// lottie.min.js is ~1MB and never changes within a process. Cache the read on
+// first use so /api/telegram/sticker doesn't pay disk cost per request.
+let cachedLottieScript = null;
+function loadLottieScript() {
+  if (cachedLottieScript) return cachedLottieScript;
   const lottiePath = path.join(
     __dirname,
     '../../../../node_modules/lottie-web/build/player/lottie.min.js'
@@ -137,7 +141,12 @@ function buildLottieHtml(lottieJson) {
   if (!fs.existsSync(lottiePath)) {
     throw new AppError('lottie-web tidak ditemukan. Jalankan: npm install lottie-web', 500);
   }
-  const lottieScript = fs.readFileSync(lottiePath, 'utf-8');
+  cachedLottieScript = fs.readFileSync(lottiePath, 'utf-8');
+  return cachedLottieScript;
+}
+
+function buildLottieHtml(lottieJson) {
+  const lottieScript = loadLottieScript();
   const jsonStr = JSON.stringify(lottieJson);
   return `<!DOCTYPE html>
 <html><head><style>

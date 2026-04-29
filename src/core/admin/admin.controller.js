@@ -49,6 +49,21 @@ async function getUsage(req, res) {
   const keyRecordsById = new Map(apiKeyStore.listKeys().map((k) => [k.id, k]));
 
   const enriched = Object.entries(counters).map(([counterKey, used]) => {
+    if (counterKey.startsWith('user:')) {
+      const userId = counterKey.slice(5);
+      const owner = usersStore.findById(userId);
+      const record = owner ? keyRecordsById.get(owner.apiKeyId) : null;
+      return {
+        scope: 'user',
+        id: userId,
+        name: record?.name ?? null,
+        username: owner?.username ?? null,
+        email: owner?.email ?? null,
+        used,
+        limit: record?.dailyLimit ?? env.QUOTA_USER_DAILY,
+        revoked: record?.revoked ?? false,
+      };
+    }
     if (counterKey.startsWith('key:')) {
       const id = counterKey.slice(4);
       const record = keyRecordsById.get(id);

@@ -13,6 +13,7 @@ function buildApp() {
   delete require.cache[require.resolve('../src/shared/auth/jwt')];
   delete require.cache[require.resolve('../src/shared/auth/verifyToken')];
   delete require.cache[require.resolve('../src/shared/auth/apiKeyAuth')];
+  delete require.cache[require.resolve('../src/shared/middleware/loginLimiter')];
   delete require.cache[require.resolve('../src/core/auth/auth.routes')];
   delete require.cache[require.resolve('../src/core/auth/auth.controller')];
   delete require.cache[require.resolve('../src/core/user/user.routes')];
@@ -174,7 +175,7 @@ describe('POST /api/user/regenerate-key', () => {
     expect(profile.body.data.apiKey.key).toBe(res.body.data.apiKey.key);
   });
 
-  it("carries today's used quota onto the new key (anti-abuse)", async () => {
+  it("preserves today's used quota across regenerate (anti-abuse)", async () => {
     const usageStore = require('../src/shared/auth/usageStore');
     usageStore._resetForTests();
     usageStore.start({ flushIntervalSec: 9999 });
@@ -183,22 +184,19 @@ describe('POST /api/user/regenerate-key', () => {
       .post('/api/auth/register')
       .send({ username: 'alice', email: 'a@x.com', password: 'hunter22pass' });
     const token = reg.body.data.token;
-    const oldKeyId = reg.body.data.apiKey.id;
+    const userId = reg.body.data.user.id;
 
-    // Simulate 5 paid hits on the old key.
-    usageStore.increment(`key:${oldKeyId}`);
-    usageStore.increment(`key:${oldKeyId}`);
-    usageStore.increment(`key:${oldKeyId}`);
-    usageStore.increment(`key:${oldKeyId}`);
-    usageStore.increment(`key:${oldKeyId}`);
+    // Simulate 5 paid hits — quota is keyed per-user, not per-key, so the
+    // counter survives regenerate without an explicit transfer call.
+    usageStore.increment(`user:${userId}`);
+    usageStore.increment(`user:${userId}`);
+    usageStore.increment(`user:${userId}`);
+    usageStore.increment(`user:${userId}`);
+    usageStore.increment(`user:${userId}`);
 
-    const regen = await request(app)
-      .post('/api/user/regenerate-key')
-      .set('Authorization', `Bearer ${token}`);
-    const newKeyId = regen.body.data.apiKey.id;
+    await request(app).post('/api/user/regenerate-key').set('Authorization', `Bearer ${token}`);
 
-    expect(usageStore.getCount(`key:${oldKeyId}`)).toBe(0);
-    expect(usageStore.getCount(`key:${newKeyId}`)).toBe(5);
+    expect(usageStore.getCount(`user:${userId}`)).toBe(5);
 
     const profile = await request(app)
       .get('/api/user/profile')

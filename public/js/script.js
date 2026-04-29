@@ -1483,11 +1483,12 @@ const Auth = (() => {
     return !!getToken();
   }
   async function fetchAuthed(url, opts = {}) {
+    const { silent401, ...fetchOpts } = opts;
     const token = getToken();
-    const headers = { ...(opts.headers || {}) };
+    const headers = { ...(fetchOpts.headers || {}) };
     if (token) headers.Authorization = `Bearer ${token}`;
-    const res = await fetch(url, { ...opts, headers });
-    if (res.status === 401) {
+    const res = await fetch(url, { ...fetchOpts, headers });
+    if (res.status === 401 && !silent401) {
       clear();
       renderSidebarAuth();
       Toast.error('Sesi berakhir, silakan login lagi');
@@ -1960,6 +1961,7 @@ async function submitRevealKey() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password }),
+      silent401: true,
     });
     const json = await res.json().catch(() => ({}));
     if (!res.ok) {

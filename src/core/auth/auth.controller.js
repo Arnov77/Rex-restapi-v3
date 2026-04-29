@@ -86,8 +86,24 @@ async function login(req, res) {
   const token = jwtAuth.sign({ sub: user.id, username: user.username });
   logger.info(`[auth] Login: ${user.username}`);
 
+  // Login is a fresh password re-auth event, so it's the right moment to
+  // hand back the plaintext API key. /api/user/profile no longer exposes
+  // plaintext (JWT theft alone must not leak the key).
+  const apiKeyRecord = apiKeyStore.findById(user.apiKeyId);
+  const plaintext = apiKeyRecord ? apiKeyStore.getPlaintextById(apiKeyRecord.id) : null;
+
   return ResponseHandler.success(res, {
     user: usersStore.publicView(user),
+    apiKey: apiKeyRecord
+      ? {
+          id: apiKeyRecord.id,
+          name: apiKeyRecord.name,
+          tier: apiKeyRecord.tier,
+          dailyLimit: apiKeyRecord.dailyLimit,
+          key: plaintext,
+          createdAt: apiKeyRecord.createdAt,
+        }
+      : null,
     token,
     tokenType: 'Bearer',
     expiresIn: jwtAuth.expiresIn(),

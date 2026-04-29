@@ -5,6 +5,7 @@ const validateRequest = require('../../shared/middleware/validateRequest');
 const { registerSchema, loginSchema } = require('./auth.schemas');
 const { asyncHandler } = require('../../shared/middleware/errorHandler');
 const { loginLimiter } = require('../../shared/middleware/loginLimiter');
+const { registerLimiter } = require('../../shared/middleware/registerLimiter');
 
 /**
  * @openapi
@@ -51,7 +52,12 @@ const { loginLimiter } = require('../../shared/middleware/loginLimiter');
  *       200: { description: Authenticated, returns JWT }
  *       401: { description: Invalid credentials }
  */
-router.post('/register', validateRequest(registerSchema), asyncHandler(authController.register));
+router.post(
+  '/register',
+  registerLimiter,
+  validateRequest(registerSchema),
+  asyncHandler(authController.register)
+);
 router.post(
   '/login',
   ...loginLimiter,

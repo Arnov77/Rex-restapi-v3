@@ -7,7 +7,7 @@ const { env } = require('../../../config');
 // route requires a server restart — acceptable for a low-churn internal doc.
 const ROUTES_GLOB = path.join(__dirname, '../../core/**/*.routes.js');
 
-const spec = swaggerJsdoc({
+const fullSpec = swaggerJsdoc({
   definition: {
     openapi: '3.0.3',
     info: {
@@ -29,8 +29,7 @@ const spec = swaggerJsdoc({
             'Plaintext API key (format: rex_<base64url>). Bearer token in the ' +
             'Authorization header is also accepted. Endpoints are accessible ' +
             'without a key (anon tier) at a tighter rate limit; supplying a ' +
-            'user-tier key unlocks the higher quota; master keys bypass limits ' +
-            'and grant /api/admin/* access.',
+            'user-tier key unlocks the higher quota.',
         },
       },
     },
@@ -40,10 +39,31 @@ const spec = swaggerJsdoc({
     tags: [
       { name: 'Media', description: 'YouTube, TikTok, Instagram, Brat' },
       { name: 'Tools', description: 'Quote, MIQ, Smeme, GDrive, Telegram, Promosi' },
-      { name: 'Admin', description: 'API key management (master only)' },
+      { name: 'Auth', description: 'Account registration and login' },
+      { name: 'User', description: 'Authenticated dashboard endpoints' },
     ],
   },
   apis: [ROUTES_GLOB],
 });
+
+// Strip /api/admin/* paths and the `Admin` tag from the public spec.
+// Admin endpoints still exist and are still gated by `requireMaster` — they
+// are simply hidden from Swagger so casual readers don't see internal tools
+// listed alongside public endpoints. Master users can read source code or
+// use curl directly.
+function stripAdmin(srcSpec) {
+  const filtered = { ...srcSpec };
+  if (filtered.paths) {
+    filtered.paths = Object.fromEntries(
+      Object.entries(filtered.paths).filter(([p]) => !p.startsWith('/api/admin'))
+    );
+  }
+  if (Array.isArray(filtered.tags)) {
+    filtered.tags = filtered.tags.filter((t) => t.name !== 'Admin');
+  }
+  return filtered;
+}
+
+const spec = stripAdmin(fullSpec);
 
 module.exports = spec;

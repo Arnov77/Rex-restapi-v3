@@ -80,6 +80,9 @@ const envSchema = Joi.object({
   // Successful logins do NOT consume the budget.
   LOGIN_LIMIT_PER_IP: Joi.number().integer().min(1).max(1000).default(10),
   LOGIN_LIMIT_PER_IDENTIFIER: Joi.number().integer().min(1).max(1000).default(5),
+  // Throttle for /api/auth/register. Sliding window = 1 hour. Failed
+  // attempts (validation / duplicate) also count toward the cap.
+  REGISTER_LIMIT_PER_IP: Joi.number().integer().min(1).max(1000).default(5),
 
   // Daily quota caps (business, 1 hit = 1 unit; reset at local midnight).
   // Master bypasses; per-key dailyLimit override possible via /api/admin/keys.

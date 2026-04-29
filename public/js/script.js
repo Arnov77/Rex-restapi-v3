@@ -1643,8 +1643,8 @@ function renderRegisterForm() {
       </div>
       <div class="field">
         <label for="regPassword">Password</label>
-        <input id="regPassword" type="password" autocomplete="new-password" minlength="8" required>
-        <div class="hint">Minimal 8 karakter.</div>
+        <input id="regPassword" type="password" autocomplete="new-password" minlength="10" required>
+        <div class="hint">Minimal 10 karakter, harus mengandung huruf dan angka.</div>
       </div>
       <button type="submit" class="auth-submit" id="regSubmit">Daftar</button>
       <div class="auth-switch">Sudah punya akun? <a onclick="openAuthModal('login')">Masuk</a></div>
@@ -1769,7 +1769,9 @@ async function refreshProfile({ initial = false } = {}) {
     const json = await res.json();
     const data = json.data;
     PROFILE_STATE.lastData = data;
-    if (data?.apiKey?.key) Auth.setApiKey(data.apiKey.key);
+    // /profile no longer ships the plaintext key (security: stolen JWT must
+    // not leak the key). Frontend renders the cached value from Auth store
+    // populated by login/register/regenerate, or prompts the user to reveal.
     renderProfile(data);
   } catch (err) {
     if (initial) {
@@ -1799,15 +1801,17 @@ function renderProfile(data) {
   const resetIso = usage.resetAt;
   const resetCountdown = resetIso ? formatCountdown(new Date(resetIso) - Date.now()) : '—';
 
+  const cachedKey = Auth.getApiKey();
   const masked = PROFILE_STATE.keyMasked;
-  const keyDisplay = apiKey.key
-    ? (masked ? `rex_${'•'.repeat(28)}` : apiKey.key)
-    : 'Tidak ada API key';
-  const keyClass = masked && apiKey.key ? 'api-key-text masked' : 'api-key-text';
+  const hasKey = !!cachedKey;
+  const keyDisplay = hasKey
+    ? (masked ? `rex_${'•'.repeat(28)}` : cachedKey)
+    : 'Klik "Reveal Key" untuk menampilkan';
+  const keyClass = hasKey && masked ? 'api-key-text masked' : 'api-key-text';
   const showLabel = masked ? 'Show' : 'Hide';
 
-  const snippet = apiKey.key
-    ? `curl -H "X-API-Key: ${apiKey.key}" \\\n  ${window.location.origin}/api/quote`
+  const snippet = hasKey
+    ? `curl -H "X-API-Key: ${cachedKey}" \\\n  ${window.location.origin}/api/quote`
     : '';
 
   wrap.innerHTML = `
@@ -1827,15 +1831,18 @@ function renderProfile(data) {
           <div class="profile-card-tier">${escapeHtml(apiKey.tier || 'user')}</div>
         </div>
         <div class="api-key-row">
-          <div class="${keyClass}" id="apiKeyText">${apiKey.key ? escapeHtml(keyDisplay) : '—'}</div>
-          ${apiKey.key ? `
+          <div class="${keyClass}" id="apiKeyText">${escapeHtml(keyDisplay)}</div>
+          ${hasKey ? `
             <button type="button" class="icon-btn" title="${showLabel}" onclick="toggleKeyMask()" aria-label="${showLabel}">${masked ? '👁' : '⊘'}</button>
             <button type="button" class="icon-btn" title="Salin" onclick="copyApiKey()" aria-label="Copy">⧉</button>
           ` : ''}
         </div>
         <div class="api-key-actions">
-          <button type="button" class="btn-line accent" onclick="regenerateKey()">Regenerate Key</button>
-          ${apiKey.key ? `<button type="button" class="btn-line" onclick="copyApiKey()">Salin Key</button>` : ''}
+          ${hasKey
+            ? `<button type="button" class="btn-line" onclick="copyApiKey()">Salin Key</button>`
+            : `<button type="button" class="btn-line accent" onclick="openRevealKeyModal()">Reveal Key</button>`
+          }
+          <button type="button" class="btn-line" onclick="regenerateKey()">Regenerate Key</button>
         </div>
         <div class="profile-row" style="margin-top:14px">
           <div><div class="lbl">Key ID</div><div class="val">${escapeHtml(apiKey.id || '—')}</div></div>
@@ -1910,6 +1917,76 @@ async function copySnippet() {
     Toast.success('Snippet disalin');
   } catch {
     Toast.error('Gagal menyalin');
+  }
+}
+
+function openRevealKeyModal() {
+  const overlay = document.getElementById('authOverlay');
+  const titleEl = document.getElementById('authTitle');
+  const subEl = document.getElementById('authSub');
+  const body = document.getElementById('authBody');
+  if (!overlay || !titleEl || !subEl || !body) return;
+  titleEl.textContent = 'Reveal API Key';
+  subEl.textContent = 'Konfirmasi password kamu untuk menampilkan plaintext key.';
+  body.innerHTML = `
+    <form class="auth-form" onsubmit="event.preventDefault(); submitRevealKey();">
+      <div class="auth-error" id="revealError" style="display:none"></div>
+      <div class="field">
+        <label for="revealPassword">Password</label>
+        <input id="revealPassword" type="password" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="auth-submit" id="revealSubmit">Reveal</button>
+      <div class="auth-switch" style="font-size:12px;color:var(--muted)">Key plaintext akan disimpan sementara di browser kamu (localStorage).</div>
+    </form>
+  `;
+  overlay.classList.add('open');
+  overlay.onclick = (event) => {
+    if (event.target === overlay) closeAuthModal();
+  };
+  queueMicrotask(() => document.getElementById('revealPassword')?.focus());
+}
+
+async function submitRevealKey() {
+  const password = document.getElementById('revealPassword')?.value || '';
+  const errEl = document.getElementById('revealError');
+  const btn = document.getElementById('revealSubmit');
+  if (errEl) errEl.style.display = 'none';
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Memverifikasi...';
+  }
+  try {
+    const res = await Auth.fetchAuthed('/api/user/reveal-key', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      if (errEl) {
+        errEl.textContent = json?.message || 'Gagal reveal key';
+        errEl.style.display = 'block';
+      }
+      return;
+    }
+    const newKey = json.data?.apiKey?.key;
+    if (newKey) {
+      Auth.setApiKey(newKey);
+      PROFILE_STATE.keyMasked = false;
+      Toast.success('API key di-reveal');
+      closeAuthModal();
+      if (PROFILE_STATE.lastData) renderProfile(PROFILE_STATE.lastData);
+    }
+  } catch (err) {
+    if (errEl) {
+      errEl.textContent = err.message || 'Gagal reveal key';
+      errEl.style.display = 'block';
+    }
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Reveal';
+    }
   }
 }
 

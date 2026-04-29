@@ -32,7 +32,17 @@ const { asyncHandler } = require('../../../shared/middleware/errorHandler');
  *               format: { type: string, enum: [png, jpg, jpeg, gif, webp, wa], default: png }
  *     responses:
  *       200:
- *         description: Sticker bytes in the requested format
+ *         description: |
+ *           Sticker bytes in the requested format. Inspect `Content-Type`
+ *           and `X-Sticker-Type` (`webp` | `tgs` | `webm`) headers.
+ *         headers:
+ *           X-Sticker-Type:
+ *             schema: { type: string, enum: [webp, tgs, webm] }
+ *         content:
+ *           image/webp: { schema: { type: string, format: binary } }
+ *           image/png:  { schema: { type: string, format: binary } }
+ *           image/jpeg: { schema: { type: string, format: binary } }
+ *           image/gif:  { schema: { type: string, format: binary } }
  */
 router.post(
   '/sticker',
@@ -98,10 +108,26 @@ router.post(
  *               stickersPerPack: { type: integer, minimum: 1, maximum: 30, default: 30 }
  *     responses:
  *       200:
- *         description: Binary archive (`.wasticker` or multi-part `.zip`)
+ *         description: |
+ *           Binary archive — `.wasticker` (single pack) or `.zip`
+ *           (multi-part bundle). Inspect the `Content-Type`,
+ *           `Content-Disposition`, `X-Sticker-Parts`, and
+ *           `X-Sticker-Count` response headers.
+ *         headers:
+ *           Content-Disposition:
+ *             schema: { type: string }
+ *             description: 'attachment; filename="<pack>.wasticker"'
+ *           X-Sticker-Parts:
+ *             schema: { type: integer }
+ *             description: Number of `.wasticker` parts in this response.
+ *           X-Sticker-Count:
+ *             schema: { type: integer }
+ *             description: Total stickers successfully converted.
  *         content:
- *           application/octet-stream: {}
- *           application/zip: {}
+ *           application/octet-stream:
+ *             schema: { type: string, format: binary }
+ *           application/zip:
+ *             schema: { type: string, format: binary }
  *       404: { description: Pack not found or empty }
  */
 router.post(

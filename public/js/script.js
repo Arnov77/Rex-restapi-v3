@@ -1246,8 +1246,9 @@ async function handleApiResponse(response, { isTelegramStickerDownload } = {}) {
     const blob = await response.blob();
     const filename = parseContentDispositionFilename(response.headers.get('content-disposition'))
       || (contentType.includes('zip') ? 'sticker-pack.zip' : 'sticker-pack.wasticker');
-    triggerDownload(blob, filename);
+    const url = URL.createObjectURL(blob);
     showDownloadResult({
+      url,
       filename,
       size: blob.size,
       status: response.status,
@@ -1306,17 +1307,6 @@ function parseContentDispositionFilename(header) {
   return ascii ? ascii[1].trim() : null;
 }
 
-function triggerDownload(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
-}
-
 function formatBytes(bytes) {
   if (!Number.isFinite(bytes)) return '';
   if (bytes < 1024) return `${bytes} B`;
@@ -1324,19 +1314,21 @@ function formatBytes(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
-function showDownloadResult({ filename, size, status, parts, stickers, contentType }) {
+function showDownloadResult({ url, filename, size, status, parts, stickers, contentType }) {
   const meta = [];
   if (size) meta.push(formatBytes(size));
   if (parts) meta.push(`${parts} part${Number(parts) > 1 ? 's' : ''}`);
   if (stickers) meta.push(`${stickers} stiker`);
   const metaLine = meta.length ? `<div class="img-note">${meta.join(' • ')} • ${escHtml(contentType)}</div>` : '';
+  const ext = (filename.split('.').pop() || 'file').toUpperCase();
 
   document.getElementById('responseArea').innerHTML = `<div class="response-area">
-    <div class="res-bar"><span class="res-label">Response</span><span class="res-status s-ok">${status} OK - File terunduh</span></div>
+    <div class="res-bar"><span class="res-label">Response</span><span class="res-status s-ok">${status} OK - ${escHtml(contentType)}</span></div>
     <div class="img-result">
       <div style="font-weight:600;margin-bottom:6px">${escHtml(filename)}</div>
       ${metaLine}
-      <div class="img-note" style="margin-top:10px">File otomatis terunduh ke perangkat. Impor ke aplikasi Sticker Maker untuk menambahkan ke WhatsApp.</div>
+      <a href="${url}" download="${escHtml(filename)}" class="img-dl" style="margin-top:12px">Download ${escHtml(ext)}</a>
+      <div class="img-note" style="margin-top:10px">Klik tombol di atas untuk simpan ke perangkat. Lalu impor ke aplikasi Sticker Maker untuk menambahkan ke WhatsApp.</div>
     </div>
   </div>`;
 }

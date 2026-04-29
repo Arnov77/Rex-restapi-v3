@@ -194,10 +194,48 @@ const PATCH_SCRIPT = `
     }
   });
 
+  function patchCurlText(text) {
+    if (!text || typeof text !== 'string') return text;
+    if (!/^\\s*curl\\b/.test(text)) return text;
+    if (/--output\\b|\\s-o\\s/.test(text)) return text;
+    var filename = findBinaryFilenameInCurl(text);
+    if (!filename) return text;
+    return text.replace(/^(\\s*curl)\\b/, "$1 --output '" + filename + "'");
+  }
+
+  // Swagger UI's copy button hands clipboard text from React state, NOT the
+  // <pre> we patched. Hook the actual clipboard write paths so the copied
+  // text matches what the user sees.
+  function installClipboardHooks() {
+    // 1. navigator.clipboard.writeText — modern browsers / react-copy-to-clipboard fallback
+    if (window.navigator && window.navigator.clipboard) {
+      var orig = window.navigator.clipboard.writeText.bind(window.navigator.clipboard);
+      window.navigator.clipboard.writeText = function (text) {
+        return orig(patchCurlText(text));
+      };
+    }
+    // 2. document.execCommand('copy') path — react-copy-to-clipboard usually
+    //    creates a hidden textarea, selects it, then runs execCommand. Hook
+    //    the 'copy' event to rewrite clipboard data.
+    document.addEventListener('copy', function (e) {
+      try {
+        var sel = window.getSelection && window.getSelection().toString();
+        if (!sel) return;
+        var patched = patchCurlText(sel);
+        if (patched === sel) return;
+        if (e.clipboardData && e.clipboardData.setData) {
+          e.clipboardData.setData('text/plain', patched);
+          e.preventDefault();
+        }
+      } catch (err) { /* ignore */ }
+    }, true);
+  }
+
   function start() {
     var root = document.querySelector('#swagger-ui') || document.body;
     obs.observe(root, { childList: true, subtree: true, characterData: true });
     patchAll(root);
+    installClipboardHooks();
     // Also force a re-scan whenever the user clicks Execute, since the
     // MutationObserver sometimes misses the moment Swagger UI swaps in a
     // freshly-built curl <pre> (timing varies per swagger-ui-dist version).

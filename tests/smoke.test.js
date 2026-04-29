@@ -219,6 +219,12 @@ describe('server app (end-to-end wiring)', () => {
     ]) {
       expect(paths).toContain(expected);
     }
+    // /api/admin/* paths are intentionally hidden from the public spec
+    // (still gated by requireMaster, but invisible to casual readers).
+    const adminPaths = paths.filter((p) => p.startsWith('/api/admin'));
+    expect(adminPaths).toEqual([]);
+    const tagNames = (res.body.tags || []).map((t) => t.name);
+    expect(tagNames).not.toContain('Admin');
   });
 
   it('validates stickerPackDownloadSchema (missing url + packName)', async () => {

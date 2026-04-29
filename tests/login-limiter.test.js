@@ -11,6 +11,7 @@ function buildApp() {
   delete require.cache[require.resolve('../src/shared/auth/apiKeyStore')];
   delete require.cache[require.resolve('../src/shared/auth/jwt')];
   delete require.cache[require.resolve('../src/shared/middleware/loginLimiter')];
+  delete require.cache[require.resolve('../src/shared/middleware/registerLimiter')];
   delete require.cache[require.resolve('../src/core/auth/auth.routes')];
   delete require.cache[require.resolve('../src/core/auth/auth.controller')];
   require('../src/shared/auth/usersStore')._resetForTests();
@@ -37,6 +38,7 @@ beforeEach(() => {
   fs.symlinkSync(tmpRoot, realDataDir, 'dir');
   process.env.BCRYPT_ROUNDS = '8';
   process.env.JWT_SECRET = 'x'.repeat(64);
+  process.env.REGISTER_LIMIT_PER_IP = '100';
 });
 
 afterEach(() => {

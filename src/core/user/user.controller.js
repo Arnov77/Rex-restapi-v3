@@ -1,8 +1,9 @@
+const bcrypt = require('bcryptjs');
 const usersStore = require('../../shared/auth/usersStore');
 const apiKeyStore = require('../../shared/auth/apiKeyStore');
 const usageStore = require('../../shared/auth/usageStore');
 const ResponseHandler = require('../../shared/utils/response');
-const { NotFoundError, AppError } = require('../../shared/utils/errors');
+const { NotFoundError, AppError, UnauthorizedError } = require('../../shared/utils/errors');
 const logger = require('../../shared/utils/logger');
 
 const DEFAULT_USER_DAILY_LIMIT = parseInt(process.env.QUOTA_USER_DAILY, 10) || 250;
@@ -44,6 +45,11 @@ function publicApiKeyView(record, includePlaintext) {
   };
 }
 
+// /api/user/profile is polled every 30s by the dashboard for live quota
+// updates. Returning plaintext on every call means a stolen JWT alone is
+// enough to leak the API key — so plaintext is NEVER included here. Use
+// /api/user/reveal-key (password re-auth) or read the cached value from the
+// login/register/regenerate response on the client.
 async function profile(req, res) {
   const user = usersStore.findById(req.user.id);
   if (!user) throw new NotFoundError('User no longer exists');
@@ -51,8 +57,47 @@ async function profile(req, res) {
   const apiKeyRecord = apiKeyStore.findById(user.apiKeyId);
   return ResponseHandler.success(res, {
     user: usersStore.publicView(user),
-    apiKey: publicApiKeyView(apiKeyRecord, true),
+    apiKey: publicApiKeyView(apiKeyRecord, false),
     usage: buildUsageView(user, apiKeyRecord),
+  });
+}
+
+// Returns the plaintext API key after re-confirming the user's password.
+// This is the recovery path when the client's localStorage cache was
+// cleared but the JWT is still valid — without this endpoint the user
+// would have to regenerate (and invalidate) their key just to see it.
+async function revealKey(req, res) {
+  const { password } = req.validated;
+
+  const user = usersStore.findById(req.user.id);
+  if (!user) throw new NotFoundError('User no longer exists');
+
+  const ok = await bcrypt.compare(password, user.passwordHash);
+  if (!ok) {
+    logger.warn(`[user] Reveal-key denied for "${user.username}" (wrong password)`);
+    throw new UnauthorizedError('Password salah');
+  }
+
+  const apiKeyRecord = apiKeyStore.findById(user.apiKeyId);
+  if (!apiKeyRecord) {
+    throw new NotFoundError('API key not found');
+  }
+
+  const plaintext = apiKeyStore.getPlaintextById(apiKeyRecord.id);
+  if (!plaintext) {
+    throw new AppError('Plaintext key tidak tersedia di server. Silakan regenerate.', 410);
+  }
+
+  logger.info(`[user] Revealed API key for "${user.username}"`);
+  return ResponseHandler.success(res, {
+    apiKey: {
+      id: apiKeyRecord.id,
+      name: apiKeyRecord.name,
+      tier: apiKeyRecord.tier,
+      dailyLimit: apiKeyRecord.dailyLimit,
+      key: plaintext,
+      createdAt: apiKeyRecord.createdAt,
+    },
   });
 }
 
@@ -99,4 +144,4 @@ async function regenerateKey(req, res) {
   );
 }
 
-module.exports = { profile, regenerateKey };
+module.exports = { profile, regenerateKey, revealKey };

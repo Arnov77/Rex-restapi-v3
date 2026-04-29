@@ -8,9 +8,18 @@ const registerSchema = Joi.object({
       'string.pattern.base': 'Username must be 3-32 chars, letters / digits / underscore only',
     }),
   email: Joi.string().email().max(254).required(),
-  password: Joi.string().min(8).max(200).required().messages({
-    'string.min': 'Password must be at least 8 characters',
-  }),
+  // At least 10 chars and must contain a letter AND a digit. The lookahead
+  // regex enforces both; Joi `min` would still apply if the regex matched
+  // a shorter string for some reason.
+  password: Joi.string()
+    .min(10)
+    .max(200)
+    .pattern(/^(?=.*[A-Za-z])(?=.*\d).{10,200}$/)
+    .required()
+    .messages({
+      'string.min': 'Password minimal 10 karakter',
+      'string.pattern.base': 'Password minimal 10 karakter dan harus mengandung huruf dan angka',
+    }),
 });
 
 const loginSchema = Joi.object({

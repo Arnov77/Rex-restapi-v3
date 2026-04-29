@@ -14,6 +14,7 @@ function buildApp() {
   delete require.cache[require.resolve('../src/shared/auth/verifyToken')];
   delete require.cache[require.resolve('../src/shared/auth/apiKeyAuth')];
   delete require.cache[require.resolve('../src/shared/middleware/loginLimiter')];
+  delete require.cache[require.resolve('../src/shared/middleware/registerLimiter')];
   delete require.cache[require.resolve('../src/core/auth/auth.routes')];
   delete require.cache[require.resolve('../src/core/auth/auth.controller')];
   delete require.cache[require.resolve('../src/core/user/user.routes')];
@@ -44,6 +45,9 @@ beforeEach(() => {
   fs.symlinkSync(tmpRoot, realDataDir, 'dir');
   process.env.BCRYPT_ROUNDS = '8';
   process.env.JWT_SECRET = 'x'.repeat(64);
+  // Bump register cap above the test count so per-IP throttle doesn't
+  // interfere; supertest reuses 127.0.0.1 across all calls in a test file.
+  process.env.REGISTER_LIMIT_PER_IP = '100';
   buildApp();
 });
 
@@ -125,18 +129,21 @@ describe('GET /api/user/profile', () => {
     expect(res.status).toBe(401);
   });
 
-  it('returns user + apiKey (with plaintext) + usage when JWT is valid', async () => {
+  it('returns user + apiKey metadata (no plaintext) + usage when JWT is valid', async () => {
     const reg = await request(app)
       .post('/api/auth/register')
       .send({ username: 'alice', email: 'a@x.com', password: 'hunter22pass' });
     const token = reg.body.data.token;
-    const plaintextAtRegister = reg.body.data.apiKey.key;
 
     const res = await request(app).get('/api/user/profile').set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(200);
     expect(res.body.data.user.username).toBe('alice');
-    expect(res.body.data.apiKey.key).toBe(plaintextAtRegister);
+    // Plaintext is intentionally NOT shipped by /profile — JWT theft alone
+    // must not leak the API key. Plaintext is delivered at register / login
+    // / regenerate-key / reveal-key (password re-auth) only.
+    expect(res.body.data.apiKey.key).toBeNull();
+    expect(res.body.data.apiKey.id).toBeTruthy();
     expect(res.body.data.usage.limit).toBeGreaterThan(0);
   });
 
@@ -169,10 +176,12 @@ describe('POST /api/user/regenerate-key', () => {
     expect(res.body.data.apiKey.key).toMatch(/^rex_/);
     expect(res.body.data.apiKey.key).not.toBe(oldKey);
 
+    // /profile no longer returns plaintext; verify metadata reflects new id.
     const profile = await request(app)
       .get('/api/user/profile')
       .set('Authorization', `Bearer ${token}`);
-    expect(profile.body.data.apiKey.key).toBe(res.body.data.apiKey.key);
+    expect(profile.body.data.apiKey.id).toBe(res.body.data.apiKey.id);
+    expect(profile.body.data.apiKey.key).toBeNull();
   });
 
   it("preserves today's used quota across regenerate (anti-abuse)", async () => {

@@ -13,12 +13,13 @@ function nextMidnightIso() {
   return next.toISOString();
 }
 
-function buildUsageView(apiKeyRecord) {
+function buildUsageView(user, apiKeyRecord) {
   if (!apiKeyRecord || apiKeyRecord.tier === 'master') {
     return { used: 0, limit: null, remaining: null, resetAt: nextMidnightIso(), unlimited: true };
   }
   const limit = apiKeyRecord.dailyLimit ?? DEFAULT_USER_DAILY_LIMIT;
-  const used = usageStore.getCount(`key:${apiKeyRecord.id}`) || 0;
+  // Quota is keyed per-user, not per-key — see middleware/dailyQuota.js.
+  const used = usageStore.getCount(`user:${user.id}`) || 0;
   return {
     used,
     limit,
@@ -51,7 +52,7 @@ async function profile(req, res) {
   return ResponseHandler.success(res, {
     user: usersStore.publicView(user),
     apiKey: publicApiKeyView(apiKeyRecord, true),
-    usage: buildUsageView(apiKeyRecord),
+    usage: buildUsageView(user, apiKeyRecord),
   });
 }
 
@@ -73,13 +74,10 @@ async function regenerateKey(req, res) {
     throw new AppError(`Failed to regenerate API key: ${err.message}`, 500);
   }
 
-  // Carry today's quota usage from the old key id onto the new one so users
-  // can't reset their daily counter by regenerating. Quota is per-user-per-day,
-  // not per-key-per-day.
-  if (previous) {
-    usageStore.transfer(`key:${previous.id}`, `key:${result.record.id}`);
-  }
-
+  // Quota counter is keyed by `user:<userId>` (see middleware/dailyQuota.js),
+  // so regenerating the API key already preserves today's usage — no
+  // transfer needed. Any stale `key:<id>` entries from older deployments are
+  // garbage-collected at midnight reset.
   usersStore.updateApiKeyId(user.id, result.record.id);
   logger.info(
     `[user] Regenerated API key for "${user.username}" (revoked ${previous?.id || 'none'})`

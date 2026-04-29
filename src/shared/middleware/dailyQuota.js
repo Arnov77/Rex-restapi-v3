@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const usageStore = require('../auth/usageStore');
 const apiKeyStore = require('../auth/apiKeyStore');
+const usersStore = require('../auth/usersStore');
 const ResponseHandler = require('../utils/response');
 const { env } = require('../../../config');
 
@@ -15,8 +16,21 @@ function hashIp(ip) {
     .slice(0, 16);
 }
 
+/**
+ * Resolve the counter key for the daily quota bucket.
+ *
+ * Quota follows the *user*, not the API key — otherwise regenerating a key
+ * would reset the daily counter. When the API key is bound to a user record
+ * we bucket as `user:<userId>`. Standalone keys with no user (created via
+ * /api/admin/keys for partners/services) fall back to `key:<keyId>`.
+ * Anonymous traffic is bucketed by hashed IP.
+ */
 function counterKeyFor(req) {
-  if (req.apiKey) return `key:${req.apiKey.id}`;
+  if (req.apiKey) {
+    const owner = usersStore.findByApiKeyId(req.apiKey.id);
+    if (owner) return `user:${owner.id}`;
+    return `key:${req.apiKey.id}`;
+  }
   return `anon:${hashIp(req.ip)}`;
 }
 

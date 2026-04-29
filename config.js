@@ -76,6 +76,11 @@ const envSchema = Joi.object({
   // Anti-spam burst guard (technical, applied to all tiers including master).
   ANTI_SPAM_PER_SECOND: Joi.number().integer().min(1).max(1000).default(5),
 
+  // Brute-force guard for /api/auth/login. Sliding window = 15 minutes.
+  // Successful logins do NOT consume the budget.
+  LOGIN_LIMIT_PER_IP: Joi.number().integer().min(1).max(1000).default(10),
+  LOGIN_LIMIT_PER_IDENTIFIER: Joi.number().integer().min(1).max(1000).default(5),
+
   // Daily quota caps (business, 1 hit = 1 unit; reset at local midnight).
   // Master bypasses; per-key dailyLimit override possible via /api/admin/keys.
   QUOTA_ANON_DAILY: Joi.number().integer().min(0).default(30),

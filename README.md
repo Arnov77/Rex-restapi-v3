@@ -1,6 +1,6 @@
 # Rex-RESTAPI
 
-REST API untuk downloader media (YouTube / TikTok / Instagram / Twitter / Pinterest), generator gambar (Brat / MIQ / quote / smeme), TTS WhatsApp voice note, sticker Telegram → WhatsApp, dan utilitas tambahan. Sistem **membership** sendiri (akun + JWT + API key + quota harian per-user) tanpa upstream auth provider.
+REST API untuk downloader media (YouTube / TikTok / Instagram / Twitter / Pinterest), generator gambar (Brat / MIQ / quote / smeme), NSFW detector, TTS WhatsApp voice note, sticker Telegram → WhatsApp, dan utilitas tambahan. Sistem **membership** sendiri (akun + JWT + API key + quota harian per-user) tanpa upstream auth provider.
 
 Struktur v2: kode dipecah ke `src/core/` (per-domain), `src/shared/` (cross-cutting), test suite Vitest, lint/format pipeline (eslint + prettier + husky).
 
@@ -83,6 +83,7 @@ Mounted tapi **disembunyikan dari Swagger publik** (`/api/docs.json` tidak tampi
 | `POST`      | `/api/quote`, `/api/smeme`            | Generator gambar template                                 |
 | `POST`      | `/api/miq/generate`                   | "Make It a Quote" (avatar opsional via Discord webhook)   |
 | `POST`      | `/api/promosi`                        | Promotion detector (Gemini)                               |
+| `POST`      | `/api/nsfw/detect`                    | NSFW detector dari `imageUrl` atau upload field `image`   |
 | `POST`      | `/api/telegram/sticker-pack`          | Info isi Telegram sticker pack                            |
 | `POST`      | `/api/telegram/sticker-pack/download` | Convert seluruh pack ke `.wasticker` siap import WhatsApp |
 | `POST`      | `/api/telegram/sticker`               | Convert 1 sticker (static / animated)                     |
@@ -181,6 +182,22 @@ MASTER_API_KEY=rex_<43-char base64url>
 ```
 
 Tambahkan upstream tokens hanya kalau pakai endpoint terkait (`GEMINI_API_KEY` untuk `/api/promosi`, `DISCORD_WEBHOOK_URL` untuk MIQ avatar upload, `TELEGRAM_BOT_TOKEN` untuk `/api/telegram/*`). Lihat [`.env.example`](./.env.example) untuk daftar lengkap dengan default.
+
+### NSFW detector
+
+Endpoint ini memakai `nsfwjs` di server. Model `mobilenet_v2` dibundel di `public/models/nsfw/mobilenet_v2`, diload sekali dari disk, lalu dicache di memory. `NSFW_MODEL_URL` opsional kalau ingin memakai model eksternal.
+
+```bash
+curl -X POST http://localhost:7860/api/nsfw/detect \
+  -H 'Content-Type: application/json' \
+  -d '{"imageUrl":"https://example.com/image.jpg","threshold":0.7}'
+
+curl -X POST http://localhost:7860/api/nsfw/detect \
+  -F image=@photo.jpg \
+  -F threshold=0.7
+```
+
+Response utama berisi `isNsfw`, `nsfwScore`, `safeScore`, `threshold`, `label`, dan `predictions`. `predictions` memakai class NSFWJS: `drawing`, `hentai`, `neutral`, `porn`, dan `sexy`.
 
 ### YouTube cookies (opsional, untuk video age-restricted / region-locked)
 

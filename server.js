@@ -38,6 +38,7 @@ const mcprofileRoute = require('./src/core/tools/mcprofile/mcprofile.routes');
 const miqRoute = require('./src/core/tools/miq/miq.routes');
 const telegramRoute = require('./src/core/tools/telegram/telegram.routes');
 const ttsRoute = require('./src/core/tools/tts/tts.routes');
+const nsfwRoute = require('./src/core/tools/nsfw/nsfw.routes');
 const authRoute = require('./src/core/auth/auth.routes');
 const userRoute = require('./src/core/user/user.routes');
 const adminRoute = require('./src/core/admin/admin.routes');
@@ -134,6 +135,7 @@ app.use('/api/smeme', dailyQuota, smemeRoute);
 app.use('/api/promosi', dailyQuota, promosiRoute);
 app.use('/api/miq', dailyQuota, miqRoute);
 app.use('/api/telegram', dailyQuota, telegramRoute);
+app.use('/api/nsfw', dailyQuota, nsfwRoute);
 app.use('/mcapi', dailyQuota, mcprofileRoute);
 
 // OpenAPI / Swagger UI — the JSON spec is published at /api/docs.json for

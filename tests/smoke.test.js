@@ -33,6 +33,7 @@ const routeModules = [
   '../src/core/tools/mcprofile/mcprofile.routes',
   '../src/core/tools/miq/miq.routes',
   '../src/core/tools/telegram/telegram.routes',
+  '../src/core/tools/nsfw/nsfw.routes',
   '../src/core/admin/admin.routes',
 ];
 
@@ -216,6 +217,7 @@ describe('server app (end-to-end wiring)', () => {
       '/api/telegram/sticker',
       '/api/telegram/sticker-pack',
       '/api/telegram/sticker-pack/download',
+      '/api/nsfw/detect',
     ]) {
       expect(paths).toContain(expected);
     }
@@ -236,6 +238,12 @@ describe('server app (end-to-end wiring)', () => {
   it('telegram service exports buildWAStickerPack as a plain function', () => {
     const svc = require('../src/core/tools/telegram/telegram.service');
     expect(typeof svc.buildWAStickerPack).toBe('function');
+  });
+
+  it('nsfw service exports detection helpers as plain functions', () => {
+    const svc = require('../src/core/tools/nsfw/nsfw.service');
+    expect(typeof svc.detectImage).toBe('function');
+    expect(typeof svc.normalizePredictions).toBe('function');
   });
 
   it('serves the Swagger UI at /api/docs', async () => {

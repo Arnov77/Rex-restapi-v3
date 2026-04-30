@@ -16,7 +16,8 @@ const fullSpec = swaggerJsdoc({
       description:
         'Unified API surface for media scrapers (YouTube/TikTok/Instagram), image ' +
         'generators (Brat/Quote/MIQ/Smeme), Telegram sticker conversion, Google ' +
-        'Drive link resolution, Minecraft profile lookup, and SDXL image generation.',
+        'Drive link resolution, Minecraft profile lookup, NSFW detection, and SDXL ' +
+        'image generation.',
     },
     servers: [{ url: '/', description: 'Current host' }],
     components: {
@@ -38,7 +39,7 @@ const fullSpec = swaggerJsdoc({
     security: [{}, { apiKey: [] }],
     tags: [
       { name: 'Media', description: 'YouTube, TikTok, Instagram, Brat' },
-      { name: 'Tools', description: 'Quote, MIQ, Smeme, GDrive, Telegram, Promosi' },
+      { name: 'Tools', description: 'Quote, MIQ, Smeme, GDrive, Telegram, Promosi, NSFW' },
       { name: 'Auth', description: 'Account registration and login' },
       { name: 'User', description: 'Authenticated dashboard endpoints' },
     ],

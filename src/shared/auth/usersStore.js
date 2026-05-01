@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const logger = require('../utils/logger');
+const supabase = require('./supabasePersistence');
 
 const STORE_DIR = path.join(__dirname, '../../../data');
 const STORE_PATH = path.join(STORE_DIR, 'users.json');
@@ -64,6 +65,34 @@ function load() {
 
 function persist() {
   if (cache) writeStore(cache);
+  if (cache) {
+    supabase.persistRows(
+      supabase.TABLES.users,
+      cache.users.map((user) => ({
+        id: user.id,
+        data: user,
+        updated_at: new Date().toISOString(),
+      })),
+      'users'
+    );
+  }
+}
+
+async function init() {
+  if (!supabase.isEnabled()) {
+    load();
+    return;
+  }
+
+  const rows = await supabase.loadRows(supabase.TABLES.users);
+  if (rows.length) {
+    cache = { users: rows.map((row) => row.data).filter(Boolean) };
+  } else {
+    cache = readStore();
+    if (cache.users.length) persist();
+  }
+  rebuildIndexes();
+  logger.info(`[users] Supabase store ready (${cache.users.length} users)`);
 }
 
 function publicView(user) {
@@ -170,6 +199,7 @@ module.exports = {
   touchLogin,
   updateApiKeyId,
   publicView,
+  init,
   _resetForTests,
   _STORE_PATH: STORE_PATH,
 };

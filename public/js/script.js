@@ -430,7 +430,8 @@ function buildTryTab(api) {
           .join('');
         control = `<select class="form-input" id="f-${param.name}">${opts}</select>`;
       } else {
-        control = `<input type="${inputType}" class="form-input" id="f-${param.name}" ${inputType === 'file' ? 'accept="image/*"' : `placeholder="${hint}"`}>`;
+        const accept = param.accept || 'image/*';
+        control = `<input type="${inputType}" class="form-input" id="f-${param.name}" ${inputType === 'file' ? `accept="${accept}"` : `placeholder="${hint}"`}>`;
       }
 
       fields += `<div class="form-section">
@@ -502,6 +503,7 @@ function buildCodeTab(api) {
   const isTelegramSticker = endpoint === '/api/telegram/sticker';
   const isTelegramStickerPack = endpoint === '/api/telegram/sticker-pack';
   const isTelegramStickerDownload = endpoint === '/api/telegram/sticker-pack/download';
+  const isNsfwDetector = endpoint === '/api/nsfw/detect';
 
   let curl;
   let fetchCode;
@@ -644,6 +646,49 @@ response = requests.post(
     '${BASE_URL}${endpoint}',
     json={'url': 'https://t.me/addstickers/KOSHAKIEBANIYE'}
 )
+print(response.json())`;
+  } else if (isNsfwDetector) {
+    curl = `# Upload file gambar/GIF/video
+curl -X POST ${BASE_URL}${endpoint} \\
+  -F "image=@media.mp4" \\
+  -F "threshold=0.7"
+
+# Atau pakai URL HTTPS
+curl -X POST ${BASE_URL}${endpoint} \\
+  -H "Content-Type: application/json" \\
+  -d '{"mediaUrl":"https://example.com/video.mp4","threshold":0.7}'`;
+
+    fetchCode = `// Upload file gambar/GIF/video
+const form = new FormData();
+form.append('image', fileInput.files[0]);
+form.append('threshold', '0.7');
+
+const response = await fetch('${BASE_URL}${endpoint}', {
+  method: 'POST',
+  body: form
+});
+const data = await response.json();
+console.log(data);`;
+
+    axiosCode = `import axios from 'axios';
+
+const form = new FormData();
+form.append('image', fileInput.files[0]);
+form.append('threshold', '0.7');
+
+const res = await axios.post('${BASE_URL}${endpoint}', form, {
+  headers: { 'Content-Type': 'multipart/form-data' }
+});
+console.log(res.data);`;
+
+    pythonCode = `import requests
+
+with open('media.mp4', 'rb') as media_file:
+    response = requests.post(
+        '${BASE_URL}${endpoint}',
+        data={'threshold': '0.7'},
+        files={'image': media_file}
+    )
 print(response.json())`;
   } else if (supportsFile) {
     curl = `curl -X POST ${BASE_URL}${endpoint} \\
@@ -982,6 +1027,43 @@ X-Sticker-Type: webp | tgs | webm
     }, null, 2);
   }
 
+  if (action === '/api/nsfw/detect') {
+    return JSON.stringify({
+      success: true,
+      statusCode: 200,
+      message: 'NSFW detection completed',
+      data: {
+        source: 'upload',
+        isNsfw: false,
+        mediaType: 'video',
+        nsfwScore: 0.043,
+        safeScore: 0.957,
+        threshold: 0.7,
+        label: 'drawing',
+        analyzedFrames: 6,
+        nsfwFrames: 0,
+        maxFrame: {
+          index: 0,
+          timeSec: 0,
+          label: 'drawing',
+          nsfwScore: 0.043,
+          safeScore: 0.957,
+        },
+        frames: [
+          { index: 0, timeSec: 0, isNsfw: false, nsfwScore: 0.043, safeScore: 0.957, label: 'drawing' },
+        ],
+        predictions: [
+          { label: 'drawing', score: 0.765 },
+          { label: 'neutral', score: 0.192 },
+          { label: 'hentai', score: 0.028 },
+          { label: 'porn', score: 0.013 },
+          { label: 'sexy', score: 0.003 },
+        ],
+      },
+      timestamp: '2026-05-01T10:00:00.000Z',
+    }, null, 2);
+  }
+
   if (action === '/mcapi/profile') {
     return JSON.stringify({
       success: true,
@@ -1050,6 +1132,8 @@ function getParamDesc(name) {
     url: 'URL lengkap termasuk https://',
     query: 'Judul video atau URL YouTube langsung',
     image: 'URL gambar sumber',
+    imageUrl: 'URL gambar HTTPS publik atau alternatif dari upload file',
+    mediaUrl: 'URL HTTPS gambar, GIF, atau video publik',
     name: 'Nama pengirim quote',
     message: 'Isi quote atau pesan',
     author: 'Nama yang ditampilkan pada quote',

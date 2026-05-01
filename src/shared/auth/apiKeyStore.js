@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const logger = require('../utils/logger');
+const supabase = require('./supabasePersistence');
 
 const STORE_DIR = path.join(__dirname, '../../../data');
 const STORE_PATH = path.join(STORE_DIR, 'api-keys.json');
@@ -55,6 +56,29 @@ function load() {
 
 function persist() {
   if (cache) writeStore(cache);
+  if (cache) {
+    supabase.persistRows(
+      supabase.TABLES.apiKeys,
+      cache.keys.map((key) => ({ id: key.id, data: key, updated_at: new Date().toISOString() })),
+      'api keys'
+    );
+  }
+}
+
+async function init() {
+  if (!supabase.isEnabled()) {
+    load();
+    return;
+  }
+
+  const rows = await supabase.loadRows(supabase.TABLES.apiKeys);
+  if (rows.length) {
+    cache = { keys: rows.map((row) => row.data).filter(Boolean) };
+  } else {
+    cache = readStore();
+    if (cache.keys.length) persist();
+  }
+  logger.info(`[apikeys] Supabase store ready (${cache.keys.length} keys)`);
 }
 
 function listKeys() {
@@ -233,6 +257,7 @@ module.exports = {
   getPlaintextById,
   ensureMasterKey,
   flushPendingTouches,
+  init,
   _resetForTests,
   _STORE_PATH: STORE_PATH,
 };

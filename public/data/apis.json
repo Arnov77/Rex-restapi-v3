@@ -469,6 +469,43 @@
           "required": false
         }
       ]
+    },
+    {
+      "id": 3,
+      "name": "NSFW Detector",
+      "method": "POST",
+      "action": "/api/nsfw/detect",
+      "description": "Deteksi gambar, GIF, atau video NSFW memakai NSFWJS lokal. Video/GIF dianalisis dari beberapa frame.",
+      "params": [
+        {
+          "name": "image",
+          "type": "file",
+          "accept": "image/*,video/*",
+          "required": false,
+          "description": "File gambar, GIF, atau video yang ingin dianalisis. Alternatif dari imageUrl/mediaUrl."
+        },
+        {
+          "name": "imageUrl",
+          "type": "string",
+          "example": "https://example.com/image.jpg",
+          "required": false,
+          "description": "URL gambar HTTPS publik. Alternatif dari upload file image."
+        },
+        {
+          "name": "mediaUrl",
+          "type": "string",
+          "example": "https://example.com/video.mp4",
+          "required": false,
+          "description": "URL HTTPS gambar, GIF, atau video publik. Alternatif dari imageUrl."
+        },
+        {
+          "name": "threshold",
+          "type": "number",
+          "example": 0.7,
+          "required": false,
+          "description": "Ambang 0-1 untuk menentukan isNsfw. Default 0.7."
+        }
+      ]
     }
   ],
   "Minecraft": [

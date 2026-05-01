@@ -183,9 +183,23 @@ MASTER_API_KEY=rex_<43-char base64url>
 
 Tambahkan upstream tokens hanya kalau pakai endpoint terkait (`GEMINI_API_KEY` untuk `/api/promosi`, `DISCORD_WEBHOOK_URL` untuk MIQ avatar upload, `TELEGRAM_BOT_TOKEN` untuk `/api/telegram/*`). Lihat [`.env.example`](./.env.example) untuk daftar lengkap dengan default.
 
+### Supabase persistence (Render)
+
+Default store tetap JSON lokal (`AUTH_STORE_BACKEND=json`). Untuk deploy Render tanpa kehilangan user/API key/quota saat redeploy, buat tabel Supabase dari [`supabase/schema.sql`](./supabase/schema.sql), lalu set env:
+
+```env
+AUTH_STORE_BACKEND=supabase
+SUPABASE_URL=https://<project-ref>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
+JWT_SECRET=<64-byte random hex>
+MASTER_API_KEY=rex_<43-char base64url>
+```
+
+Gunakan **service role key hanya di server/Render env**, jangan pernah di frontend. Saat Supabase masih kosong, server akan seed dari JSON lokal `data/*.json` jika file itu ada.
+
 ### NSFW detector
 
-Endpoint ini memakai `nsfwjs` di server. Model `mobilenet_v2` dibundel di `public/models/nsfw/mobilenet_v2`, diload sekali dari disk, lalu dicache di memory. `NSFW_MODEL_URL` opsional kalau ingin memakai model eksternal.
+Endpoint ini memakai `nsfwjs` di server. Model `mobilenet_v2` dibundel di `public/models/nsfw/mobilenet_v2`, diload sekali dari disk, lalu dicache di memory. `NSFW_MODEL_URL` opsional kalau ingin memakai model eksternal. Gambar statis dianalisis langsung; GIF/video diekstrak beberapa frame dengan ffmpeg (`NSFW_MAX_FRAMES`, `NSFW_FRAME_INTERVAL_SEC`) lalu skor tertinggi dipakai sebagai hasil akhir.
 
 ```bash
 curl -X POST http://localhost:7860/api/nsfw/detect \
@@ -195,9 +209,13 @@ curl -X POST http://localhost:7860/api/nsfw/detect \
 curl -X POST http://localhost:7860/api/nsfw/detect \
   -F image=@photo.jpg \
   -F threshold=0.7
+
+curl -X POST http://localhost:7860/api/nsfw/detect \
+  -F image=@video.mp4 \
+  -F threshold=0.7
 ```
 
-Response utama berisi `isNsfw`, `nsfwScore`, `safeScore`, `threshold`, `label`, dan `predictions`. `predictions` memakai class NSFWJS: `drawing`, `hentai`, `neutral`, `porn`, dan `sexy`.
+Response utama berisi `isNsfw`, `mediaType`, `nsfwScore`, `safeScore`, `threshold`, `label`, dan `predictions` untuk gambar. Untuk GIF/video ada tambahan `analyzedFrames`, `nsfwFrames`, `maxFrame`, dan `frames`. `predictions` memakai class NSFWJS: `drawing`, `hentai`, `neutral`, `porn`, dan `sexy`.
 
 ### YouTube cookies (opsional, untuk video age-restricted / region-locked)
 

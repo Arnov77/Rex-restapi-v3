@@ -3,6 +3,8 @@ const nsfwjs = require('nsfwjs');
 const sharp = require('sharp');
 const fs = require('fs/promises');
 const path = require('path');
+const os = require('os');
+const ffmpeg = require('fluent-ffmpeg');
 const { env } = require('../../../../config');
 const { AppError, ValidationError } = require('../../../shared/utils/errors');
 
@@ -144,10 +146,141 @@ async function detectImage(buffer, { threshold } = {}) {
   }
 }
 
+function mediaKind(contentType = '') {
+  const normalized = contentType.toLowerCase();
+  if (normalized.includes('image/gif')) return 'gif';
+  if (normalized.startsWith('video/')) return 'video';
+  if (normalized.startsWith('image/')) return 'image';
+  return 'unknown';
+}
+
+function extensionForContentType(contentType = '') {
+  const normalized = contentType.toLowerCase();
+  if (normalized.includes('image/gif')) return '.gif';
+  if (normalized.includes('webm')) return '.webm';
+  if (normalized.includes('quicktime')) return '.mov';
+  if (normalized.includes('x-msvideo')) return '.avi';
+  if (normalized.startsWith('video/')) return '.mp4';
+  if (normalized.includes('png')) return '.png';
+  if (normalized.includes('webp')) return '.webp';
+  return '.jpg';
+}
+
+async function extractFrames(buffer, contentType) {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'rex-nsfw-'));
+  const inputPath = path.join(tmpDir, `input${extensionForContentType(contentType)}`);
+  const outputPattern = path.join(tmpDir, 'frame-%03d.jpg');
+
+  try {
+    await fs.writeFile(inputPath, buffer);
+    await new Promise((resolve, reject) => {
+      ffmpeg(inputPath)
+        .outputOptions([
+          `-vf fps=1/${env.NSFW_FRAME_INTERVAL_SEC},scale=${env.NSFW_IMAGE_SIZE}:${env.NSFW_IMAGE_SIZE}:force_original_aspect_ratio=decrease`,
+          `-vframes ${env.NSFW_MAX_FRAMES}`,
+          '-q:v 3',
+        ])
+        .output(outputPattern)
+        .on('end', resolve)
+        .on('error', (err) =>
+          reject(new AppError(`ffmpeg frame extract failed: ${err.message}`, 500))
+        )
+        .run();
+    });
+
+    const files = (await fs.readdir(tmpDir))
+      .filter((file) => /^frame-\d+\.jpg$/i.test(file))
+      .sort();
+
+    if (!files.length) {
+      throw new ValidationError('No frames could be extracted from the media file');
+    }
+
+    const frames = [];
+    for (const [index, file] of files.entries()) {
+      frames.push({
+        index,
+        timeSec: index * env.NSFW_FRAME_INTERVAL_SEC,
+        buffer: await fs.readFile(path.join(tmpDir, file)),
+      });
+    }
+    return frames;
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+function aggregateFrameResults(frameResults, threshold, kind) {
+  const maxFrame = frameResults.reduce(
+    (best, frame) => (!best || frame.nsfwScore > best.nsfwScore ? frame : best),
+    null
+  );
+  const minSafeScore = frameResults.reduce((min, frame) => Math.min(min, frame.safeScore), 1);
+  const nsfwFrames = frameResults.filter((frame) => frame.isNsfw).length;
+
+  return {
+    mediaType: kind,
+    isNsfw: Boolean(maxFrame && maxFrame.nsfwScore >= threshold),
+    nsfwScore: maxFrame?.nsfwScore || 0,
+    safeScore: minSafeScore,
+    threshold,
+    label: maxFrame?.label || 'unknown',
+    analyzedFrames: frameResults.length,
+    nsfwFrames,
+    maxFrame: maxFrame
+      ? {
+          index: maxFrame.index,
+          timeSec: maxFrame.timeSec,
+          label: maxFrame.label,
+          nsfwScore: maxFrame.nsfwScore,
+          safeScore: maxFrame.safeScore,
+          predictions: maxFrame.predictions,
+        }
+      : null,
+    frames: frameResults,
+  };
+}
+
+async function detectAnimatedMedia(buffer, { contentType, threshold } = {}) {
+  const resolvedThreshold = threshold ?? env.NSFW_THRESHOLD;
+  const kind = mediaKind(contentType);
+  const frames = await extractFrames(buffer, contentType);
+  const frameResults = [];
+
+  for (const frame of frames) {
+    const result = await detectImage(frame.buffer, { threshold: resolvedThreshold });
+    frameResults.push({
+      index: frame.index,
+      timeSec: frame.timeSec,
+      isNsfw: result.isNsfw,
+      nsfwScore: result.nsfwScore,
+      safeScore: result.safeScore,
+      label: result.label,
+      predictions: result.predictions,
+    });
+  }
+
+  return aggregateFrameResults(frameResults, resolvedThreshold, kind);
+}
+
+async function detectMedia(buffer, { contentType = 'image/jpeg', threshold } = {}) {
+  const kind = mediaKind(contentType);
+  if (kind === 'video' || kind === 'gif') {
+    return detectAnimatedMedia(buffer, { contentType, threshold });
+  }
+
+  const result = await detectImage(buffer, { threshold });
+  return { mediaType: 'image', analyzedFrames: 1, ...result };
+}
+
 module.exports = {
+  aggregateFrameResults,
   detectImage,
+  detectMedia,
   createLocalModelIOHandler,
+  extractFrames,
   getModelUrl,
   imageBufferToTensor,
+  mediaKind,
   normalizePredictions,
 };

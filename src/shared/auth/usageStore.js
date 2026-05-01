@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const logger = require('../utils/logger');
+const supabase = require('./supabasePersistence');
 
 const STORE_DIR = path.join(__dirname, '../../../data');
 const STORE_PATH = path.join(STORE_DIR, 'usage.json');
@@ -54,6 +55,11 @@ function writeStoreSync() {
   const tmp = `${STORE_PATH}.${process.pid}.${Date.now()}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(snapshot, null, 2), { mode: 0o600 });
   fs.renameSync(tmp, STORE_PATH);
+  supabase.persistRows(
+    supabase.TABLES.usage,
+    [{ date: snapshot.date, data: snapshot, updated_at: snapshot.lastFlushedAt }],
+    'usage'
+  );
 }
 
 function flush() {
@@ -112,8 +118,16 @@ function scheduleMidnightReset() {
  * that crashed yesterday and restarts after midnight would otherwise resume
  * with stale counters.
  */
-function start({ flushIntervalSec = 60 } = {}) {
-  const persisted = readStore();
+async function readPersistedForStart() {
+  if (!supabase.isEnabled()) return readStore();
+
+  const rows = await supabase.loadRows(supabase.TABLES.usage);
+  if (!rows.length) return readStore();
+  rows.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  return rows[0].data || null;
+}
+
+function applyPersistedState(persisted, flushIntervalSec) {
   const today = todayLocalIsoDate();
   if (persisted && persisted.date === today) {
     state = { date: today, counters: new Map(Object.entries(persisted.counters)) };
@@ -138,6 +152,17 @@ function start({ flushIntervalSec = 60 } = {}) {
     `[usage] store ready (date=${state.date}, entries=${state.counters.size}, ` +
       `flush every ${flushIntervalSec}s, reset at midnight local time)`
   );
+}
+
+function start({ flushIntervalSec = 60 } = {}) {
+  if (!supabase.isEnabled()) {
+    applyPersistedState(readStore(), flushIntervalSec);
+    return undefined;
+  }
+
+  return readPersistedForStart().then((persisted) => {
+    applyPersistedState(persisted, flushIntervalSec);
+  });
 }
 
 function stop() {

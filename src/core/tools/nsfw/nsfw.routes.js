@@ -11,12 +11,13 @@ const { detectSchema } = require('./nsfw.schemas');
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: env.NSFW_MAX_IMAGE_MB * 1024 * 1024,
+    fileSize: Math.max(env.NSFW_MAX_IMAGE_MB, env.NSFW_MAX_VIDEO_MB) * 1024 * 1024,
     files: 1,
   },
   fileFilter: (_req, file, cb) => {
-    if (!file.mimetype?.startsWith('image/')) {
-      return cb(new ValidationError('Image file must be an image'));
+    const mime = file.mimetype || '';
+    if (!mime.startsWith('image/') && !mime.startsWith('video/')) {
+      return cb(new ValidationError('File must be an image, GIF, or video'));
     }
     return cb(null, true);
   },
@@ -26,7 +27,7 @@ const upload = multer({
  * @openapi
  * /api/nsfw/detect:
  *   post:
- *     summary: Detect whether an image is NSFW
+ *     summary: Detect whether an image, GIF, or video is NSFW
  *     tags: [Tools]
  *     requestBody:
  *       required: true
@@ -36,13 +37,15 @@ const upload = multer({
  *             type: object
  *             properties:
  *               imageUrl: { type: string, format: uri, description: HTTPS image URL }
+ *               mediaUrl: { type: string, format: uri, description: HTTPS image/GIF/video URL }
  *               threshold: { type: number, minimum: 0, maximum: 1, default: 0.7 }
  *         multipart/form-data:
  *           schema:
  *             type: object
  *             properties:
- *               image: { type: string, format: binary, description: Image file }
+ *               image: { type: string, format: binary, description: Image/GIF/video file }
  *               imageUrl: { type: string, format: uri, description: HTTPS image URL alternative }
+ *               mediaUrl: { type: string, format: uri, description: HTTPS image/GIF/video URL alternative }
  *               threshold: { type: number, minimum: 0, maximum: 1, default: 0.7 }
  *     responses:
  *       200:

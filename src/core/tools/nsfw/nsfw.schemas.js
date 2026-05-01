@@ -16,6 +16,21 @@ const detectSchema = Joi.object({
       'string.uri': 'Image URL must be a valid URL',
       'imageUrl.https': 'Image URL must use HTTPS',
     }),
+  mediaUrl: Joi.string()
+    .optional()
+    .trim()
+    .uri()
+    .custom((value, helpers) => {
+      const { protocol } = new URL(value);
+      if (protocol !== 'https:') {
+        return helpers.error('mediaUrl.https');
+      }
+      return value;
+    })
+    .messages({
+      'string.uri': 'Media URL must be a valid URL',
+      'mediaUrl.https': 'Media URL must use HTTPS',
+    }),
   threshold: Joi.number().min(0).max(1).optional(),
 }).required();
 

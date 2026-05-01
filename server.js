@@ -15,6 +15,7 @@ const { dailyQuota } = require('./src/shared/middleware/dailyQuota');
 const { apiKeyAuth } = require('./src/shared/auth/apiKeyAuth');
 const apiKeyStore = require('./src/shared/auth/apiKeyStore');
 const usageStore = require('./src/shared/auth/usageStore');
+const usersStore = require('./src/shared/auth/usersStore');
 const requestId = require('./src/shared/middleware/requestId');
 const ResponseHandler = require('./src/shared/utils/response');
 const browserManager = require('./src/shared/browser/browserManager');
@@ -185,8 +186,10 @@ async function startServer() {
     // dynamic-import + JSON-parse cost (~150ms on cold start).
     await initColorIndex();
 
+    await usersStore.init();
+    await apiKeyStore.init();
     apiKeyStore.ensureMasterKey();
-    usageStore.start({ flushIntervalSec: env.QUOTA_FLUSH_INTERVAL_SEC });
+    await usageStore.start({ flushIntervalSec: env.QUOTA_FLUSH_INTERVAL_SEC });
 
     // Sweep stale files in /downloads on a TTL so the disk doesn't fill up
     // with old YouTube/TikTok artefacts. Runs an initial pass synchronously,

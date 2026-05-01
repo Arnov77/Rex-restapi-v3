@@ -103,4 +103,34 @@ async function fetchRemoteImage(url) {
   }
 }
 
-module.exports = { uploadToTmpfiles, uploadToDiscordWebhook, fetchRemoteImage };
+async function fetchRemoteMedia(url, options = {}) {
+  const maxBytes = options.maxBytes || MAX_REMOTE_FILE_SIZE;
+  const allowedPrefixes = options.allowedPrefixes || ['image/'];
+  const label = options.label || 'media';
+
+  try {
+    const response = await axios.get(url, {
+      responseType: 'arraybuffer',
+      maxBodyLength: maxBytes,
+      maxContentLength: maxBytes,
+      timeout: options.timeout || 20000,
+      validateStatus: (status) => status >= 200 && status < 400,
+    });
+
+    const contentType = String(response.headers['content-type'] || '');
+    if (!allowedPrefixes.some((prefix) => contentType.startsWith(prefix))) {
+      throw new Error(`URL tidak mengarah ke ${label} yang didukung`);
+    }
+
+    return {
+      buffer: Buffer.from(response.data),
+      contentType,
+      fileName: getFileNameFromUrl(url, 'media.bin'),
+    };
+  } catch (error) {
+    const details = error.response?.status ? `status ${error.response.status}` : error.message;
+    throw new Error(`Gagal mengambil ${label} dari URL: ${details}`);
+  }
+}
+
+module.exports = { uploadToTmpfiles, uploadToDiscordWebhook, fetchRemoteImage, fetchRemoteMedia };

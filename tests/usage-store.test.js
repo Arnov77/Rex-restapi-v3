@@ -141,4 +141,29 @@ describe('usageStore', () => {
     snap.counters['key:a'] = 999;
     expect(store.getCount('key:a')).toBe(1);
   });
+
+  it('does not write usage.json when Supabase is enabled', async () => {
+    const supabase = require('../src/shared/auth/supabasePersistence');
+    const original = {
+      isEnabled: supabase.isEnabled,
+      loadRows: supabase.loadRows,
+      persistRows: supabase.persistRows,
+    };
+    supabase.isEnabled = () => true;
+    supabase.loadRows = vi.fn().mockResolvedValue([]);
+    supabase.persistRows = vi.fn();
+
+    try {
+      await store.start({ flushIntervalSec: 60 });
+      store.increment('key:abc');
+      store.flush();
+
+      expect(fs.existsSync(path.join(tmpRoot, 'usage.json'))).toBe(false);
+      expect(supabase.persistRows).toHaveBeenCalled();
+      expect(supabase.persistRows.mock.calls.at(-1)[1][0].data.counters['key:abc']).toBe(1);
+    } finally {
+      store.stop();
+      Object.assign(supabase, original);
+    }
+  });
 });

@@ -805,7 +805,12 @@ function copyCode(id) {
 }
 
 function escHtml(value) {
-  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function buildSampleBody(api) {
@@ -1459,7 +1464,7 @@ function showJSON(json, status) {
   const ok = status >= 200 && status < 300;
   document.getElementById('responseArea').innerHTML = `<div class="response-area">
     <div class="res-bar"><span class="res-label">Response</span><span class="res-status ${ok ? 's-ok' : 's-err'}">${status} ${ok ? 'OK' : 'Error'}</span></div>
-    <div class="res-body">${JSON.stringify(json, null, 2)}</div>
+    <div class="res-body">${escHtml(JSON.stringify(json, null, 2))}</div>
   </div>`;
 }
 
@@ -1489,7 +1494,7 @@ function showAudio(url, filename, size, status, contentType) {
 function showError(message) {
   document.getElementById('responseArea').innerHTML = `<div class="response-area">
     <div class="res-bar"><span class="res-label">Response</span><span class="res-status s-err">Error</span></div>
-    <div class="res-body">Error: ${message}</div>
+    <div class="res-body">Error: ${escHtml(message)}</div>
   </div>`;
 }
 

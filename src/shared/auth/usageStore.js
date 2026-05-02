@@ -46,20 +46,23 @@ function readStore() {
 }
 
 function writeStoreSync() {
-  ensureDir(STORE_DIR);
   const snapshot = {
     date: state.date,
     counters: Object.fromEntries(state.counters),
     lastFlushedAt: new Date().toISOString(),
   };
+  if (supabase.isEnabled()) {
+    supabase.persistRows(
+      supabase.TABLES.usage,
+      [{ date: snapshot.date, data: snapshot, updated_at: snapshot.lastFlushedAt }],
+      'usage'
+    );
+    return;
+  }
+  ensureDir(STORE_DIR);
   const tmp = `${STORE_PATH}.${process.pid}.${Date.now()}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(snapshot, null, 2), { mode: 0o600 });
   fs.renameSync(tmp, STORE_PATH);
-  supabase.persistRows(
-    supabase.TABLES.usage,
-    [{ date: snapshot.date, data: snapshot, updated_at: snapshot.lastFlushedAt }],
-    'usage'
-  );
 }
 
 function flush() {

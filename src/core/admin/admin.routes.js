@@ -4,7 +4,7 @@ const adminController = require('./admin.controller');
 const validateRequest = require('../../shared/middleware/validateRequest');
 const { requireMaster } = require('../../shared/auth/apiKeyAuth');
 const { asyncHandler } = require('../../shared/middleware/errorHandler');
-const { createKeySchema, updateKeySchema } = require('./admin.schemas');
+const { createKeySchema, updateKeySchema, revokeParamsSchema } = require('./admin.schemas');
 
 router.use(requireMaster);
 
@@ -90,6 +90,7 @@ router.post('/keys', validateRequest(createKeySchema), asyncHandler(adminControl
  */
 router.patch(
   '/keys/:id',
+  validateRequest(revokeParamsSchema, 'params'),
   validateRequest(updateKeySchema),
   asyncHandler(adminController.updateKey)
 );
@@ -113,7 +114,11 @@ router.patch(
  *       403: { description: Master API key required }
  *       404: { description: Key not found }
  */
-router.delete('/keys/:id', asyncHandler(adminController.revokeKey));
+router.delete(
+  '/keys/:id',
+  validateRequest(revokeParamsSchema, 'params'),
+  asyncHandler(adminController.revokeKey)
+);
 
 /**
  * @openapi

@@ -31,6 +31,7 @@ process.env.CHROME_BIN = resolveChromeBin();
 const envSchema = Joi.object({
   NODE_ENV: Joi.string().valid('development', 'production', 'test').default('development'),
   PORT: Joi.number().integer().min(1).max(65535).default(7860),
+  CORS_ORIGIN: Joi.string().allow('').default('*'),
 
   // Tells Express how many proxy hops to trust (affects req.ip and
   // express-rate-limit). Set to an integer (number of hops) or a boolean/
@@ -81,6 +82,7 @@ const envSchema = Joi.object({
   // secret triggers auto-bootstrap to data/jwt-secret.txt.
   JWT_SECRET: Joi.string().allow('').optional(),
   JWT_EXPIRES_IN: Joi.string().default('7d'),
+  API_KEY_ENCRYPTION_SECRET: Joi.string().allow('').optional(),
   BCRYPT_ROUNDS: Joi.number().integer().min(8).max(14).default(10),
 
   // Anti-spam burst guard (technical, applied to all tiers including master).

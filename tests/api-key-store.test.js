@@ -34,7 +34,7 @@ afterEach(() => {
 });
 
 describe('apiKeyStore', () => {
-  it('createKey returns plaintext, persists hash + plaintext, and listKeys/getPlaintextById expose the right view', () => {
+  it('createKey returns plaintext, persists hash + recoverable key, and listKeys/getPlaintextById expose the right view', () => {
     const { plaintext, record } = store.createKey({ name: 'test', tier: 'user' });
     expect(plaintext).toMatch(/^rex_/);
     expect(record.name).toBe('test');
@@ -46,7 +46,7 @@ describe('apiKeyStore', () => {
     expect(onDisk.keys).toHaveLength(1);
     expect(onDisk.keys[0].keyHash).toBeDefined();
     expect(onDisk.keys[0].keyHash).not.toBe(plaintext);
-    expect(onDisk.keys[0].key).toBe(plaintext);
+    expect(onDisk.keys[0].key || onDisk.keys[0].keyEncrypted).toBeDefined();
 
     expect(store.getPlaintextById(record.id)).toBe(plaintext);
     expect(store.getPlaintextById('does-not-exist')).toBeNull();
@@ -54,6 +54,7 @@ describe('apiKeyStore', () => {
     for (const entry of store.listKeys()) {
       expect(entry.keyHash).toBeUndefined();
       expect(entry.key).toBeUndefined();
+      expect(entry.keyEncrypted).toBeUndefined();
     }
   });
 
@@ -76,7 +77,10 @@ describe('apiKeyStore', () => {
     store.createKey({ name: 'b', tier: 'master' });
     const listed = store.listKeys();
     expect(listed).toHaveLength(2);
-    for (const entry of listed) expect(entry.keyHash).toBeUndefined();
+    for (const entry of listed) {
+      expect(entry.keyHash).toBeUndefined();
+      expect(entry.keyEncrypted).toBeUndefined();
+    }
   });
 
   it('ensureMasterKey creates one when none exists and writes notice file', () => {
@@ -98,5 +102,47 @@ describe('apiKeyStore', () => {
 
     const verified = store.verifyKey(plaintext);
     expect(verified?.tier).toBe('master');
+  });
+
+  it('uses JSON only as a one-time seed when Supabase is enabled', async () => {
+    const seeded = {
+      keys: [
+        {
+          id: '11111111-1111-4111-8111-111111111111',
+          name: 'seed',
+          tier: 'user',
+          keyHash: store.hashKey('rex_seed'),
+          key: 'rex_seed',
+          dailyLimit: null,
+          createdAt: new Date().toISOString(),
+          lastUsedAt: null,
+          revoked: false,
+        },
+      ],
+    };
+    fs.writeFileSync(path.join(tmpRoot, 'api-keys.json'), JSON.stringify(seeded, null, 2));
+
+    const supabase = require('../src/shared/auth/supabasePersistence');
+    const original = {
+      isEnabled: supabase.isEnabled,
+      loadRows: supabase.loadRows,
+      persistRows: supabase.persistRows,
+    };
+    supabase.isEnabled = () => true;
+    supabase.loadRows = vi.fn().mockResolvedValue([]);
+    supabase.persistRows = vi.fn();
+
+    try {
+      await store.init();
+      store.createKey({ name: 'new', tier: 'user' });
+
+      const onDisk = JSON.parse(fs.readFileSync(path.join(tmpRoot, 'api-keys.json'), 'utf-8'));
+      expect(onDisk.keys).toHaveLength(1);
+      expect(onDisk.keys[0].name).toBe('seed');
+      expect(supabase.persistRows).toHaveBeenCalledTimes(2);
+      expect(supabase.persistRows.mock.calls.at(-1)[1]).toHaveLength(2);
+    } finally {
+      Object.assign(supabase, original);
+    }
   });
 });

@@ -45,6 +45,13 @@ async function register(req, res) {
     throw new AppError('Failed to create user', 500);
   }
 
+  try {
+    await Promise.all([apiKeyStore.persistNow(), usersStore.persistNow()]);
+  } catch (err) {
+    logger.error(`[auth] Failed to persist registered user "${username}": ${err.message}`);
+    throw new AppError('Failed to persist user registration', 500);
+  }
+
   const token = jwtAuth.sign({ sub: userPublic.id, username: userPublic.username });
   logger.success(`[auth] Registered user "${userPublic.username}" (${userPublic.email})`);
 
@@ -83,6 +90,7 @@ async function login(req, res) {
   }
 
   usersStore.touchLogin(user.id);
+  await usersStore.persistNow();
   const token = jwtAuth.sign({ sub: user.id, username: user.username });
   logger.info(`[auth] Login: ${user.username}`);
 

@@ -92,4 +92,49 @@ describe('usersStore', () => {
     const after = store.touchLogin(u.id);
     expect(after.lastLoginAt).toBeTruthy();
   });
+
+  it('uses JSON only as a one-time seed when Supabase is enabled', async () => {
+    const seeded = {
+      users: [
+        {
+          id: '11111111-1111-4111-8111-111111111111',
+          username: 'seed',
+          email: 'seed@example.com',
+          passwordHash: 'seed-hash',
+          apiKeyId: 'seed-key',
+          createdAt: new Date().toISOString(),
+          lastLoginAt: null,
+        },
+      ],
+    };
+    fs.writeFileSync(path.join(tmpRoot, 'users.json'), JSON.stringify(seeded, null, 2));
+
+    const supabase = require('../src/shared/auth/supabasePersistence');
+    const original = {
+      isEnabled: supabase.isEnabled,
+      loadRows: supabase.loadRows,
+      persistRows: supabase.persistRows,
+    };
+    supabase.isEnabled = () => true;
+    supabase.loadRows = vi.fn().mockResolvedValue([]);
+    supabase.persistRows = vi.fn();
+
+    try {
+      await store.init();
+      store.createUser({
+        username: 'alice',
+        email: 'alice@example.com',
+        passwordHash: 'alice-hash',
+        apiKeyId: 'alice-key',
+      });
+
+      const onDisk = JSON.parse(fs.readFileSync(path.join(tmpRoot, 'users.json'), 'utf-8'));
+      expect(onDisk.users).toHaveLength(1);
+      expect(onDisk.users[0].username).toBe('seed');
+      expect(supabase.persistRows).toHaveBeenCalledTimes(2);
+      expect(supabase.persistRows.mock.calls.at(-1)[1]).toHaveLength(2);
+    } finally {
+      Object.assign(supabase, original);
+    }
+  });
 });

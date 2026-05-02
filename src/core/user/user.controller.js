@@ -124,6 +124,12 @@ async function regenerateKey(req, res) {
   // transfer needed. Any stale `key:<id>` entries from older deployments are
   // garbage-collected at midnight reset.
   usersStore.updateApiKeyId(user.id, result.record.id);
+  try {
+    await Promise.all([apiKeyStore.persistNow(), usersStore.persistNow()]);
+  } catch (err) {
+    logger.error(`[user] Failed to persist regenerated key for "${user.username}": ${err.message}`);
+    throw new AppError('Failed to persist regenerated API key', 500);
+  }
   logger.info(
     `[user] Regenerated API key for "${user.username}" (revoked ${previous?.id || 'none'})`
   );

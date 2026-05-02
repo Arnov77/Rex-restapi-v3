@@ -8,6 +8,7 @@ const STORE_DIR = path.join(__dirname, '../../../data');
 const STORE_PATH = path.join(STORE_DIR, 'api-keys.json');
 const KEY_PREFIX = 'rex_';
 const VALID_TIERS = new Set(['user', 'master']);
+const KEY_ENCRYPTION_VERSION = 1;
 
 let cache = null;
 const lastUsedDirty = new Set();
@@ -49,25 +50,99 @@ function generateKey() {
   return KEY_PREFIX + crypto.randomBytes(32).toString('base64url');
 }
 
+function encryptionSecret() {
+  return process.env.API_KEY_ENCRYPTION_SECRET || process.env.JWT_SECRET || '';
+}
+
+function encryptionKey() {
+  const secret = encryptionSecret();
+  if (!secret) return null;
+  return crypto.createHash('sha256').update(secret, 'utf-8').digest();
+}
+
+function encryptPlaintext(plaintext) {
+  const key = encryptionKey();
+  if (!key) return { key: plaintext };
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  const ciphertext = Buffer.concat([cipher.update(plaintext, 'utf-8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return {
+    keyEncrypted: [
+      `v${KEY_ENCRYPTION_VERSION}`,
+      iv.toString('base64url'),
+      tag.toString('base64url'),
+      ciphertext.toString('base64url'),
+    ].join('.'),
+  };
+}
+
+function decryptPlaintext(record) {
+  if (typeof record?.key === 'string') return record.key;
+  if (typeof record?.keyEncrypted !== 'string') return null;
+  const key = encryptionKey();
+  if (!key) return null;
+
+  const [version, ivRaw, tagRaw, ciphertextRaw] = record.keyEncrypted.split('.');
+  if (version !== `v${KEY_ENCRYPTION_VERSION}` || !ivRaw || !tagRaw || !ciphertextRaw) {
+    return null;
+  }
+
+  try {
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(ivRaw, 'base64url'));
+    decipher.setAuthTag(Buffer.from(tagRaw, 'base64url'));
+    const plaintext = Buffer.concat([
+      decipher.update(Buffer.from(ciphertextRaw, 'base64url')),
+      decipher.final(),
+    ]);
+    return plaintext.toString('utf-8');
+  } catch {
+    return null;
+  }
+}
+
+function migratePlaintextKeys() {
+  if (!encryptionKey()) return false;
+  let changed = false;
+  for (const record of load().keys) {
+    if (typeof record.key === 'string' && !record.keyEncrypted) {
+      Object.assign(record, encryptPlaintext(record.key));
+      delete record.key;
+      changed = true;
+    }
+  }
+  return changed;
+}
+
 function load() {
   if (!cache) cache = readStore();
   return cache;
 }
 
-function persist() {
-  if (cache) writeStore(cache);
-  if (cache) {
-    supabase.persistRows(
-      supabase.TABLES.apiKeys,
-      cache.keys.map((key) => ({ id: key.id, data: key, updated_at: new Date().toISOString() })),
-      'api keys'
-    );
+function persist({ wait = false } = {}) {
+  if (!cache) return wait ? Promise.resolve() : undefined;
+  if (supabase.isEnabled()) {
+    const rows = cache.keys.map((key) => ({
+      id: key.id,
+      data: key,
+      updated_at: new Date().toISOString(),
+    }));
+    if (wait) return supabase.persistRowsAsync(supabase.TABLES.apiKeys, rows);
+    supabase.persistRows(supabase.TABLES.apiKeys, rows, 'api keys');
+    return undefined;
   }
+  writeStore(cache);
+  return wait ? Promise.resolve() : undefined;
+}
+
+function persistNow() {
+  return persist({ wait: true });
 }
 
 async function init() {
   if (!supabase.isEnabled()) {
     load();
+    if (migratePlaintextKeys()) await persistNow();
     return;
   }
 
@@ -79,10 +154,11 @@ async function init() {
     if (cache.keys.length) persist();
   }
   logger.info(`[apikeys] Supabase store ready (${cache.keys.length} keys)`);
+  if (migratePlaintextKeys()) await persistNow();
 }
 
 function listKeys() {
-  return load().keys.map(({ keyHash: _h, key: _k, ...rest }) => rest);
+  return load().keys.map(({ keyHash: _h, key: _k, keyEncrypted: _e, ...rest }) => rest);
 }
 
 /**
@@ -93,7 +169,7 @@ function listKeys() {
  */
 function getPlaintextById(id) {
   const record = findById(id);
-  return record && typeof record.key === 'string' ? record.key : null;
+  return decryptPlaintext(record);
 }
 
 function findByHash(hash) {
@@ -125,10 +201,10 @@ function createKey({ name, tier = 'user', dailyLimit = null }) {
     name: String(name || '').slice(0, 80) || 'unnamed',
     tier,
     keyHash: hashKey(plaintext),
-    // Plaintext stored alongside the hash so /api/user/profile can re-display
-    // it (member self-service: 'click to show', 'click to copy'). Hash is
+    // Plaintext is encrypted at rest when an encryption secret is configured.
+    // Hash is
     // still the source of truth for verification — see verifyKey().
-    key: plaintext,
+    ...encryptPlaintext(plaintext),
     dailyLimit: dailyLimit == null ? null : Math.max(0, Math.floor(dailyLimit)),
     createdAt: new Date().toISOString(),
     lastUsedAt: null,
@@ -136,7 +212,10 @@ function createKey({ name, tier = 'user', dailyLimit = null }) {
   };
   load().keys.push(record);
   persist();
-  return { plaintext, record: { ...record, keyHash: undefined, key: undefined } };
+  return {
+    plaintext,
+    record: { ...record, keyHash: undefined, key: undefined, keyEncrypted: undefined },
+  };
 }
 
 function updateKey(id, patch = {}) {
@@ -154,7 +233,7 @@ function updateKey(id, patch = {}) {
   }
   record.updatedAt = new Date().toISOString();
   persist();
-  return { ...record, keyHash: undefined, key: undefined };
+  return { ...record, keyHash: undefined, key: undefined, keyEncrypted: undefined };
 }
 
 function revokeKey(id) {
@@ -165,7 +244,7 @@ function revokeKey(id) {
     record.revokedAt = new Date().toISOString();
     persist();
   }
-  return { ...record, keyHash: undefined, key: undefined };
+  return { ...record, keyHash: undefined, key: undefined, keyEncrypted: undefined };
 }
 
 /**
@@ -258,6 +337,7 @@ module.exports = {
   ensureMasterKey,
   flushPendingTouches,
   init,
+  persistNow,
   _resetForTests,
   _STORE_PATH: STORE_PATH,
 };

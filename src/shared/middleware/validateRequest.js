@@ -2,14 +2,19 @@ const { ValidationError } = require('../utils/errors');
 
 /**
  * Request Validation Middleware using Joi
- * Validates request body or query against a schema
+ * Validates request body, query, or params against a schema
  *
  * @param {Object} schema - Joi schema
- * @param {string} source - 'body' or 'query' (default: 'body')
+ * @param {string} source - 'body', 'query', or 'params' (default: 'body')
  */
 const validateRequest = (schema, source = 'body') => {
   return (req, res, next) => {
-    const data = source === 'body' ? req.body : req.query;
+    const sources = {
+      body: req.body,
+      query: req.query,
+      params: req.params,
+    };
+    const data = sources[source] || req.body;
 
     const { value, error } = schema.validate(data, {
       abortEarly: false,
@@ -22,7 +27,8 @@ const validateRequest = (schema, source = 'body') => {
       return next(new ValidationError(messages));
     }
 
-    req.validated = value;
+    if (source === 'params') req.validatedParams = value;
+    else req.validated = value;
     next();
   };
 };

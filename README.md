@@ -179,7 +179,24 @@ Untuk production, MINIMAL set ini supaya restart tidak invalidate JWT existing +
 ```env
 JWT_SECRET=<64-byte random hex>
 MASTER_API_KEY=rex_<43-char base64url>
+API_KEY_ENCRYPTION_SECRET=<64-byte random hex>
+CORS_ORIGIN=https://your-app.onrender.com
 ```
+
+Generate nilai production dengan Node:
+
+```bash
+# MASTER_API_KEY
+node -e "console.log('rex_' + require('crypto').randomBytes(32).toString('base64url'))"
+
+# JWT_SECRET
+node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+
+# API_KEY_ENCRYPTION_SECRET
+node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+```
+
+Masukkan hasilnya ke environment variables Render. Jangan mengandalkan `data/master-key.txt` atau `data/jwt-secret.txt` di Render, karena filesystem runtime bisa hilang saat restart/redeploy.
 
 Tambahkan upstream tokens hanya kalau pakai endpoint terkait (`GEMINI_API_KEY` untuk `/api/promosi`, `DISCORD_WEBHOOK_URL` untuk MIQ avatar upload, `TELEGRAM_BOT_TOKEN` untuk `/api/telegram/*`). Lihat [`.env.example`](./.env.example) untuk daftar lengkap dengan default.
 
@@ -193,9 +210,11 @@ SUPABASE_URL=https://<project-ref>.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
 JWT_SECRET=<64-byte random hex>
 MASTER_API_KEY=rex_<43-char base64url>
+API_KEY_ENCRYPTION_SECRET=<64-byte random hex>
+CORS_ORIGIN=https://your-app.onrender.com
 ```
 
-Gunakan **service role key hanya di server/Render env**, jangan pernah di frontend. Saat Supabase masih kosong, server akan seed dari JSON lokal `data/*.json` jika file itu ada.
+Gunakan **service role key hanya di server/Render env**, jangan pernah di frontend. Saat Supabase masih kosong, server akan seed sekali dari JSON lokal `data/*.json` jika file itu ada. Setelah `AUTH_STORE_BACKEND=supabase` aktif, perubahan user/API key/quota berikutnya hanya ditulis ke Supabase, bukan lagi ke JSON lokal. Jika `API_KEY_ENCRYPTION_SECRET` diset, plaintext API key yang dipakai fitur reveal disimpan terenkripsi; record lama yang masih punya `key` plaintext akan dikonversi otomatis saat server start.
 
 ### NSFW detector
 

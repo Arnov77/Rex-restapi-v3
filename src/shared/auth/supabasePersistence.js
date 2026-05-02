@@ -42,7 +42,10 @@ async function request(table, options = {}) {
   }
 
   if (res.status === 204) return null;
-  return res.json();
+
+  const text = await res.text();
+  if (!text.trim()) return null;
+  return JSON.parse(text);
 }
 
 async function loadRows(table) {
@@ -64,9 +67,14 @@ async function upsertRows(table, rows) {
   });
 }
 
+async function persistRowsAsync(table, rows) {
+  if (!isEnabled()) return;
+  await upsertRows(table, rows);
+}
+
 function persistRows(table, rows, label) {
   if (!isEnabled()) return;
-  upsertRows(table, rows).catch((err) => {
+  persistRowsAsync(table, rows).catch((err) => {
     logger.error(`[supabase] Failed to persist ${label}: ${err.message}`);
   });
 }
@@ -76,5 +84,6 @@ module.exports = {
   isEnabled,
   loadRows,
   persistRows,
+  persistRowsAsync,
   upsertRows,
 };

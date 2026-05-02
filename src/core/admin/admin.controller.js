@@ -13,6 +13,7 @@ async function listKeys(req, res) {
 async function createKey(req, res) {
   const { name, tier, dailyLimit } = req.validated;
   const { plaintext, record } = apiKeyStore.createKey({ name, tier, dailyLimit });
+  await apiKeyStore.persistNow();
   return ResponseHandler.success(
     res,
     {
@@ -29,6 +30,7 @@ async function updateKey(req, res) {
   const { id } = req.params;
   const record = apiKeyStore.updateKey(id, req.validated);
   if (!record) throw new NotFoundError('API key not found');
+  await apiKeyStore.persistNow();
   return ResponseHandler.success(res, record, 'API key updated', 200);
 }
 
@@ -36,6 +38,7 @@ async function revokeKey(req, res) {
   const { id } = req.params;
   const record = apiKeyStore.revokeKey(id);
   if (!record) throw new NotFoundError('API key not found');
+  await apiKeyStore.persistNow();
   return ResponseHandler.success(res, record, 'API key revoked', 200);
 }
 

@@ -63,19 +63,24 @@ function load() {
   return cache;
 }
 
-function persist() {
-  if (cache) writeStore(cache);
-  if (cache) {
-    supabase.persistRows(
-      supabase.TABLES.users,
-      cache.users.map((user) => ({
-        id: user.id,
-        data: user,
-        updated_at: new Date().toISOString(),
-      })),
-      'users'
-    );
+function persist({ wait = false } = {}) {
+  if (!cache) return wait ? Promise.resolve() : undefined;
+  if (supabase.isEnabled()) {
+    const rows = cache.users.map((user) => ({
+      id: user.id,
+      data: user,
+      updated_at: new Date().toISOString(),
+    }));
+    if (wait) return supabase.persistRowsAsync(supabase.TABLES.users, rows);
+    supabase.persistRows(supabase.TABLES.users, rows, 'users');
+    return undefined;
   }
+  writeStore(cache);
+  return wait ? Promise.resolve() : undefined;
+}
+
+function persistNow() {
+  return persist({ wait: true });
 }
 
 async function init() {
@@ -200,6 +205,7 @@ module.exports = {
   updateApiKeyId,
   publicView,
   init,
+  persistNow,
   _resetForTests,
   _STORE_PATH: STORE_PATH,
 };

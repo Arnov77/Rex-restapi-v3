@@ -2,6 +2,20 @@ const { withPage } = require('../../../shared/browser/browserManager');
 
 const DEFAULT_AVATAR = 'https://i.ibb.co/dwTRp2SF/images-1.jpg';
 
+function escapeHtml(value) {
+  return String(value ?? '').replace(
+    /[&<>"']/g,
+    (c) =>
+      ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      })[c]
+  );
+}
+
 async function generateQuoteImage(name, message, avatarUrl) {
   return withPage(async (page) => {
     const resolvedAvatar = avatarUrl?.trim() ? avatarUrl : DEFAULT_AVATAR;
@@ -73,10 +87,10 @@ async function generateQuoteImage(name, message, avatarUrl) {
         </head>
         <body>
           <div class="chat-container">
-            <img class="avatar" src="${resolvedAvatar}" />
+            <img class="avatar" src="${escapeHtml(resolvedAvatar)}" />
             <div class="bubble">
-              <div class="name">${name}</div>
-              <div class="message">${message}</div>
+              <div class="name">${escapeHtml(name)}</div>
+              <div class="message">${escapeHtml(message)}</div>
             </div>
           </div>
         </body>

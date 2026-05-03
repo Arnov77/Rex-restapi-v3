@@ -302,7 +302,8 @@ function closeModal() {
 
 function buildTabs(api) {
   const isGet = api.method === 'GET';
-  const tabs = isGet ? ['docs'] : ['docs', 'try', 'code'];
+  const hasParams = (api.params || []).length > 0;
+  const tabs = (isGet && !hasParams) ? ['docs'] : ['docs', 'try', 'code'];
   const labels = {
     docs: 'Dokumentasi',
     try: 'Coba Langsung',
@@ -729,16 +730,56 @@ with open('avatar.png', 'rb') as avatar_file:
     )
 print(response.headers.get('Content-Type'))`;
   } else if (isGet) {
-    curl = `curl "${BASE_URL}${endpoint}"`;
-    fetchCode = `const response = await fetch('${BASE_URL}${endpoint}');
-const data = await response.json();
-console.log(data);`;
-    axiosCode = `import axios from 'axios';
-const res = await axios.get('${BASE_URL}${endpoint}');
-console.log(res.data);`;
-    pythonCode = `import requests
-response = requests.get('${BASE_URL}${endpoint}')
-print(response.json())`;
+    const sampleQsObj = {};
+    (api.params || []).filter(p => p.required !== false).forEach(p => {
+      if (p.example !== undefined) sampleQsObj[p.name] = p.example;
+    });
+    const qs = Object.keys(sampleQsObj).length > 0
+      ? '?' + Object.entries(sampleQsObj).map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&')
+      : '';
+    const fullUrl = BASE_URL + endpoint + qs;
+    const isImageEndpoint = endpoint.includes('/api/screenshot') || endpoint.includes('/api/qrcode');
+    if (isImageEndpoint) {
+      curl = 'curl "' + fullUrl + '" -H "X-API-Key: YOUR_KEY" --output result.png';
+      fetchCode = 'const res = await fetch(\'' + fullUrl + '\', {\n'
+        + '  headers: { \'X-API-Key\': \'YOUR_KEY\' }  // opsional\n'
+        + '});\n'
+        + 'const blob = await res.blob();\n'
+        + 'const imgUrl = URL.createObjectURL(blob);\n'
+        + 'document.querySelector(\'img\').src = imgUrl;';
+      axiosCode = 'import axios from \'axios\';\n\n'
+        + 'const res = await axios.get(\'' + fullUrl + '\', {\n'
+        + '  responseType: \'arraybuffer\',\n'
+        + '  headers: { \'X-API-Key\': \'YOUR_KEY\' },  // opsional\n'
+        + '});\n\n'
+        + '// Tampilkan sebagai gambar di browser:\n'
+        + 'const blob = new Blob([res.data], { type: res.headers[\'content-type\'] });\n'
+        + 'document.querySelector(\'img\').src = URL.createObjectURL(blob);';
+      pythonCode = 'import requests\n\n'
+        + '# Opsional: tambah header API key\n'
+        + 'headers = { \'X-API-Key\': \'YOUR_KEY\' }\n\n'
+        + 'r = requests.get(\'' + fullUrl + '\', headers=headers)\n'
+        + 'r.raise_for_status()\n\n'
+        + 'with open(\'result.png\', \'wb\') as f:\n'
+        + '    f.write(r.content)\n'
+        + 'print(\'Saved:\', len(r.content), \'bytes\')';
+    } else {
+      curl = 'curl "' + fullUrl + '" -H "X-API-Key: YOUR_KEY"';
+      fetchCode = 'const response = await fetch(\'' + fullUrl + '\', {\n'
+        + '  headers: { \'X-API-Key\': \'YOUR_KEY\' },  // opsional\n'
+        + '});\n'
+        + 'const data = await response.json();\n'
+        + 'console.log(data);';
+      axiosCode = 'import axios from \'axios\';\n\n'
+        + 'const res = await axios.get(\'' + fullUrl + '\', {\n'
+        + '  headers: { \'X-API-Key\': \'YOUR_KEY\' },  // opsional\n'
+        + '});\n'
+        + 'console.log(res.data);';
+      pythonCode = 'import requests\n\n'
+        + 'response = requests.get(\'' + fullUrl + '\',\n'
+        + '    headers={\'X-API-Key\': \'YOUR_KEY\'})  # opsional\n'
+        + 'print(response.json())';
+    }
   } else {
     curl = `curl -X POST ${BASE_URL}${endpoint} \\
   -H "Content-Type: application/json" \\
@@ -1122,6 +1163,22 @@ X-Sticker-Type: webp | tgs | webm
     }, null, 2);
   }
 
+  if (action === '/api/screenshot') {
+    return `Content-Type: image/png
+Content-Disposition: inline; filename="screenshot.png"
+
+[Binary PNG/JPEG/WebP image]
+Gunakan --output result.png dengan cURL, atau blob() di JS.`;
+  }
+
+  if (action === '/api/qrcode/generate') {
+    return `Content-Type: image/png
+Content-Disposition: inline; filename="qrcode.png"
+
+[Binary PNG image atau SVG string]
+Tampilkan langsung di <img> tag atau simpan ke file.`;
+  }
+
   return JSON.stringify({
     success: true,
     statusCode: 200,
@@ -1166,6 +1223,13 @@ function getParamDesc(name) {
     id: 'UUID Java atau identifier Bedrock sesuai endpoint',
     fileId: 'Telegram file_id, dapatkan dari @RawDataBot atau via getUpdates di bot kamu',
     botToken: 'Token bot Telegram (opsional jika env TELEGRAM_BOT_TOKEN sudah diset)',
+    darkMode: 'Aktifkan emulasi dark mode (prefers-color-scheme: dark) sebelum screenshot',
+    waitFor: 'Milidetik tambahan untuk menunggu animasi/konten dinamis selesai (max 10000)',
+    fullPage: 'Capture seluruh halaman termasuk area yang perlu di-scroll',
+    darkColor: 'Warna hex modul gelap QR code, contoh: #000000',
+    lightColor: 'Warna hex background/modul terang QR code, contoh: #ffffff',
+    errorCorrectionLevel: 'Level koreksi error: L (7%), M (15%), Q (25%), H (30%)',
+    margin: 'Lebar quiet zone (area kosong) di tepi QR code dalam satuan modul',
   };
 
   return descriptions[name] || '';
@@ -1223,7 +1287,7 @@ function sendReq() {
   const body = {};
   if (api.params) {
     api.params.forEach((param) => {
-      if (['bgColor', 'textColor', 'preset', 'format'].includes(param.name)) return;
+      if (api.method !== 'GET' && ['bgColor', 'textColor', 'preset', 'format'].includes(param.name)) return;
 
       const input = document.getElementById(`f-${param.name}`);
       if (!input) return;
@@ -1289,7 +1353,15 @@ function sendReq() {
     requestOptions.headers = baseHeaders;
   }
 
-  fetch(api.action, requestOptions)
+  // For GET endpoints, build query string from collected params
+  let fetchUrl = api.action;
+  if (api.method === 'GET' && Object.keys(body).length > 0) {
+    const qs = new URLSearchParams();
+    Object.entries(body).forEach(([k, v]) => qs.set(k, String(v)));
+    fetchUrl = `?`;
+  }
+
+  fetch(fetchUrl, requestOptions)
     .then((response) => handleApiResponse(response, { isTelegramStickerDownload }))
     .catch((error) => showError(error.message || 'Network error: gagal terhubung ke server.'))
     .finally(() => {

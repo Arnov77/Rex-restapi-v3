@@ -506,6 +506,135 @@
           "description": "Ambang 0-1 untuk menentukan isNsfw. Default 0.7."
         }
       ]
+    },
+    {
+      "id": 4,
+      "name": "Website Screenshot",
+      "method": "GET",
+      "action": "/api/screenshot",
+      "description": "Ambil screenshot halaman web dari URL manapun menggunakan Chromium headless. Mendukung full-page capture, dark mode emulation, resolusi custom, dan format PNG/JPEG/WebP.",
+      "params": [
+        {
+          "name": "url",
+          "type": "string",
+          "example": "https://example.com",
+          "required": true,
+          "description": "URL halaman yang ingin di-screenshot (http/https)."
+        },
+        {
+          "name": "width",
+          "type": "number",
+          "example": "1280",
+          "required": false,
+          "description": "Lebar viewport dalam piksel (default 1280, max 3840)."
+        },
+        {
+          "name": "height",
+          "type": "number",
+          "example": "720",
+          "required": false,
+          "description": "Tinggi viewport dalam piksel (default 720, max 2160)."
+        },
+        {
+          "name": "fullPage",
+          "type": "boolean",
+          "example": false,
+          "required": false,
+          "description": "Capture seluruh halaman termasuk bagian scroll (default false)."
+        },
+        {
+          "name": "format",
+          "type": "select",
+          "required": false,
+          "default": "png",
+          "example": "png",
+          "options": ["png", "jpeg", "webp"],
+          "description": "Format output gambar."
+        },
+        {
+          "name": "quality",
+          "type": "number",
+          "example": "85",
+          "required": false,
+          "description": "Kualitas kompresi 1-100 untuk jpeg/webp (diabaikan untuk png)."
+        },
+        {
+          "name": "waitFor",
+          "type": "number",
+          "example": "1000",
+          "required": false,
+          "description": "Milidetik tambahan untuk menunggu animasi/konten dinamis selesai (max 10000)."
+        },
+        {
+          "name": "darkMode",
+          "type": "boolean",
+          "example": false,
+          "required": false,
+          "description": "Aktifkan emulasi prefers-color-scheme: dark sebelum screenshot."
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "QR Code Generator",
+      "method": "GET",
+      "action": "/api/qrcode/generate",
+      "description": "Generate QR code dari teks atau URL apapun. Mendukung output PNG dan SVG, warna custom, ukuran, margin, dan tingkat error correction.",
+      "params": [
+        {
+          "name": "text",
+          "type": "string",
+          "example": "https://github.com",
+          "required": true,
+          "description": "Teks atau URL yang ingin di-encode ke QR code (max 2953 karakter)."
+        },
+        {
+          "name": "size",
+          "type": "number",
+          "example": "400",
+          "required": false,
+          "description": "Ukuran gambar output dalam piksel (default 400, khusus PNG)."
+        },
+        {
+          "name": "margin",
+          "type": "number",
+          "example": "2",
+          "required": false,
+          "description": "Lebar quiet zone (area kosong di tepi) dalam modul QR (default 2)."
+        },
+        {
+          "name": "darkColor",
+          "type": "string",
+          "example": "#000000",
+          "required": false,
+          "description": "Warna hex untuk modul gelap QR (default #000000)."
+        },
+        {
+          "name": "lightColor",
+          "type": "string",
+          "example": "#ffffff",
+          "required": false,
+          "description": "Warna hex untuk modul terang/background QR (default #ffffff)."
+        },
+        {
+          "name": "errorCorrectionLevel",
+          "type": "select",
+          "required": false,
+          "default": "M",
+          "example": "M",
+          "options": ["L", "M", "Q", "H"],
+          "description": "Level koreksi error QR: L (~7%), M (~15%), Q (~25%), H (~30%)."
+        },
+        {
+          "name": "format",
+          "type": "select",
+          "required": false,
+          "default": "png",
+          "example": "png",
+          "options": ["png", "svg"],
+          "description": "Format output: PNG (gambar) atau SVG (vektor)."
+        }
+      ]
     }
   ],
   "Minecraft": [

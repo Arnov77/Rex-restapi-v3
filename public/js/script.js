@@ -1423,11 +1423,15 @@ async function handleApiResponse(response, { isTelegramStickerDownload } = {}) {
   if (contentType.includes('image/')) {
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
-    const ext = contentType.includes('gif')
-      ? 'gif'
-      : contentType.includes('webp')
-        ? 'webp'
-        : 'png';
+    const ext = contentType.includes('svg')
+      ? 'svg'
+      : contentType.includes('gif')
+        ? 'gif'
+        : contentType.includes('webp')
+          ? 'webp'
+          : contentType.includes('jpeg') || contentType.includes('jpg')
+            ? 'jpg'
+            : 'png';
     showImage(url, ext, response.status, contentType);
     return;
   }

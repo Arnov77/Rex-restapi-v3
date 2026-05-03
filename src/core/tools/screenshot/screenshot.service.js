@@ -34,7 +34,7 @@ async function capture({ url, width, height, fullPage, format, quality, waitFor,
 
       try {
         await page.goto(url, { waitUntil: 'networkidle', timeout: 30_000 });
-      } catch (err) {
+      } catch (_err) {
         // Fallback: if networkidle times out, try domcontentloaded
         logger.warn(
           `[screenshot] networkidle timeout for ${url}, falling back to domcontentloaded`

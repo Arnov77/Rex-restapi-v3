@@ -1,3 +1,4 @@
+const sharp = require('sharp');
 const browserManager = require('../../../shared/browser/browserManager');
 const logger = require('../../../shared/utils/logger');
 
@@ -6,6 +7,10 @@ const MIME_TYPES = {
   jpeg: 'image/jpeg',
   webp: 'image/webp',
 };
+
+// Playwright's page.screenshot() only supports png|jpeg. WebP is produced by
+// capturing PNG first and re-encoding with sharp.
+const PLAYWRIGHT_NATIVE_FORMATS = new Set(['png', 'jpeg']);
 
 /**
  * Takes a screenshot of the given URL using the shared Playwright Chromium instance.
@@ -47,10 +52,11 @@ async function capture({ url, width, height, fullPage, format, quality, waitFor,
         await page.waitForTimeout(waitFor);
       }
 
+      const captureType = PLAYWRIGHT_NATIVE_FORMATS.has(format) ? format : 'png';
       const screenshotOptions = {
-        type: format,
+        type: captureType,
         fullPage,
-        ...(format !== 'png' ? { quality } : {}),
+        ...(captureType === 'jpeg' ? { quality } : {}),
       };
 
       return page.screenshot(screenshotOptions);
@@ -60,8 +66,13 @@ async function capture({ url, width, height, fullPage, format, quality, waitFor,
     }
   );
 
-  logger.info(`[screenshot] done — ${buffer.length} bytes`);
-  return { buffer, mimeType: MIME_TYPES[format], format };
+  let outputBuffer = buffer;
+  if (format === 'webp') {
+    outputBuffer = await sharp(buffer).webp({ quality }).toBuffer();
+  }
+
+  logger.info(`[screenshot] done — ${outputBuffer.length} bytes`);
+  return { buffer: outputBuffer, mimeType: MIME_TYPES[format], format };
 }
 
 module.exports = { capture };

@@ -67,30 +67,32 @@ Mounted tapi **disembunyikan dari Swagger publik** (`/api/docs.json` tidak tampi
 
 ## Endpoint media & utility
 
-| Method      | Path                                  | Catatan                                                   |
-| ----------- | ------------------------------------- | --------------------------------------------------------- |
-| `POST`      | `/api/youtube/mp3`                    | Audio MP3 dari URL atau judul                             |
-| `POST`      | `/api/youtube/mp4`                    | Video MP4 + opsi `quality` (lihat di bawah)               |
-| `POST`      | `/api/tiktok/download`                | Video TikTok (no watermark)                               |
-| `POST`      | `/api/tiktok/audio`                   | Audio TikTok                                              |
-| `POST`      | `/api/instagram/download`             | Video / reel / post Instagram                             |
-| `POST`      | `/api/twitter/download`               | Video / foto Twitter / X (3-tier fallback)                |
-| `POST`      | `/api/pinterest/download`             | Foto / video Pinterest (auto-upgrade ke `/originals/`)    |
-| `POST`      | `/api/tts/google`                     | Voice note ogg/opus PTT WhatsApp (16kHz mono 32kbps)      |
-| `GET\|POST` | `/api/gdrive`                         | Resolver direct-download Google Drive                     |
-| `POST`      | `/api/brat/image`                     | Generator gambar style "Brat"                             |
-| `POST`      | `/api/brat/video`                     | Versi animasi GIF                                         |
-| `POST`      | `/api/quote`, `/api/smeme`            | Generator gambar template                                 |
-| `POST`      | `/api/miq/generate`                   | "Make It a Quote" (avatar opsional via Discord webhook)   |
-| `POST`      | `/api/promosi`                        | Promotion detector (Gemini)                               |
-| `POST`      | `/api/nsfw/detect`                    | NSFW detector dari `imageUrl` atau upload field `image`   |
-| `POST`      | `/api/telegram/sticker-pack`          | Info isi Telegram sticker pack                            |
-| `POST`      | `/api/telegram/sticker-pack/download` | Convert seluruh pack ke `.wasticker` siap import WhatsApp |
-| `POST`      | `/api/telegram/sticker`               | Convert 1 sticker (static / animated)                     |
-| `GET`       | `/mcapi/profile`                      | Minecraft Java/Bedrock profile (username, XUID, UUID)     |
-| `GET`       | `/mcapi/render/head`                  | Render kepala Minecraft dari skin URL / username          |
-| `GET`       | `/health`, `/api/status`              | Probe                                                     |
-| `GET`       | `/api/docs`                           | Swagger UI live                                           |
+| Method      | Path                                  | Catatan                                                            |
+| ----------- | ------------------------------------- | ------------------------------------------------------------------ |
+| `POST`      | `/api/youtube/mp3`                    | Audio MP3 dari URL atau judul                                      |
+| `POST`      | `/api/youtube/mp4`                    | Video MP4 + opsi `quality` (lihat di bawah)                        |
+| `POST`      | `/api/tiktok/download`                | Video TikTok (no watermark)                                        |
+| `POST`      | `/api/tiktok/audio`                   | Audio TikTok                                                       |
+| `POST`      | `/api/instagram/download`             | Video / reel / post Instagram                                      |
+| `POST`      | `/api/twitter/download`               | Video / foto Twitter / X (3-tier fallback)                         |
+| `POST`      | `/api/pinterest/download`             | Foto / video Pinterest (auto-upgrade ke `/originals/`)             |
+| `GET`       | `/api/music/resolve`                  | Metadata Spotify / Apple Music / SoundCloud (track+album+playlist) |
+| `GET`       | `/api/music/download`                 | MP3 192 kbps dari URL Spotify / Apple / SoundCloud (single track)  |
+| `POST`      | `/api/tts/google`                     | Voice note ogg/opus PTT WhatsApp (16kHz mono 32kbps)               |
+| `GET\|POST` | `/api/gdrive`                         | Resolver direct-download Google Drive                              |
+| `POST`      | `/api/brat/image`                     | Generator gambar style "Brat"                                      |
+| `POST`      | `/api/brat/video`                     | Versi animasi GIF                                                  |
+| `POST`      | `/api/quote`, `/api/smeme`            | Generator gambar template                                          |
+| `POST`      | `/api/miq/generate`                   | "Make It a Quote" (avatar opsional via Discord webhook)            |
+| `POST`      | `/api/promosi`                        | Promotion detector (Gemini)                                        |
+| `POST`      | `/api/nsfw/detect`                    | NSFW detector dari `imageUrl` atau upload field `image`            |
+| `POST`      | `/api/telegram/sticker-pack`          | Info isi Telegram sticker pack                                     |
+| `POST`      | `/api/telegram/sticker-pack/download` | Convert seluruh pack ke `.wasticker` siap import WhatsApp          |
+| `POST`      | `/api/telegram/sticker`               | Convert 1 sticker (static / animated)                              |
+| `GET`       | `/mcapi/profile`                      | Minecraft Java/Bedrock profile (username, XUID, UUID)              |
+| `GET`       | `/mcapi/render/head`                  | Render kepala Minecraft dari skin URL / username                   |
+| `GET`       | `/health`, `/api/status`              | Probe                                                              |
+| `GET`       | `/api/docs`                           | Swagger UI live                                                    |
 
 ## YouTube downloader
 
@@ -113,6 +115,24 @@ Opsional, default `best`. Nilai yang valid:
 Nilai numerik diperlakukan sebagai **height ceiling** (bukan exact match). Server akan pilih resolusi tertinggi yang `<= cap`. Kalau resolusi yang diminta tidak tersedia (mis. video aslinya cuma 720p tapi user minta 1080p), server **tidak error** — tetap return video dengan resolusi tertinggi yang ada.
 
 YouTube cuma publish format muxed (video+audio dalam 1 file) sampai 360p. Untuk 480p ke atas, server otomatis pakai jalur adaptive (download video + audio terpisah, lalu merge via ffmpeg).
+
+## Music downloader (Spotify / Apple Music / SoundCloud)
+
+`GET /api/music/resolve?url=<...>` mengembalikan metadata ter-normalisasi dari URL Spotify, Apple Music, atau SoundCloud. `GET /api/music/download?url=<...>` resolve metadata lalu download MP3 192 kbps via yt-dlp (single track).
+
+| Service     | Source                            | Track | Album | Playlist | Latensi |
+| ----------- | --------------------------------- | ----- | ----- | -------- | ------- |
+| Spotify     | scrape `spotidown.co` + CapSolver | yes   | yes   | yes (50) | 5–10 s  |
+| Apple Music | iTunes Search API (free, no auth) | yes   | yes   | no       | < 1 s   |
+| SoundCloud  | yt-dlp metadata extractor         | yes   | -     | yes      | 2–4 s   |
+
+**Spotify mewajibkan `CAPSOLVER_API_KEY`** (`spotidown.co` di-protek Cloudflare Turnstile). Tanpa key, endpoint return 503 untuk URL Spotify. Apple Music & SoundCloud tidak butuh credentials apa pun.
+
+Apple Music user-curated **playlist** tidak didukung (data ada di belakang Apple Music developer API berbayar; iTunes Search API tidak expose playlist). Album / track / single-in-album semua jalan.
+
+`/api/music/download` cuma menerima URL track tunggal — untuk playlist / album, panggil `/api/music/resolve` dulu, lalu loop `/api/music/download` per track.
+
+Audio sebenarnya selalu di-source dari YouTube via yt-dlp (kualitas ~192 kbps MP3). Klaim "320 kbps Spotify FLAC" / "256 kbps Apple M4A" dari upstream scraper tidak valid; kita hanya re-use metadata mereka.
 
 ### Storage `downloads/`
 

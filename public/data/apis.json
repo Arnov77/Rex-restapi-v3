@@ -138,6 +138,36 @@
           "required": true
         }
       ]
+    },
+    {
+      "id": 9,
+      "name": "Music Resolver",
+      "method": "GET",
+      "action": "/api/music/resolve",
+      "description": "Ambil metadata track / playlist / album dari URL Spotify, Apple Music, atau SoundCloud. Spotify memerlukan CAPSOLVER_API_KEY (Cloudflare Turnstile bypass).",
+      "params": [
+        {
+          "name": "url",
+          "type": "string",
+          "example": "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "name": "Music Downloader",
+      "method": "GET",
+      "action": "/api/music/download",
+      "description": "Resolve URL Spotify/Apple/SoundCloud, lalu download MP3 (192 kbps) via yt-dlp. URL playlist/album TIDAK didukung — pakai /api/music/resolve dulu, lalu loop per track.",
+      "params": [
+        {
+          "name": "url",
+          "type": "string",
+          "example": "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT",
+          "required": true
+        }
+      ]
     }
   ],
   "Sticker": [
@@ -548,7 +578,11 @@
           "required": false,
           "default": "png",
           "example": "png",
-          "options": ["png", "jpeg", "webp"],
+          "options": [
+            "png",
+            "jpeg",
+            "webp"
+          ],
           "description": "Format output gambar."
         },
         {
@@ -622,7 +656,12 @@
           "required": false,
           "default": "M",
           "example": "M",
-          "options": ["L", "M", "Q", "H"],
+          "options": [
+            "L",
+            "M",
+            "Q",
+            "H"
+          ],
           "description": "Level koreksi error QR: L (~7%), M (~15%), Q (~25%), H (~30%)."
         },
         {
@@ -631,7 +670,10 @@
           "required": false,
           "default": "png",
           "example": "png",
-          "options": ["png", "svg"],
+          "options": [
+            "png",
+            "svg"
+          ],
           "description": "Format output: PNG (gambar) atau SVG (vektor)."
         }
       ]

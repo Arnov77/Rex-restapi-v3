@@ -83,9 +83,13 @@ router.get(
  *   get:
  *     summary: Download a single Apple Music track URL as MP3
  *     description: |
- *       Accepts only `music.apple.com` URLs. Resolves artist + title via the
- *       iTunes Search API (free, no auth), then runs the YouTube MP3 pipeline
- *       (search → download → tag → 192 kbps MP3).
+ *       Accepts only `music.apple.com` URLs. Primary path scrapes
+ *       `aaplmusicdownloader.com` (PHPSESSID session + /api/composer/swd.php
+ *       + /api/composer/ffmpeg/saveid3.php) to get a server-tagged MP3, which
+ *       we stream into our `/downloads/` directory.
+ *
+ *       Fallback path (if the upstream site is blocked / down): iTunes Search
+ *       API for metadata + yt-dlp YouTube MP3 pipeline.
  *
  *       Album URLs are NOT accepted — call `/api/music/resolve` first and
  *       iterate over the per-track URLs.
@@ -115,8 +119,13 @@ router.get(
  *   get:
  *     summary: Download a single SoundCloud track URL as MP3
  *     description: |
- *       Accepts only `soundcloud.com` track URLs. Uses yt-dlp directly
- *       against SoundCloud (native support, no YouTube round-trip).
+ *       Accepts only `soundcloud.com` track URLs. Primary path scrapes
+ *       `scloudplaylistdownloader.app` (PHPSESSID session + POST
+ *       /api/scinfo.php) which returns a signed SoundCloud CDN URL
+ *       (128 kbps MP3) that we stream into our `/downloads/` directory.
+ *
+ *       Fallback path (if the upstream site is blocked / down): yt-dlp
+ *       native SoundCloud extractor.
  *
  *       Set / playlist URLs (`/sets/...`) are NOT accepted — call
  *       `/api/music/resolve` first and iterate over the per-track URLs.

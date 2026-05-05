@@ -78,8 +78,8 @@ Mounted tapi **disembunyikan dari Swagger publik** (`/api/docs.json` tidak tampi
 | `POST`      | `/api/pinterest/download`             | Foto / video Pinterest (auto-upgrade ke `/originals/`)             |
 | `GET`       | `/api/music/resolve`                  | Metadata Spotify / Apple Music / SoundCloud (track+album+playlist) |
 | `GET`       | `/api/music/spotify/download`         | MP3 192 kbps dari URL track Spotify (single track, CAPSOLVER)      |
-| `GET`       | `/api/music/apple/download`           | MP3 192 kbps dari URL track Apple Music (single track)             |
-| `GET`       | `/api/music/soundcloud/download`      | MP3 192 kbps dari URL track SoundCloud (single track, yt-dlp)      |
+| `GET`       | `/api/music/apple/download`           | MP3 dari URL track Apple Music via aaplmusicdownloader.com scrape  |
+| `GET`       | `/api/music/soundcloud/download`      | MP3 dari URL track SoundCloud via scloudplaylistdownloader scrape  |
 | `POST`      | `/api/tts/google`                     | Voice note ogg/opus PTT WhatsApp (16kHz mono 32kbps)               |
 | `GET\|POST` | `/api/gdrive`                         | Resolver direct-download Google Drive                              |
 | `POST`      | `/api/brat/image`                     | Generator gambar style "Brat"                                      |
@@ -120,21 +120,33 @@ YouTube cuma publish format muxed (video+audio dalam 1 file) sampai 360p. Untuk 
 
 ## Music downloader (Spotify / Apple Music / SoundCloud)
 
-`GET /api/music/resolve?url=<...>` mengembalikan metadata ter-normalisasi dari URL Spotify, Apple Music, atau SoundCloud. Download-nya terpisah per-service: `GET /api/music/spotify/download?url=<...>`, `GET /api/music/apple/download?url=<...>`, dan `GET /api/music/soundcloud/download?url=<...>` masing-masing cuma menerima URL service-nya sendiri dan return MP3 192 kbps (single track).
+`GET /api/music/resolve?url=<...>` mengembalikan metadata ter-normalisasi dari URL Spotify, Apple Music, atau SoundCloud (auto-dispatch berdasarkan host). Download-nya terpisah per-service — masing-masing cuma menerima URL service-nya sendiri.
 
-| Service     | Source                            | Track | Album | Playlist | Latensi |
+### Resolve (metadata-only)
+
+| Service     | Source untuk `/api/music/resolve` | Track | Album | Playlist | Latensi |
 | ----------- | --------------------------------- | ----- | ----- | -------- | ------- |
 | Spotify     | scrape `spotidown.co` + CapSolver | yes   | yes   | yes (50) | 5–10 s  |
 | Apple Music | iTunes Search API (free, no auth) | yes   | yes   | no       | < 1 s   |
 | SoundCloud  | yt-dlp metadata extractor         | yes   | -     | yes      | 2–4 s   |
 
-**Spotify mewajibkan `CAPSOLVER_API_KEY`** (`spotidown.co` di-protek Cloudflare Turnstile). Tanpa key, endpoint return 503 untuk URL Spotify. Apple Music & SoundCloud tidak butuh credentials apa pun.
+### Download (per-service, single track only)
 
-Apple Music user-curated **playlist** tidak didukung (data ada di belakang Apple Music developer API berbayar; iTunes Search API tidak expose playlist). Album / track / single-in-album semua jalan.
+Setiap endpoint download men-scrape site downloader yang sudah proven, lalu stream file MP3 hasilnya ke `downloads/` lokal sehingga URL final tetap di domain kita.
+
+| Endpoint                         | Primary source (scrape)                    | Fallback                           | Bitrate   |
+| -------------------------------- | ------------------------------------------ | ---------------------------------- | --------- |
+| `/api/music/spotify/download`    | `spotidown.co` (Turnstile via CapSolver)   | —                                  | ~192 kbps |
+| `/api/music/apple/download`      | `aaplmusicdownloader.com` (PHPSESSID)      | iTunes Search API + yt-dlp YouTube | ~192 kbps |
+| `/api/music/soundcloud/download` | `scloudplaylistdownloader.app` (PHPSESSID) | yt-dlp native SoundCloud extractor | 128 kbps  |
+
+**Spotify mewajibkan `CAPSOLVER_API_KEY`** (`spotidown.co` di-protek Cloudflare Turnstile). Tanpa key, endpoint return 503 untuk URL Spotify. Apple Music & SoundCloud tidak butuh credentials apa pun — captcha-nya image-text dan saat ini toggled OFF upstream.
+
+Apple Music user-curated **playlist** tidak didukung di `/api/music/resolve` (data ada di belakang Apple Music developer API berbayar). Album / track / single-in-album semua jalan.
 
 Ketiga endpoint `/api/music/<service>/download` cuma menerima URL track tunggal dari service yang cocok — URL yang salah service (mis. URL Apple Music ke `/spotify/download`) ditolak 400. Untuk playlist / album, panggil `/api/music/resolve` dulu, lalu loop per-track URL ke endpoint download service-nya.
 
-Audio sebenarnya selalu di-source dari YouTube via yt-dlp (kualitas ~192 kbps MP3). Klaim "320 kbps Spotify FLAC" / "256 kbps Apple M4A" dari upstream scraper tidak valid; kita hanya re-use metadata mereka.
+Spotify upstream (`spotidown.co`) internal-nya re-stream dari YouTube, jadi audio-nya sebenarnya YouTube 192-256 kbps MP3. Apple (`aaplmusicdownloader.com`) punya cache CDN `mymp3.xyz` sendiri dan return m4a yang server-side di-convert ke tagged MP3. SoundCloud (`scloudplaylistdownloader.app`) return signed CDN URL dari `cf-media.sndcdn.com` 128 kbps MP3.
 
 ### Storage `downloads/`
 

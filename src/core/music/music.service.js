@@ -73,10 +73,15 @@ function sanitizeFilename(text, ext) {
  * Per-service helpers (downloadSpotify / downloadApple / downloadSoundcloud)
  * each validate the URL host and refuse URLs belonging to other services.
  *
- *   - SoundCloud track URL → yt-dlp directly (native support, no YouTube
- *     round-trip).
- *   - Spotify / Apple Music → resolve metadata via the service adapter, then
- *     yt-dlp YouTube search using "<artist> <title>".
+ * Primary source per service (scrape the downloader sites themselves):
+ *   - Spotify      → spotidown.co       (Cloudflare Turnstile + CapSolver)
+ *   - Apple Music  → aaplmusicdownloader.com (PHPSESSID + /api/composer/swd.php)
+ *   - SoundCloud   → scloudplaylistdownloader.app (PHPSESSID + /api/scinfo.php)
+ *
+ * Fallback cascade (if the upstream site is down / blocks us):
+ *   - Spotify      → (no fallback; Turnstile-protected, always via scrape)
+ *   - Apple Music  → iTunes Search API + yt-dlp YouTube
+ *   - SoundCloud   → yt-dlp native SoundCloud extractor
  */
 async function _downloadViaYoutube(adapterEntry, url, baseUrl, endpointPath) {
   const resolved = await adapterEntry.adapter.resolve(url);
@@ -131,21 +136,98 @@ async function downloadSpotify(url, baseUrl = 'http://localhost:3000') {
   return _downloadViaYoutube(picked, url, baseUrl, '/api/music/spotify/download');
 }
 
+/**
+ * Stream a remote audio URL to DOWNLOAD_DIR and return the local filename +
+ * size. Used by the scraper download paths to cache the third-party dlink
+ * into our /downloads/ directory so the client-facing URL stays stable.
+ */
+async function _pipeRemoteToDownloads(remoteUrl, filenameBase, ext) {
+  const res = await fetch(remoteUrl, {
+    headers: {
+      'User-Agent':
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 ' +
+        '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    },
+  });
+  if (!res.ok || !res.body) {
+    throw new AppError(`Remote dlink HTTP ${res.status}`, 502);
+  }
+  const filename = sanitizeFilename(filenameBase, ext);
+  const filepath = path.join(DOWNLOAD_DIR, filename);
+  const ws = fs.createWriteStream(filepath);
+  const { pipeline } = require('stream/promises');
+  const { Readable } = require('stream');
+  await pipeline(Readable.fromWeb(res.body), ws);
+  const stats = fs.statSync(filepath);
+  return {
+    filename,
+    filepath,
+    fileSize: `${Math.round(stats.size / 1024)} KB`,
+  };
+}
+
 async function downloadApple(url, baseUrl = 'http://localhost:3000') {
   const picked = _requireServiceUrl(url, 'apple', '/api/music/apple/download');
-  return _downloadViaYoutube(picked, url, baseUrl, '/api/music/apple/download');
+  try {
+    const scrape = await appleAdapter.fetchAaplDownload(url);
+    const filenameBase =
+      [scrape.track.artists[0], scrape.track.title].filter(Boolean).join(' ') ||
+      scrape.upstreamFilename ||
+      'apple-track';
+    const { filename, fileSize } = await _pipeRemoteToDownloads(
+      scrape.taggedUrl,
+      filenameBase,
+      'mp3'
+    );
+    return {
+      type: 'track',
+      source: scrape.source, // 'aaplmusicdownloader'
+      upstream: scrape.source,
+      track: scrape.track,
+      download: `${baseUrl}/downloads/${filename}`,
+      format: 'audio/mpeg',
+      fileSize,
+    };
+  } catch (err) {
+    logger.warn(
+      `[music:apple] aaplmusicdownloader scrape failed (${err.message}), falling back to iTunes + yt-dlp YouTube`
+    );
+    return _downloadViaYoutube(picked, url, baseUrl, '/api/music/apple/download');
+  }
 }
 
 async function downloadSoundcloud(url, baseUrl = 'http://localhost:3000') {
   _requireServiceUrl(url, 'soundcloud', '/api/music/soundcloud/download');
-  // Sets (playlists) can't be one-shot — force caller to iterate tracks.
   if (/\/sets\//i.test(url)) {
     throw new ValidationError(
       'SoundCloud set / playlist URLs are not supported via /api/music/soundcloud/download — ' +
         'call /api/music/resolve first, then iterate per track URL.'
     );
   }
-  return _downloadSoundCloudDirect(url, baseUrl);
+  try {
+    const scrape = await soundcloudAdapter.fetchScloudDownload(url);
+    const filenameBase =
+      [scrape.track.artists[0], scrape.track.title].filter(Boolean).join(' ') || 'soundcloud-track';
+    const { filename, fileSize } = await _pipeRemoteToDownloads(
+      scrape.dlinkMp3,
+      filenameBase,
+      'mp3'
+    );
+    return {
+      type: 'track',
+      source: scrape.source, // 'scloudplaylistdownloader'
+      upstream: scrape.source,
+      track: scrape.track,
+      download: `${baseUrl}/downloads/${filename}`,
+      format: 'audio/mpeg',
+      fileSize,
+    };
+  } catch (err) {
+    logger.warn(
+      `[music:soundcloud] scloudplaylistdownloader scrape failed (${err.message}), falling back to yt-dlp direct`
+    );
+    return _downloadSoundCloudDirect(url, baseUrl);
+  }
 }
 
 async function _downloadSoundCloudDirect(url, baseUrl) {

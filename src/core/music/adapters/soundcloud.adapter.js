@@ -4,6 +4,14 @@ const { AppError, ValidationError, NotFoundError } = require('../../../shared/ut
 
 const SOUNDCLOUD_HOST_RE = /^https?:\/\/(?:[a-z0-9-]+\.)?soundcloud\.com\//i;
 
+// scloudplaylistdownloader.app scraper — PHP app (same operator as
+// aaplmusicdownloader.com). /api/scinfo.php returns a signed SoundCloud CDN
+// URL (dlink_mp3) directly, no further conversion step required.
+const SCLOUD_SITE = 'https://scloudplaylistdownloader.app';
+const SCLOUD_UA =
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 ' +
+  '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
 function matches(url) {
   return SOUNDCLOUD_HOST_RE.test(url);
 }
@@ -81,8 +89,84 @@ async function resolve(url) {
   };
 }
 
+/**
+ * scloudplaylistdownloader.app — PHPSESSID bootstrap. Their /en1/ route is
+ * the entry point.
+ */
+async function _bootstrapScloudSession() {
+  const res = await fetch(`${SCLOUD_SITE}/en1/`, {
+    headers: { 'User-Agent': SCLOUD_UA, Accept: 'text/html' },
+  });
+  if (!res.ok) throw new AppError(`scloud bootstrap HTTP ${res.status}`, 502);
+  const setCookies = res.headers.getSetCookie?.() || [];
+  const cookies = setCookies.map((c) => c.split(';')[0]).join('; ');
+  if (!/PHPSESSID=/i.test(cookies)) {
+    throw new AppError('scloud bootstrap did not set PHPSESSID cookie', 502);
+  }
+  return cookies;
+}
+
+/**
+ * Full scrape flow against scloudplaylistdownloader.app — single POST to
+ * /api/scinfo.php returns a signed SoundCloud CDN URL (dlink_mp3). No
+ * further conversion needed; the URL is a 128 kbps MP3 direct from
+ * cf-media.sndcdn.com.
+ */
+async function fetchScloudDownload(scUrl) {
+  if (!matches(scUrl)) {
+    throw new ValidationError(`Not a SoundCloud URL: ${scUrl}`);
+  }
+  if (/\/sets\//i.test(scUrl)) {
+    throw new ValidationError(
+      'scloudplaylistdownloader.app /api/scinfo.php only handles single tracks.'
+    );
+  }
+
+  const cookies = await _bootstrapScloudSession();
+
+  const body = new URLSearchParams({ url: scUrl });
+  logger.info(`[music:soundcloud] scloud scinfo.php POST ${scUrl}`);
+  const res = await fetch(`${SCLOUD_SITE}/api/scinfo.php`, {
+    method: 'POST',
+    headers: {
+      Cookie: cookies,
+      'User-Agent': SCLOUD_UA,
+      Referer: `${SCLOUD_SITE}/en1/`,
+      'X-Requested-With': 'XMLHttpRequest',
+      Accept: 'application/json, text/plain, */*',
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: body.toString(),
+  });
+  if (!res.ok) {
+    throw new AppError(`scloudplaylistdownloader scinfo.php HTTP ${res.status}`, 502);
+  }
+  const payload = await res.json();
+  if (payload.error === '403 Forbidden') {
+    throw new AppError('scloudplaylistdownloader rate-limited (403)', 502);
+  }
+  if (!payload.dlink_mp3) {
+    throw new AppError(`scloudplaylistdownloader returned no dlink_mp3 for ${scUrl}`, 502);
+  }
+
+  return {
+    source: 'scloudplaylistdownloader',
+    dlinkMp3: payload.dlink_mp3,
+    dlinkM4a: payload.dlink_m4a || null,
+    track: {
+      title: payload.name || null,
+      artists: payload.artist ? [payload.artist] : [],
+      cover: payload.thumb || null,
+      duration: payload.duration || null,
+      releaseDate: payload.date || null,
+      sourceUrl: payload.url || scUrl,
+    },
+  };
+}
+
 module.exports = {
   matches,
   resolve,
+  fetchScloudDownload,
   _trackFromYtDlp: trackFromYtDlp,
 };

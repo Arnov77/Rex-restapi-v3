@@ -8,6 +8,15 @@ const ITUNES_USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 ' +
   '(KHTML, like Gecko) Version/17.0 Safari/605.1.15';
 
+// aaplmusicdownloader.com scraper — full pipeline for downloading a single
+// track URL as a tagged MP3. The site is a PHP app; we use PHPSESSID for
+// statefulness and call their internal /api/* endpoints in the same order a
+// real browser does (see their song.php JS).
+const AAPL_SITE = 'https://aaplmusicdownloader.com';
+const AAPL_UA =
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 ' +
+  '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
 function matches(url) {
   return APPLE_HOST_RE.test(url);
 }
@@ -160,9 +169,153 @@ async function resolve(url) {
   );
 }
 
+/**
+ * aaplmusicdownloader.com — grab a PHPSESSID by visiting the homepage.
+ * Returns the Cookie: header value (PHPSESSID + auth_cookie combined).
+ */
+async function _bootstrapAaplSession() {
+  const res = await fetch(`${AAPL_SITE}/`, {
+    headers: { 'User-Agent': AAPL_UA, Accept: 'text/html' },
+  });
+  if (!res.ok) throw new AppError(`aapl bootstrap HTTP ${res.status}`, 502);
+  const setCookies = res.headers.getSetCookie?.() || [];
+  const cookies = setCookies.map((c) => c.split(';')[0]).join('; ');
+  if (!/PHPSESSID=/i.test(cookies)) {
+    throw new AppError('aapl bootstrap did not set PHPSESSID cookie', 502);
+  }
+  return cookies;
+}
+
+function _aaplHeaders(cookies, referer = `${AAPL_SITE}/`) {
+  return {
+    Cookie: cookies,
+    'User-Agent': AAPL_UA,
+    Referer: referer,
+    'X-Requested-With': 'XMLHttpRequest',
+    Accept: 'application/json, text/plain, */*',
+  };
+}
+
+/**
+ * Full scrape flow against aaplmusicdownloader.com — returns a URL pointing
+ * to a server-side MP3 on their CDN (ID3-tagged).
+ *
+ * Steps (matches their song.php JS):
+ *   1. Bootstrap PHPSESSID via GET /
+ *   2. GET /ifCaptcha.php — if "true" we bail (their captcha is image-text,
+ *      not Turnstile, so CapSolver doesn't help here)
+ *   3. GET /api/applesearch.php?url=<enc> (for ?i= / album URLs) OR
+ *      /api/song_url.php?url=<enc> (for /song/ URLs) → metadata JSON
+ *   4. POST /api/composer/swd.php → { dlink: <m4a URL>, status: 'success' }
+ *   5. POST /api/composer/ffmpeg/saveid3.php → returns filename (plain text)
+ *   6. Caller downloads GET /api/composer/ffmpeg/saved/<filename> directly.
+ */
+async function fetchAaplDownload(appleUrl) {
+  if (!matches(appleUrl)) {
+    throw new ValidationError(`Not an Apple Music URL: ${appleUrl}`);
+  }
+  const cookies = await _bootstrapAaplSession();
+
+  const captchaRes = await fetch(`${AAPL_SITE}/ifCaptcha.php`, {
+    headers: _aaplHeaders(cookies),
+  });
+  const captchaText = (await captchaRes.text()).trim();
+  if (captchaText === 'true') {
+    throw new AppError(
+      'aaplmusicdownloader.com has enabled image-text CAPTCHA; scraper path is unavailable.',
+      503
+    );
+  }
+
+  const isSong = /\/song\//i.test(appleUrl);
+  const metaPath = isSong ? '/api/song_url.php' : '/api/applesearch.php';
+  const metaRes = await fetch(`${AAPL_SITE}${metaPath}?url=${encodeURIComponent(appleUrl)}`, {
+    headers: _aaplHeaders(cookies),
+  });
+  if (!metaRes.ok) {
+    throw new AppError(`aaplmusicdownloader ${metaPath} HTTP ${metaRes.status}`, 502);
+  }
+  const meta = await metaRes.json();
+  if (meta.error === '403 Forbidden') {
+    throw new AppError('aaplmusicdownloader rate-limited (403)', 502);
+  }
+  if (!meta.name || !meta.artist) {
+    throw new AppError(`aaplmusicdownloader returned empty metadata for ${appleUrl}`, 502);
+  }
+
+  logger.info(`[music:apple] aapl swd.php request for "${meta.artist} — ${meta.name}"`);
+  const swdBody = new URLSearchParams({
+    song_name: meta.name,
+    artist_name: meta.artist,
+    url: meta.url || appleUrl,
+    token: 'none',
+    zip_download: 'false',
+    quality: 'mp3',
+  });
+  const swdRes = await fetch(`${AAPL_SITE}/api/composer/swd.php`, {
+    method: 'POST',
+    headers: {
+      ..._aaplHeaders(cookies, `${AAPL_SITE}/song.php`),
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: swdBody.toString(),
+  });
+  if (!swdRes.ok) {
+    throw new AppError(`aaplmusicdownloader swd.php HTTP ${swdRes.status}`, 502);
+  }
+  const swd = await swdRes.json();
+  if (swd.status !== 'success' || !swd.dlink) {
+    throw new AppError(`aaplmusicdownloader swd.php failed: ${swd.comments || swd.status}`, 502);
+  }
+
+  const tagBody = new URLSearchParams({
+    url: swd.dlink,
+    name: meta.name,
+    artist: meta.artist,
+    album: meta.albumname || '',
+    thumb: meta.thumb || '',
+  });
+  const tagRes = await fetch(`${AAPL_SITE}/api/composer/ffmpeg/saveid3.php`, {
+    method: 'POST',
+    headers: {
+      ..._aaplHeaders(cookies, `${AAPL_SITE}/song.php`),
+      Accept: 'text/plain, */*',
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: tagBody.toString(),
+  });
+  if (!tagRes.ok) {
+    throw new AppError(`aaplmusicdownloader saveid3.php HTTP ${tagRes.status}`, 502);
+  }
+  const filename = (await tagRes.text()).trim();
+  if (!filename || filename.length > 200 || /^[<{[]/.test(filename)) {
+    throw new AppError(
+      `aaplmusicdownloader saveid3.php returned unexpected body: ${filename.slice(0, 80)}`,
+      502
+    );
+  }
+
+  const taggedUrl = `${AAPL_SITE}/api/composer/ffmpeg/saved/${encodeURI(filename)}`;
+  return {
+    source: 'aaplmusicdownloader',
+    taggedUrl,
+    rawDlink: swd.dlink,
+    track: {
+      title: meta.name,
+      artists: meta.artist ? [meta.artist] : [],
+      album: meta.albumname || null,
+      cover: meta.thumb || null,
+      duration: meta.duration || null,
+      sourceUrl: meta.url || appleUrl,
+    },
+    upstreamFilename: filename,
+  };
+}
+
 module.exports = {
   matches,
   resolve,
+  fetchAaplDownload,
   _parseAppleUrl: parseAppleUrl,
   _trackFromItunesEntry: trackFromItunesEntry,
 };

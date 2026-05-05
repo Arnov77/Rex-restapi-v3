@@ -174,7 +174,7 @@
       "name": "Apple Music Downloader",
       "method": "GET",
       "action": "/api/music/apple/download",
-      "description": "Download MP3 (192 kbps) dari URL track Apple Music via iTunes Search API → yt-dlp YouTube. URL album TIDAK didukung — pakai /api/music/resolve dulu, lalu loop per track.",
+      "description": "Download MP3 (192 kbps) dari URL track Apple Music via scraping aaplmusicdownloader.com (primary), fallback iTunes Search API + yt-dlp YouTube. URL album TIDAK didukung — pakai /api/music/resolve dulu, lalu loop per track.",
       "params": [
         {
           "name": "url",
@@ -189,7 +189,7 @@
       "name": "SoundCloud Downloader",
       "method": "GET",
       "action": "/api/music/soundcloud/download",
-      "description": "Download MP3 (192 kbps) dari URL track SoundCloud via yt-dlp (native SoundCloud support). URL set/playlist TIDAK didukung — pakai /api/music/resolve dulu, lalu loop per track.",
+      "description": "Download MP3 (128 kbps) dari URL track SoundCloud via scraping scloudplaylistdownloader.app (primary), fallback yt-dlp native SoundCloud extractor. URL set/playlist TIDAK didukung — pakai /api/music/resolve dulu, lalu loop per track.",
       "params": [
         {
           "name": "url",

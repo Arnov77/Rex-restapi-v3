@@ -1358,7 +1358,7 @@ function sendReq() {
   if (api.method === 'GET' && Object.keys(body).length > 0) {
     const qs = new URLSearchParams();
     Object.entries(body).forEach(([k, v]) => qs.set(k, String(v)));
-    fetchUrl = `?`;
+    fetchUrl = `${api.action}?${qs.toString()}`;
   }
 
   fetch(fetchUrl, requestOptions)

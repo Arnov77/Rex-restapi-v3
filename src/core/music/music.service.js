@@ -70,31 +70,20 @@ function sanitizeFilename(text, ext) {
  * Download a single track URL to MP3 and return metadata + a public download
  * link served from /downloads/<file>.mp3.
  *
- * Routing:
- *   - SoundCloud track URL → yt-dlp directly (lossless metadata, supports
- *     long mixes, no YouTube round-trip).
- *   - Spotify / Apple Music / etc → resolve metadata, then yt-dlp YouTube
- *     search using "<artist> <title>".
+ * Per-service helpers (downloadSpotify / downloadApple / downloadSoundcloud)
+ * each validate the URL host and refuse URLs belonging to other services.
+ *
+ *   - SoundCloud track URL → yt-dlp directly (native support, no YouTube
+ *     round-trip).
+ *   - Spotify / Apple Music → resolve metadata via the service adapter, then
+ *     yt-dlp YouTube search using "<artist> <title>".
  */
-async function download(url, baseUrl = 'http://localhost:3000') {
-  if (!url || typeof url !== 'string') throw new ValidationError('url is required');
-  const picked = pickAdapter(url);
-  if (!picked) {
-    throw new ValidationError(
-      'URL host not supported. Accepted: open.spotify.com, music.apple.com, soundcloud.com'
-    );
-  }
-
-  // SoundCloud track URLs go straight to yt-dlp (it supports SC natively).
-  if (picked.name === 'soundcloud' && !url.match(/\/sets\//i)) {
-    return _downloadSoundCloudDirect(url, baseUrl);
-  }
-
-  const resolved = await picked.adapter.resolve(url);
+async function _downloadViaYoutube(adapterEntry, url, baseUrl, endpointPath) {
+  const resolved = await adapterEntry.adapter.resolve(url);
   if (resolved.type !== 'track') {
     throw new ValidationError(
-      `Bulk downloads (${resolved.type}) are not supported via /api/music/download — ` +
-        `call /api/music/resolve first, then iterate /api/music/download per track URL.`
+      `Bulk downloads (${resolved.type}) are not supported via ${endpointPath} — ` +
+        `call /api/music/resolve first, then iterate per track URL.`
     );
   }
   const track = resolved.track;
@@ -103,7 +92,7 @@ async function download(url, baseUrl = 'http://localhost:3000') {
     throw new AppError('Track metadata missing artist/title — cannot search YouTube.', 502);
   }
 
-  logger.info(`[music:download] yt search for "${query}" (source=${resolved.source})`);
+  logger.info(`[music:${adapterEntry.name}] yt search for "${query}"`);
   const ytResult = await youtubeService.downloadMp3(query, baseUrl);
 
   return {
@@ -118,6 +107,45 @@ async function download(url, baseUrl = 'http://localhost:3000') {
     youtubeAuthor: ytResult.author,
     youtubeThumbnail: ytResult.thumbnail,
   };
+}
+
+function _requireServiceUrl(url, expectedAdapterName, endpointPath) {
+  if (!url || typeof url !== 'string') throw new ValidationError('url is required');
+  const picked = pickAdapter(url);
+  if (!picked) {
+    throw new ValidationError(
+      `URL host not supported for ${endpointPath}. Expected a ${expectedAdapterName} URL.`
+    );
+  }
+  if (picked.name !== expectedAdapterName) {
+    throw new ValidationError(
+      `${endpointPath} only accepts ${expectedAdapterName} URLs (detected: ${picked.name}). ` +
+        `Use /api/music/${picked.name}/download instead.`
+    );
+  }
+  return picked;
+}
+
+async function downloadSpotify(url, baseUrl = 'http://localhost:3000') {
+  const picked = _requireServiceUrl(url, 'spotify', '/api/music/spotify/download');
+  return _downloadViaYoutube(picked, url, baseUrl, '/api/music/spotify/download');
+}
+
+async function downloadApple(url, baseUrl = 'http://localhost:3000') {
+  const picked = _requireServiceUrl(url, 'apple', '/api/music/apple/download');
+  return _downloadViaYoutube(picked, url, baseUrl, '/api/music/apple/download');
+}
+
+async function downloadSoundcloud(url, baseUrl = 'http://localhost:3000') {
+  _requireServiceUrl(url, 'soundcloud', '/api/music/soundcloud/download');
+  // Sets (playlists) can't be one-shot — force caller to iterate tracks.
+  if (/\/sets\//i.test(url)) {
+    throw new ValidationError(
+      'SoundCloud set / playlist URLs are not supported via /api/music/soundcloud/download — ' +
+        'call /api/music/resolve first, then iterate per track URL.'
+    );
+  }
+  return _downloadSoundCloudDirect(url, baseUrl);
 }
 
 async function _downloadSoundCloudDirect(url, baseUrl) {
@@ -173,7 +201,9 @@ async function _downloadSoundCloudDirect(url, baseUrl) {
 
 module.exports = {
   resolve,
-  download,
+  downloadSpotify,
+  downloadApple,
+  downloadSoundcloud,
   detectService,
   // for tests
   _buildYouTubeQuery: buildYouTubeQuery,

@@ -147,3 +147,44 @@ describe('music.service detectService + buildYouTubeQuery', () => {
     await expect(musicService.resolve('')).rejects.toThrow(/required/i);
   });
 });
+
+describe('music.service per-service download URL guards', () => {
+  it('downloadSpotify rejects non-Spotify URLs', async () => {
+    await expect(
+      musicService.downloadSpotify('https://music.apple.com/us/album/lover/1468058165?i=1')
+    ).rejects.toThrow(/only accepts spotify/i);
+    await expect(
+      musicService.downloadSpotify('https://soundcloud.com/forss/flickermood')
+    ).rejects.toThrow(/only accepts spotify/i);
+    await expect(musicService.downloadSpotify('https://example.com')).rejects.toThrow(
+      /host not supported/i
+    );
+    await expect(musicService.downloadSpotify('')).rejects.toThrow(/required/i);
+  });
+
+  it('downloadApple rejects non-Apple URLs', async () => {
+    await expect(
+      musicService.downloadApple('https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT')
+    ).rejects.toThrow(/only accepts apple/i);
+    await expect(
+      musicService.downloadApple('https://soundcloud.com/forss/flickermood')
+    ).rejects.toThrow(/only accepts apple/i);
+    await expect(musicService.downloadApple('')).rejects.toThrow(/required/i);
+  });
+
+  it('downloadSoundcloud rejects non-SoundCloud URLs', async () => {
+    await expect(
+      musicService.downloadSoundcloud('https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT')
+    ).rejects.toThrow(/only accepts soundcloud/i);
+    await expect(
+      musicService.downloadSoundcloud('https://music.apple.com/us/album/lover/1468058165?i=1')
+    ).rejects.toThrow(/only accepts soundcloud/i);
+    await expect(musicService.downloadSoundcloud('')).rejects.toThrow(/required/i);
+  });
+
+  it('downloadSoundcloud rejects set / playlist URLs', async () => {
+    await expect(
+      musicService.downloadSoundcloud('https://soundcloud.com/user-123/sets/my-mix')
+    ).rejects.toThrow(/set .* playlist URLs are not supported/i);
+  });
+});

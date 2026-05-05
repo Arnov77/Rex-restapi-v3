@@ -77,7 +77,9 @@ Mounted tapi **disembunyikan dari Swagger publik** (`/api/docs.json` tidak tampi
 | `POST`      | `/api/twitter/download`               | Video / foto Twitter / X (3-tier fallback)                         |
 | `POST`      | `/api/pinterest/download`             | Foto / video Pinterest (auto-upgrade ke `/originals/`)             |
 | `GET`       | `/api/music/resolve`                  | Metadata Spotify / Apple Music / SoundCloud (track+album+playlist) |
-| `GET`       | `/api/music/download`                 | MP3 192 kbps dari URL Spotify / Apple / SoundCloud (single track)  |
+| `GET`       | `/api/music/spotify/download`         | MP3 192 kbps dari URL track Spotify (single track, CAPSOLVER)      |
+| `GET`       | `/api/music/apple/download`           | MP3 192 kbps dari URL track Apple Music (single track)             |
+| `GET`       | `/api/music/soundcloud/download`      | MP3 192 kbps dari URL track SoundCloud (single track, yt-dlp)      |
 | `POST`      | `/api/tts/google`                     | Voice note ogg/opus PTT WhatsApp (16kHz mono 32kbps)               |
 | `GET\|POST` | `/api/gdrive`                         | Resolver direct-download Google Drive                              |
 | `POST`      | `/api/brat/image`                     | Generator gambar style "Brat"                                      |
@@ -118,7 +120,7 @@ YouTube cuma publish format muxed (video+audio dalam 1 file) sampai 360p. Untuk 
 
 ## Music downloader (Spotify / Apple Music / SoundCloud)
 
-`GET /api/music/resolve?url=<...>` mengembalikan metadata ter-normalisasi dari URL Spotify, Apple Music, atau SoundCloud. `GET /api/music/download?url=<...>` resolve metadata lalu download MP3 192 kbps via yt-dlp (single track).
+`GET /api/music/resolve?url=<...>` mengembalikan metadata ter-normalisasi dari URL Spotify, Apple Music, atau SoundCloud. Download-nya terpisah per-service: `GET /api/music/spotify/download?url=<...>`, `GET /api/music/apple/download?url=<...>`, dan `GET /api/music/soundcloud/download?url=<...>` masing-masing cuma menerima URL service-nya sendiri dan return MP3 192 kbps (single track).
 
 | Service     | Source                            | Track | Album | Playlist | Latensi |
 | ----------- | --------------------------------- | ----- | ----- | -------- | ------- |
@@ -130,7 +132,7 @@ YouTube cuma publish format muxed (video+audio dalam 1 file) sampai 360p. Untuk 
 
 Apple Music user-curated **playlist** tidak didukung (data ada di belakang Apple Music developer API berbayar; iTunes Search API tidak expose playlist). Album / track / single-in-album semua jalan.
 
-`/api/music/download` cuma menerima URL track tunggal — untuk playlist / album, panggil `/api/music/resolve` dulu, lalu loop `/api/music/download` per track.
+Ketiga endpoint `/api/music/<service>/download` cuma menerima URL track tunggal dari service yang cocok — URL yang salah service (mis. URL Apple Music ke `/spotify/download`) ditolak 400. Untuk playlist / album, panggil `/api/music/resolve` dulu, lalu loop per-track URL ke endpoint download service-nya.
 
 Audio sebenarnya selalu di-source dari YouTube via yt-dlp (kualitas ~192 kbps MP3). Klaim "320 kbps Spotify FLAC" / "256 kbps Apple M4A" dari upstream scraper tidak valid; kita hanya re-use metadata mereka.
 

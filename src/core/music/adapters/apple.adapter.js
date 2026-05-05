@@ -89,8 +89,8 @@ function trackFromItunesEntry(entry, sourceUrl) {
     isrc: entry.isrc || null,
     sourceUrl: entry.trackViewUrl || sourceUrl || null,
     // Apple Music audio is FairPlay-encrypted — we never get a real audio URL
-    // from iTunes. Downloads happen via /api/music/download which delegates
-    // to the YouTube-search MP3 pipeline.
+    // from iTunes. Downloads happen via /api/music/apple/download which
+    // delegates to the YouTube-search MP3 pipeline.
     audio: null,
   };
 }

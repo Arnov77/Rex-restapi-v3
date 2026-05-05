@@ -156,15 +156,45 @@
     },
     {
       "id": 10,
-      "name": "Music Downloader",
+      "name": "Spotify Downloader",
       "method": "GET",
-      "action": "/api/music/download",
-      "description": "Resolve URL Spotify/Apple/SoundCloud, lalu download MP3 (192 kbps) via yt-dlp. URL playlist/album TIDAK didukung — pakai /api/music/resolve dulu, lalu loop per track.",
+      "action": "/api/music/spotify/download",
+      "description": "Download MP3 (192 kbps) dari URL track Spotify via yt-dlp. URL album/playlist TIDAK didukung — pakai /api/music/resolve dulu, lalu loop per track. Memerlukan CAPSOLVER_API_KEY (Cloudflare Turnstile bypass).",
       "params": [
         {
           "name": "url",
           "type": "string",
           "example": "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "name": "Apple Music Downloader",
+      "method": "GET",
+      "action": "/api/music/apple/download",
+      "description": "Download MP3 (192 kbps) dari URL track Apple Music via iTunes Search API → yt-dlp YouTube. URL album TIDAK didukung — pakai /api/music/resolve dulu, lalu loop per track.",
+      "params": [
+        {
+          "name": "url",
+          "type": "string",
+          "example": "https://music.apple.com/us/album/cruel-summer/1468058165?i=1468058171",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "name": "SoundCloud Downloader",
+      "method": "GET",
+      "action": "/api/music/soundcloud/download",
+      "description": "Download MP3 (192 kbps) dari URL track SoundCloud via yt-dlp (native SoundCloud support). URL set/playlist TIDAK didukung — pakai /api/music/resolve dulu, lalu loop per track.",
+      "params": [
+        {
+          "name": "url",
+          "type": "string",
+          "example": "https://soundcloud.com/forss/flickermood",
           "required": true
         }
       ]

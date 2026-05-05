@@ -18,8 +18,10 @@ const { asyncHandler } = require('../../shared/middleware/errorHandler');
  *
  *       For tracks the response is a flat `{ type: "track", track: {...} }`. For
  *       playlists / albums a list of normalised tracks is returned under
- *       `tracks[]`. To download a single track call `/api/music/download` with
- *       the same URL (or any per-track URL from the list).
+ *       `tracks[]`. To download a single track call the matching per-service
+ *       download endpoint (`/api/music/spotify/download`,
+ *       `/api/music/apple/download`, or `/api/music/soundcloud/download`) with
+ *       any per-track URL from the list.
  *     tags: [Media]
  *     parameters:
  *       - in: query
@@ -44,16 +46,15 @@ router.get(
 
 /**
  * @openapi
- * /api/music/download:
+ * /api/music/spotify/download:
  *   get:
- *     summary: Download a single track URL as MP3 (server-hosted file)
+ *     summary: Download a single Spotify track URL as MP3
  *     description: |
- *       Resolves the supplied URL to artist + title, then runs the YouTube
- *       MP3 pipeline (search → download → tag → 192kbps MP3). For SoundCloud
- *       track URLs we use yt-dlp directly against SoundCloud (no YouTube
- *       round-trip). Returns a public `download` URL served from `/downloads/`.
+ *       Accepts only `open.spotify.com` URLs. Resolves artist + title via
+ *       spotidown.co (Turnstile bypassed with CapSolver), then runs the
+ *       YouTube MP3 pipeline (search → download → tag → 192 kbps MP3).
  *
- *       Bulk URLs (album / playlist) are NOT accepted — call `/api/music/resolve`
+ *       Playlist / album URLs are NOT accepted — call `/api/music/resolve`
  *       first and iterate over the per-track URLs.
  *     tags: [Media]
  *     parameters:
@@ -66,14 +67,77 @@ router.get(
  *           example: https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT
  *     responses:
  *       200: { description: Track resolved and MP3 download link generated }
- *       400: { description: Unsupported URL host, invalid URL, or bulk URL submitted }
- *       502: { description: Resolver or YouTube download failed }
+ *       400: { description: URL is not a Spotify track URL, or bulk URL submitted }
+ *       502: { description: Spotify resolver or YouTube download failed }
  *       503: { description: Spotify resolver requires CAPSOLVER_API_KEY }
  */
 router.get(
-  '/download',
+  '/spotify/download',
   validateRequest(schemas.downloadSchema, 'query'),
-  asyncHandler(musicController.download)
+  asyncHandler(musicController.downloadSpotify)
+);
+
+/**
+ * @openapi
+ * /api/music/apple/download:
+ *   get:
+ *     summary: Download a single Apple Music track URL as MP3
+ *     description: |
+ *       Accepts only `music.apple.com` URLs. Resolves artist + title via the
+ *       iTunes Search API (free, no auth), then runs the YouTube MP3 pipeline
+ *       (search → download → tag → 192 kbps MP3).
+ *
+ *       Album URLs are NOT accepted — call `/api/music/resolve` first and
+ *       iterate over the per-track URLs.
+ *     tags: [Media]
+ *     parameters:
+ *       - in: query
+ *         name: url
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uri
+ *           example: https://music.apple.com/us/album/cruel-summer/1468058165?i=1468058171
+ *     responses:
+ *       200: { description: Track resolved and MP3 download link generated }
+ *       400: { description: URL is not an Apple Music track URL, or bulk URL submitted }
+ *       502: { description: Apple Music resolver or YouTube download failed }
+ */
+router.get(
+  '/apple/download',
+  validateRequest(schemas.downloadSchema, 'query'),
+  asyncHandler(musicController.downloadApple)
+);
+
+/**
+ * @openapi
+ * /api/music/soundcloud/download:
+ *   get:
+ *     summary: Download a single SoundCloud track URL as MP3
+ *     description: |
+ *       Accepts only `soundcloud.com` track URLs. Uses yt-dlp directly
+ *       against SoundCloud (native support, no YouTube round-trip).
+ *
+ *       Set / playlist URLs (`/sets/...`) are NOT accepted — call
+ *       `/api/music/resolve` first and iterate over the per-track URLs.
+ *     tags: [Media]
+ *     parameters:
+ *       - in: query
+ *         name: url
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uri
+ *           example: https://soundcloud.com/forss/flickermood
+ *     responses:
+ *       200: { description: Track downloaded and MP3 link generated }
+ *       400: { description: URL is not a SoundCloud track URL, or set URL submitted }
+ *       502: { description: SoundCloud download failed }
+ */
+router.get(
+  '/soundcloud/download',
+  validateRequest(schemas.downloadSchema, 'query'),
+  asyncHandler(musicController.downloadSoundcloud)
 );
 
 module.exports = router;

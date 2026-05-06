@@ -62,6 +62,11 @@ const envSchema = Joi.object({
   YOUTUBE_PO_TOKEN: Joi.string().allow('').optional(),
   TELEGRAM_BOT_TOKEN: Joi.string().allow('').optional(),
   GEMINI_API_KEY: Joi.string().allow('').optional(),
+
+  // CapSolver API key for solving Cloudflare Turnstile challenges on the
+  // Spotify scraper (spotidown.co). Empty disables the Spotify adapter; the
+  // /api/music/* endpoints will return 503 for Spotify URLs.
+  CAPSOLVER_API_KEY: Joi.string().allow('').optional(),
   DISCORD_WEBHOOK_URL: Joi.string().uri().allow('').optional(),
   AUTH_STORE_BACKEND: Joi.string().valid('json', 'supabase').default('json'),
   SUPABASE_URL: Joi.string().uri().allow('').optional(),

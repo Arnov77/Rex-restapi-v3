@@ -30,6 +30,7 @@ const tiktokRoutes = require('./src/core/media/tiktok/tiktok.routes');
 const instagramRoutes = require('./src/core/media/instagram/instagram.routes');
 const twitterRoutes = require('./src/core/media/twitter/twitter.routes');
 const pinterestRoutes = require('./src/core/media/pinterest/pinterest.routes');
+const musicRoutes = require('./src/core/music/music.routes');
 
 const gdriveRoute = require('./src/core/tools/gdrive/gdrive.routes');
 const quoteRoute = require('./src/core/tools/quote/quote.routes');
@@ -145,6 +146,7 @@ app.use('/api/tiktok', dailyQuota, tiktokRoutes);
 app.use('/api/instagram', dailyQuota, instagramRoutes);
 app.use('/api/twitter', dailyQuota, twitterRoutes);
 app.use('/api/pinterest', dailyQuota, pinterestRoutes);
+app.use('/api/music', dailyQuota, musicRoutes);
 app.use('/api/tts', dailyQuota, ttsRoute);
 app.use('/api/gdrive', dailyQuota, gdriveRoute);
 app.use('/api/quote', dailyQuota, quoteRoute);

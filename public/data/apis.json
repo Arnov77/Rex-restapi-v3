@@ -138,6 +138,66 @@
           "required": true
         }
       ]
+    },
+    {
+      "id": 9,
+      "name": "Music Resolver",
+      "method": "GET",
+      "action": "/api/music/resolve",
+      "description": "Ambil info lagu, album, atau playlist dari URL Spotify, Apple Music, atau SoundCloud.",
+      "params": [
+        {
+          "name": "url",
+          "type": "string",
+          "example": "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "name": "Spotify Downloader",
+      "method": "GET",
+      "action": "/api/music/spotify/download",
+      "description": "Download lagu Spotify menjadi MP3 dari URL track. Untuk album/playlist, gunakan /api/music/resolve untuk daftar URL track.",
+      "params": [
+        {
+          "name": "url",
+          "type": "string",
+          "example": "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "name": "Apple Music Downloader",
+      "method": "GET",
+      "action": "/api/music/apple/download",
+      "description": "Download lagu Apple Music menjadi MP3 dari URL track. Untuk album, gunakan /api/music/resolve untuk daftar URL track.",
+      "params": [
+        {
+          "name": "url",
+          "type": "string",
+          "example": "https://music.apple.com/us/album/cruel-summer/1468058165?i=1468058171",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "name": "SoundCloud Downloader",
+      "method": "GET",
+      "action": "/api/music/soundcloud/download",
+      "description": "Download lagu SoundCloud menjadi MP3 dari URL track. Untuk playlist/set, gunakan /api/music/resolve untuk daftar URL track.",
+      "params": [
+        {
+          "name": "url",
+          "type": "string",
+          "example": "https://soundcloud.com/forss/flickermood",
+          "required": true
+        }
+      ]
     }
   ],
   "Sticker": [
@@ -548,7 +608,11 @@
           "required": false,
           "default": "png",
           "example": "png",
-          "options": ["png", "jpeg", "webp"],
+          "options": [
+            "png",
+            "jpeg",
+            "webp"
+          ],
           "description": "Format output gambar."
         },
         {
@@ -622,7 +686,12 @@
           "required": false,
           "default": "M",
           "example": "M",
-          "options": ["L", "M", "Q", "H"],
+          "options": [
+            "L",
+            "M",
+            "Q",
+            "H"
+          ],
           "description": "Level koreksi error QR: L (~7%), M (~15%), Q (~25%), H (~30%)."
         },
         {
@@ -631,7 +700,10 @@
           "required": false,
           "default": "png",
           "example": "png",
-          "options": ["png", "svg"],
+          "options": [
+            "png",
+            "svg"
+          ],
           "description": "Format output: PNG (gambar) atau SVG (vektor)."
         }
       ]

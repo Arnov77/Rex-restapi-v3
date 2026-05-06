@@ -36,12 +36,70 @@ async function resolve(url) {
       'URL host not supported. Accepted: open.spotify.com, music.apple.com, soundcloud.com'
     );
   }
-  return picked.adapter.resolve(url);
+  const raw = await picked.adapter.resolve(url);
+  return _slimResolve(raw);
 }
 
 function pickPrimaryArtist(artists) {
   if (!Array.isArray(artists) || !artists.length) return '';
   return artists[0] || '';
+}
+
+function _formatDuration(input) {
+  let totalSec = null;
+  if (typeof input === 'number' && Number.isFinite(input)) {
+    totalSec = input >= 1000 ? Math.round(input / 1000) : Math.round(input);
+  } else if (typeof input === 'string') {
+    const colon = input.match(/^(\d+):(\d{1,2})$/);
+    const human = input.match(/^(\d+)m\s*(\d+)s$/i);
+    if (colon) totalSec = parseInt(colon[1], 10) * 60 + parseInt(colon[2], 10);
+    else if (human) totalSec = parseInt(human[1], 10) * 60 + parseInt(human[2], 10);
+    else if (/^\d+$/.test(input)) totalSec = parseInt(input, 10);
+  }
+  if (totalSec == null || !Number.isFinite(totalSec)) return null;
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  return `${min}:${String(sec).padStart(2, '0')}`;
+}
+
+function _slimTrack(track) {
+  if (!track) return { title: null, artist: null, thumbnail: null, duration: null };
+  const artist =
+    Array.isArray(track.artists) && track.artists.length
+      ? track.artists.join(', ')
+      : track.artist || null;
+  const duration = _formatDuration(
+    track.durationMs ?? (track.durationSec != null ? track.durationSec : track.duration)
+  );
+  return {
+    title: track.title || null,
+    artist,
+    thumbnail: track.cover || track.thumbnail || null,
+    duration,
+  };
+}
+
+function _slimResolve(result) {
+  if (!result) return result;
+  if (result.type === 'track') {
+    return {
+      type: 'track',
+      ..._slimTrack(result.track),
+      url: result.track?.sourceUrl || null,
+    };
+  }
+  return {
+    type: result.type,
+    name: result.name || null,
+    thumbnail: result.cover || null,
+    totalCount: result.totalCount ?? (Array.isArray(result.tracks) ? result.tracks.length : 0),
+    tracks: Array.isArray(result.tracks)
+      ? result.tracks.map((t) => ({
+          ..._slimTrack(t),
+          url: t.sourceUrl || null,
+        }))
+      : [],
+  };
 }
 
 function buildYouTubeQuery(track) {
@@ -100,17 +158,12 @@ async function _downloadViaYoutube(adapterEntry, url, baseUrl, endpointPath) {
   logger.info(`[music:${adapterEntry.name}] yt search for "${query}"`);
   const ytResult = await youtubeService.downloadMp3(query, baseUrl);
 
+  const slim = _slimTrack(track);
   return {
-    type: 'track',
-    source: resolved.source,
-    upstream: 'youtube',
-    track,
+    ...slim,
+    thumbnail: slim.thumbnail || ytResult.thumbnail || null,
+    size: ytResult.fileSize,
     download: ytResult.download,
-    format: ytResult.format,
-    fileSize: ytResult.fileSize,
-    durationFromYoutube: ytResult.duration,
-    youtubeAuthor: ytResult.author,
-    youtubeThumbnail: ytResult.thumbnail,
   };
 }
 
@@ -180,13 +233,9 @@ async function downloadApple(url, baseUrl = 'http://localhost:3000') {
       'mp3'
     );
     return {
-      type: 'track',
-      source: scrape.source, // 'aaplmusicdownloader'
-      upstream: scrape.source,
-      track: scrape.track,
+      ..._slimTrack(scrape.track),
+      size: fileSize,
       download: `${baseUrl}/downloads/${filename}`,
-      format: 'audio/mpeg',
-      fileSize,
     };
   } catch (err) {
     logger.warn(
@@ -214,13 +263,9 @@ async function downloadSoundcloud(url, baseUrl = 'http://localhost:3000') {
       'mp3'
     );
     return {
-      type: 'track',
-      source: scrape.source, // 'scloudplaylistdownloader'
-      upstream: scrape.source,
-      track: scrape.track,
+      ..._slimTrack(scrape.track),
+      size: fileSize,
       download: `${baseUrl}/downloads/${filename}`,
-      format: 'audio/mpeg',
-      fileSize,
     };
   } catch (err) {
     logger.warn(
@@ -271,13 +316,9 @@ async function _downloadSoundCloudDirect(url, baseUrl) {
   }
   const stats = fs.statSync(filepath);
   return {
-    type: 'track',
-    source: 'soundcloud',
-    upstream: 'soundcloud',
-    track: trackMeta,
+    ..._slimTrack(trackMeta),
+    size: `${Math.round(stats.size / 1024)} KB`,
     download: `${baseUrl}/downloads/${filename}`,
-    format: 'audio/mpeg',
-    fileSize: `${Math.round(stats.size / 1024)} KB`,
   };
 }
 

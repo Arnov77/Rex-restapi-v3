@@ -9,19 +9,15 @@ const { asyncHandler } = require('../../shared/middleware/errorHandler');
  * @openapi
  * /api/music/resolve:
  *   get:
- *     summary: Resolve a Spotify, Apple Music, or SoundCloud URL to track metadata
+ *     summary: Lihat info lagu / album / playlist dari Spotify, Apple Music, atau SoundCloud
  *     description: |
- *       Inspects the URL host and dispatches to the correct upstream:
- *       - **open.spotify.com** → spotidown.co (Cloudflare Turnstile bypassed via CapSolver — requires `CAPSOLVER_API_KEY`).
- *       - **music.apple.com** → iTunes Search API (free, no auth). Albums and individual tracks supported. Apple Music user-curated playlists are NOT supported.
- *       - **soundcloud.com** → yt-dlp metadata extractor (single tracks + sets).
+ *       Tempel link Spotify, Apple Music, atau SoundCloud — endpoint ini balikin
+ *       info lagunya (judul, artis, thumbnail, durasi). Kalau link-nya album atau
+ *       playlist, kamu dapat list lagu sekaligus.
  *
- *       For tracks the response is a flat `{ type: "track", track: {...} }`. For
- *       playlists / albums a list of normalised tracks is returned under
- *       `tracks[]`. To download a single track call the matching per-service
- *       download endpoint (`/api/music/spotify/download`,
- *       `/api/music/apple/download`, or `/api/music/soundcloud/download`) with
- *       any per-track URL from the list.
+ *       Setelah dapat info lagu, kamu bisa unduh per lagu lewat endpoint download
+ *       sesuai service-nya: `/api/music/spotify/download`, `/api/music/apple/download`,
+ *       atau `/api/music/soundcloud/download`.
  *     tags: [Media]
  *     parameters:
  *       - in: query
@@ -48,14 +44,13 @@ router.get(
  * @openapi
  * /api/music/spotify/download:
  *   get:
- *     summary: Download a single Spotify track URL as MP3
+ *     summary: Unduh lagu Spotify jadi MP3
  *     description: |
- *       Accepts only `open.spotify.com` URLs. Resolves artist + title via
- *       spotidown.co (Turnstile bypassed with CapSolver), then runs the
- *       YouTube MP3 pipeline (search → download → tag → 192 kbps MP3).
+ *       Tempel link track Spotify, dapatkan link unduhan MP3. Hanya menerima link
+ *       lagu (`open.spotify.com/track/...`).
  *
- *       Playlist / album URLs are NOT accepted — call `/api/music/resolve`
- *       first and iterate over the per-track URLs.
+ *       Untuk album / playlist, panggil `/api/music/resolve` dulu untuk lihat
+ *       daftar lagu, lalu unduh per lagu satu per satu.
  *     tags: [Media]
  *     parameters:
  *       - in: query
@@ -81,18 +76,14 @@ router.get(
  * @openapi
  * /api/music/apple/download:
  *   get:
- *     summary: Download a single Apple Music track URL as MP3
+ *     summary: Unduh lagu Apple Music jadi MP3
  *     description: |
- *       Accepts only `music.apple.com` URLs. Primary path scrapes
- *       `aaplmusicdownloader.com` (PHPSESSID session + /api/composer/swd.php
- *       + /api/composer/ffmpeg/saveid3.php) to get a server-tagged MP3, which
- *       we stream into our `/downloads/` directory.
+ *       Tempel link track Apple Music, dapatkan link unduhan MP3. Hanya menerima
+ *       link lagu (`music.apple.com/.../album/...?i=<trackId>` atau
+ *       `music.apple.com/.../song/...`).
  *
- *       Fallback path (if the upstream site is blocked / down): iTunes Search
- *       API for metadata + yt-dlp YouTube MP3 pipeline.
- *
- *       Album URLs are NOT accepted — call `/api/music/resolve` first and
- *       iterate over the per-track URLs.
+ *       Untuk album, panggil `/api/music/resolve` dulu untuk lihat daftar lagu,
+ *       lalu unduh per lagu satu per satu.
  *     tags: [Media]
  *     parameters:
  *       - in: query
@@ -117,18 +108,13 @@ router.get(
  * @openapi
  * /api/music/soundcloud/download:
  *   get:
- *     summary: Download a single SoundCloud track URL as MP3
+ *     summary: Unduh lagu SoundCloud jadi MP3
  *     description: |
- *       Accepts only `soundcloud.com` track URLs. Primary path scrapes
- *       `scloudplaylistdownloader.app` (PHPSESSID session + POST
- *       /api/scinfo.php) which returns a signed SoundCloud CDN URL
- *       (128 kbps MP3) that we stream into our `/downloads/` directory.
+ *       Tempel link track SoundCloud, dapatkan link unduhan MP3. Hanya menerima
+ *       link lagu (`soundcloud.com/<user>/<track>`).
  *
- *       Fallback path (if the upstream site is blocked / down): yt-dlp
- *       native SoundCloud extractor.
- *
- *       Set / playlist URLs (`/sets/...`) are NOT accepted — call
- *       `/api/music/resolve` first and iterate over the per-track URLs.
+ *       Untuk playlist / set (`/sets/...`), panggil `/api/music/resolve` dulu
+ *       untuk lihat daftar lagu, lalu unduh per lagu satu per satu.
  *     tags: [Media]
  *     parameters:
  *       - in: query

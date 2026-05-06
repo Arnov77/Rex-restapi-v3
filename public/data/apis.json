@@ -144,7 +144,7 @@
       "name": "Music Resolver",
       "method": "GET",
       "action": "/api/music/resolve",
-      "description": "Ambil metadata track / playlist / album dari URL Spotify, Apple Music, atau SoundCloud. Spotify memerlukan CAPSOLVER_API_KEY (Cloudflare Turnstile bypass).",
+      "description": "Lihat info lagu, album, atau playlist dari link Spotify, Apple Music, atau SoundCloud sebelum kamu unduh.",
       "params": [
         {
           "name": "url",
@@ -159,7 +159,7 @@
       "name": "Spotify Downloader",
       "method": "GET",
       "action": "/api/music/spotify/download",
-      "description": "Download MP3 (192 kbps) dari URL track Spotify via yt-dlp. URL album/playlist TIDAK didukung — pakai /api/music/resolve dulu, lalu loop per track. Memerlukan CAPSOLVER_API_KEY (Cloudflare Turnstile bypass).",
+      "description": "Unduh lagu Spotify jadi MP3. Tempel link track-nya, kami siapkan link unduhan. Untuk album / playlist, cek dulu lewat Music Resolver lalu unduh per lagu.",
       "params": [
         {
           "name": "url",
@@ -174,7 +174,7 @@
       "name": "Apple Music Downloader",
       "method": "GET",
       "action": "/api/music/apple/download",
-      "description": "Download MP3 (192 kbps) dari URL track Apple Music via scraping aaplmusicdownloader.com (primary), fallback iTunes Search API + yt-dlp YouTube. URL album TIDAK didukung — pakai /api/music/resolve dulu, lalu loop per track.",
+      "description": "Unduh lagu Apple Music jadi MP3. Tempel link track-nya, kami siapkan link unduhan. Untuk album, cek dulu lewat Music Resolver lalu unduh per lagu.",
       "params": [
         {
           "name": "url",
@@ -189,7 +189,7 @@
       "name": "SoundCloud Downloader",
       "method": "GET",
       "action": "/api/music/soundcloud/download",
-      "description": "Download MP3 (128 kbps) dari URL track SoundCloud via scraping scloudplaylistdownloader.app (primary), fallback yt-dlp native SoundCloud extractor. URL set/playlist TIDAK didukung — pakai /api/music/resolve dulu, lalu loop per track.",
+      "description": "Unduh lagu SoundCloud jadi MP3. Tempel link track-nya, kami siapkan link unduhan. Untuk playlist / set, cek dulu lewat Music Resolver lalu unduh per lagu.",
       "params": [
         {
           "name": "url",

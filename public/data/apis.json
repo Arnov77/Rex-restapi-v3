@@ -144,7 +144,7 @@
       "name": "Music Resolver",
       "method": "GET",
       "action": "/api/music/resolve",
-      "description": "Lihat info lagu, album, atau playlist dari link Spotify, Apple Music, atau SoundCloud sebelum kamu unduh.",
+      "description": "Ambil info lagu, album, atau playlist dari URL Spotify, Apple Music, atau SoundCloud.",
       "params": [
         {
           "name": "url",
@@ -159,7 +159,7 @@
       "name": "Spotify Downloader",
       "method": "GET",
       "action": "/api/music/spotify/download",
-      "description": "Unduh lagu Spotify jadi MP3. Tempel link track-nya, kami siapkan link unduhan. Untuk album / playlist, cek dulu lewat Music Resolver lalu unduh per lagu.",
+      "description": "Download lagu Spotify menjadi MP3 dari URL track. Untuk album/playlist, gunakan /api/music/resolve untuk daftar URL track.",
       "params": [
         {
           "name": "url",
@@ -174,7 +174,7 @@
       "name": "Apple Music Downloader",
       "method": "GET",
       "action": "/api/music/apple/download",
-      "description": "Unduh lagu Apple Music jadi MP3. Tempel link track-nya, kami siapkan link unduhan. Untuk album, cek dulu lewat Music Resolver lalu unduh per lagu.",
+      "description": "Download lagu Apple Music menjadi MP3 dari URL track. Untuk album, gunakan /api/music/resolve untuk daftar URL track.",
       "params": [
         {
           "name": "url",
@@ -189,7 +189,7 @@
       "name": "SoundCloud Downloader",
       "method": "GET",
       "action": "/api/music/soundcloud/download",
-      "description": "Unduh lagu SoundCloud jadi MP3. Tempel link track-nya, kami siapkan link unduhan. Untuk playlist / set, cek dulu lewat Music Resolver lalu unduh per lagu.",
+      "description": "Download lagu SoundCloud menjadi MP3 dari URL track. Untuk playlist/set, gunakan /api/music/resolve untuk daftar URL track.",
       "params": [
         {
           "name": "url",

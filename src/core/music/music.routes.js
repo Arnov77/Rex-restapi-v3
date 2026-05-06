@@ -9,15 +9,15 @@ const { asyncHandler } = require('../../shared/middleware/errorHandler');
  * @openapi
  * /api/music/resolve:
  *   get:
- *     summary: Lihat info lagu / album / playlist dari Spotify, Apple Music, atau SoundCloud
+ *     summary: Ambil info lagu / album / playlist dari Spotify, Apple Music, atau SoundCloud
  *     description: |
- *       Tempel link Spotify, Apple Music, atau SoundCloud — endpoint ini balikin
- *       info lagunya (judul, artis, thumbnail, durasi). Kalau link-nya album atau
- *       playlist, kamu dapat list lagu sekaligus.
+ *       Resolve URL Spotify, Apple Music, atau SoundCloud menjadi metadata
+ *       (judul, artis, thumbnail, durasi). URL album / playlist mengembalikan
+ *       daftar track lengkap.
  *
- *       Setelah dapat info lagu, kamu bisa unduh per lagu lewat endpoint download
- *       sesuai service-nya: `/api/music/spotify/download`, `/api/music/apple/download`,
- *       atau `/api/music/soundcloud/download`.
+ *       Untuk download per track, gunakan endpoint sesuai service:
+ *       `/api/music/spotify/download`, `/api/music/apple/download`, atau
+ *       `/api/music/soundcloud/download`.
  *     tags: [Media]
  *     parameters:
  *       - in: query
@@ -44,13 +44,13 @@ router.get(
  * @openapi
  * /api/music/spotify/download:
  *   get:
- *     summary: Unduh lagu Spotify jadi MP3
+ *     summary: Download lagu Spotify menjadi MP3
  *     description: |
- *       Tempel link track Spotify, dapatkan link unduhan MP3. Hanya menerima link
- *       lagu (`open.spotify.com/track/...`).
+ *       Download lagu Spotify menjadi MP3 dari URL track
+ *       (`open.spotify.com/track/...`).
  *
- *       Untuk album / playlist, panggil `/api/music/resolve` dulu untuk lihat
- *       daftar lagu, lalu unduh per lagu satu per satu.
+ *       URL album / playlist tidak diterima — gunakan `/api/music/resolve`
+ *       untuk daftar URL track, lalu panggil endpoint ini per track.
  *     tags: [Media]
  *     parameters:
  *       - in: query
@@ -76,14 +76,14 @@ router.get(
  * @openapi
  * /api/music/apple/download:
  *   get:
- *     summary: Unduh lagu Apple Music jadi MP3
+ *     summary: Download lagu Apple Music menjadi MP3
  *     description: |
- *       Tempel link track Apple Music, dapatkan link unduhan MP3. Hanya menerima
- *       link lagu (`music.apple.com/.../album/...?i=<trackId>` atau
+ *       Download lagu Apple Music menjadi MP3 dari URL track
+ *       (`music.apple.com/.../album/...?i=<trackId>` atau
  *       `music.apple.com/.../song/...`).
  *
- *       Untuk album, panggil `/api/music/resolve` dulu untuk lihat daftar lagu,
- *       lalu unduh per lagu satu per satu.
+ *       URL album tidak diterima — gunakan `/api/music/resolve` untuk daftar
+ *       URL track, lalu panggil endpoint ini per track.
  *     tags: [Media]
  *     parameters:
  *       - in: query
@@ -108,13 +108,14 @@ router.get(
  * @openapi
  * /api/music/soundcloud/download:
  *   get:
- *     summary: Unduh lagu SoundCloud jadi MP3
+ *     summary: Download lagu SoundCloud menjadi MP3
  *     description: |
- *       Tempel link track SoundCloud, dapatkan link unduhan MP3. Hanya menerima
- *       link lagu (`soundcloud.com/<user>/<track>`).
+ *       Download lagu SoundCloud menjadi MP3 dari URL track
+ *       (`soundcloud.com/<user>/<track>`).
  *
- *       Untuk playlist / set (`/sets/...`), panggil `/api/music/resolve` dulu
- *       untuk lihat daftar lagu, lalu unduh per lagu satu per satu.
+ *       URL set / playlist (`/sets/...`) tidak diterima — gunakan
+ *       `/api/music/resolve` untuk daftar URL track, lalu panggil endpoint
+ *       ini per track.
  *     tags: [Media]
  *     parameters:
  *       - in: query

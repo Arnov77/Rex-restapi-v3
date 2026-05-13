@@ -11,7 +11,7 @@ import { AppError } from '../shared/errors.js';
  */
 export default fp(
   async (app) => {
-    app.setErrorHandler((err, req, reply) => {
+    app.setErrorHandler((err: any, req, reply) => {
       if (err instanceof AppError) {
         req.log.warn({ err, code: err.code }, err.message);
         return reply.code(err.statusCode).send({

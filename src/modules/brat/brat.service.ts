@@ -30,8 +30,8 @@ async function snapFrame(page: Page, html: string): Promise<Buffer> {
   await page.setContent(html, { waitUntil: 'load', timeout: 15_000 });
   // Give the auto-shrink script a moment to settle the layout.
   await page.waitForFunction(
-    () => document.documentElement.dataset['ready'] === '1',
-    null,
+    "document.documentElement.dataset['ready'] === '1'",
+    undefined,
     { timeout: 2_000 },
   ).catch(() => {
     /* fall through — render anyway, worst case the text is slightly off-fit */
@@ -53,20 +53,21 @@ async function pngToRgba(
   height: number,
 ): Promise<Uint8ClampedArray> {
   const b64 = png.toString('base64');
-  const data = await page.evaluate(
-    async ({ b64, w, h }) => {
-      const img = new Image();
-      img.src = 'data:image/png;base64,' + b64;
-      await img.decode();
-      const c = document.createElement('canvas');
-      c.width = w;
-      c.height = h;
-      const ctx = c.getContext('2d')!;
-      ctx.drawImage(img, 0, 0, w, h);
-      return Array.from(ctx.getImageData(0, 0, w, h).data);
-    },
-    { b64, w: width, h: height },
-  );
+  // Run inside the page — DOM globals exist there, not in node.
+  const evalFn = (async ({ b64, w, h }: { b64: string; w: number; h: number }) => {
+    const D = (globalThis as any).document;
+    const ImageCtor = (globalThis as any).Image;
+    const img = new ImageCtor();
+    img.src = 'data:image/png;base64,' + b64;
+    await img.decode();
+    const c = D.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0, w, h);
+    return Array.from(ctx.getImageData(0, 0, w, h).data) as number[];
+  }) as unknown as (a: { b64: string; w: number; h: number }) => Promise<number[]>;
+  const data = await page.evaluate(evalFn, { b64, w: width, h: height });
   return new Uint8ClampedArray(data);
 }
 
@@ -85,12 +86,13 @@ async function generateStill(opts: BratQuery): Promise<BratResult> {
     async (page) => {
       await page.setContent(html, { waitUntil: 'load', timeout: 15_000 });
       await page
-        .waitForFunction(() => document.documentElement.dataset['ready'] === '1', null, {
+        .waitForFunction("document.documentElement.dataset['ready'] === '1'", undefined, {
           timeout: 2_000,
         })
         .catch(() => {});
-      const shotOpts: Parameters<typeof page.screenshot>[0] = { type: opts.format };
-      if (opts.format === 'jpeg') shotOpts.quality = opts.quality;
+      const fmt = opts.format as 'png' | 'jpeg';
+      const shotOpts: Parameters<typeof page.screenshot>[0] = { type: fmt };
+      if (fmt === 'jpeg') shotOpts.quality = opts.quality;
       return page.screenshot(shotOpts);
     },
     { viewport: { width: opts.width, height: opts.height } },

@@ -21,56 +21,17 @@ const MIME = {
 } as const;
 
 /**
- * Render one brat caption frame at a fixed blur and return raw PNG bytes.
- * Caller controls viewport via `withPage` so we can vary blur per frame
- * without re-launching Chromium.
+ * Decode a PNG buffer to raw RGBA in node. Uses pngjs (pure JS) so we don't
+ * round-trip pixel data through page.evaluate — that JSON-serialized a
+ * 720*720*4 = ~2M-element number array per frame and dominated wall-time.
  */
-async function snapFrame(page: Page, html: string): Promise<Buffer> {
-  // setContent is local — no network fetch happens for the HTML itself.
-  // The only outbound request would be the optional bgImage, which the
-  // service has already SSRF-guarded.
-  await page.setContent(html, { waitUntil: 'load', timeout: 15_000 });
-  // Give the auto-shrink script a moment to settle the layout.
-  await page.waitForFunction(
-    "document.documentElement.dataset['ready'] === '1'",
-    undefined,
-    { timeout: 2_000 },
-  ).catch(() => {
-    /* fall through — render anyway, worst case the text is slightly off-fit */
-  });
-  const buf = await page.screenshot({ type: 'png', omitBackground: false });
-  if (!buf || buf.length === 0) throw Internal('Brat frame produced empty buffer');
-  return buf;
-}
-
-/**
- * Decode a PNG screenshot into raw RGBA pixels using the browser canvas
- * we already have running. This avoids pulling a node-side PNG decoder
- * (sharp/upng) just for GIF encoding.
- */
-async function pngToRgba(
-  page: Page,
-  png: Buffer,
-  width: number,
-  height: number,
-): Promise<Uint8ClampedArray> {
-  const b64 = png.toString('base64');
-  // Run inside the page — DOM globals exist there, not in node.
-  const evalFn = (async ({ b64, w, h }: { b64: string; w: number; h: number }) => {
-    const D = (globalThis as any).document;
-    const ImageCtor = (globalThis as any).Image;
-    const img = new ImageCtor();
-    img.src = 'data:image/png;base64,' + b64;
-    await img.decode();
-    const c = D.createElement('canvas');
-    c.width = w;
-    c.height = h;
-    const ctx = c.getContext('2d');
-    ctx.drawImage(img, 0, 0, w, h);
-    return Array.from(ctx.getImageData(0, 0, w, h).data) as number[];
-  }) as unknown as (a: { b64: string; w: number; h: number }) => Promise<number[]>;
-  const data = await page.evaluate(evalFn, { b64, w: width, h: height });
-  return new Uint8ClampedArray(data);
+function pngToRgba(png: Buffer): Uint8ClampedArray {
+  const decoded = PNG.sync.read(png);
+  return new Uint8ClampedArray(
+    decoded.data.buffer,
+    decoded.data.byteOffset,
+    decoded.data.byteLength,
+  );
 }
 
 export async function generate(opts: BratQuery): Promise<BratResult> {

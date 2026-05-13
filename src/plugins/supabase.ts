@@ -20,7 +20,7 @@ export default fp(
     const env = loadEnv();
     const client = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
       auth: { persistSession: false, autoRefreshToken: false },
-      db: { schema: 'public' },
+      db: { schema: 'rexapi' },
       realtime: { transport: ws as never },
       global: { headers: { 'x-client-info': 'rex-api' } },
     });

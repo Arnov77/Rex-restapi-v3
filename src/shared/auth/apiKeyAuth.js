@@ -1,4 +1,4 @@
-const apiKeysService = require('../core/auth/apiKeys.service');
+const apiKeysService = require('../../core/auth/apiKeys.service');
 const ResponseHandler = require('../utils/response');
 
 const { KEY_PREFIX } = apiKeysService;

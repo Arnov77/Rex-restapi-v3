@@ -76,6 +76,14 @@ export function apiKeysRepo(db: SupabaseClient) {
       return toRecord(data);
     },
 
+    async list(opts: { includeRevoked?: boolean } = {}): Promise<ApiKeyRecord[]> {
+      let q = db.from(TABLE).select('*').order('created_at', { ascending: false });
+      if (!opts.includeRevoked) q = q.eq('revoked', false);
+      const { data, error } = await q;
+      if (error) throw Internal(`apiKeys.list: ${error.message}`);
+      return (data ?? []).map((r) => toRecord(r as Row)!).filter(Boolean);
+    },
+
     async listMasters(): Promise<ApiKeyRecord[]> {
       const { data, error } = await db
         .from(TABLE)

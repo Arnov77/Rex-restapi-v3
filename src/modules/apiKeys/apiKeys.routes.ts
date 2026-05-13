@@ -4,11 +4,31 @@ import {
   CreateKeyBody,
   CreateKeyResponse,
   KeyIdParam,
+  ListKeysQuery,
+  ListKeysResponse,
   OkResponse,
   RevealKeyResponse,
 } from './apiKeys.schemas.js';
 
 const apiKeyRoutes: FastifyPluginAsyncZod = async (app) => {
+  app.get(
+    '/',
+    {
+      preHandler: [app.requireMaster],
+      schema: {
+        tags: ['api-keys'],
+        summary: 'List API keys (master only)',
+        security: [{ apiKey: [] }],
+        querystring: ListKeysQuery,
+        response: { 200: ListKeysResponse },
+      },
+    },
+    async (req) => {
+      const keys = await apiKeysService(app.supabase).list({ includeRevoked: req.query.includeRevoked });
+      return { ok: true as const, data: { keys } };
+    },
+  );
+
   app.post(
     '/',
     {

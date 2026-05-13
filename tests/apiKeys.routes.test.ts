@@ -36,8 +36,11 @@ const authPlugin = (await import('../src/plugins/auth.js')).default;
 const errorHandler = (await import('../src/plugins/errorHandler.js')).default;
 const apiKeyRoutes = (await import('../src/modules/apiKeys/apiKeys.routes.js')).default;
 
+const MASTER_ID = '11111111-1111-1111-1111-111111111111';
+const USER_ID = '22222222-2222-2222-2222-222222222222';
+
 const masterRecord = {
-  id: 'k-master',
+  id: MASTER_ID,
   name: 'master',
   tier: 'master' as const,
   keyHash: 'h',
@@ -52,7 +55,7 @@ const masterRecord = {
 
 const userRecord = {
   ...masterRecord,
-  id: 'k-user',
+  id: USER_ID,
   name: 'user',
   tier: 'user' as const,
   keyEncrypted: null,

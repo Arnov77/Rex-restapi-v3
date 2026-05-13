@@ -21,7 +21,6 @@
     "allowImportingTsExtensions": false,
     "declaration": false,
     "sourceMap": true,
-    "baseUrl": "./",
     "paths": {
       "@/*": [
         "./src/*"

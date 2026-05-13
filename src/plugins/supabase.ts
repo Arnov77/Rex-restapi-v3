@@ -25,7 +25,7 @@ export default fp(
       db: { schema: 'rexapi' },
       realtime: { transport: ws as never },
       global: { headers: { 'x-client-info': 'rex-api' } },
-    });
+    }) as SupabaseClient<any, any, any>;
     app.decorate('supabase', client);
   },
   { name: 'supabase' },

@@ -180,12 +180,13 @@ create index if not exists rate_limits_window_idx
 --   * Window is fixed-size: floor(epoch / p_window_s) * p_window_s.
 --   * UPDATE is conditional on count < p_max — concurrent calls cannot both
 --     push the counter past p_max.
+drop function if exists rexapi.rate_limit_hit(text, integer, integer);
 create or replace function rexapi.rate_limit_hit(
   p_key      text,
   p_window_s integer,
   p_max      integer
 )
-returns table(allowed boolean, count integer, reset_at timestamptz)
+returns table(allowed boolean, count_out integer, reset_at timestamptz)
 language plpgsql
 security definer
 set search_path = rexapi, public, extensions
@@ -199,16 +200,16 @@ begin
   values (p_key, win_start, 0)
   on conflict (bucket_key, window_start) do nothing;
 
-  update rexapi.rate_limits
-     set count = count + 1
-   where bucket_key = p_key
-     and window_start = win_start
-     and count < p_max
-  returning count into cur;
+  update rexapi.rate_limits rl
+     set count = rl.count + 1
+   where rl.bucket_key = p_key
+     and rl.window_start = win_start
+     and rl.count < p_max
+  returning rl.count into cur;
 
   if cur is null then
-    select count into cur from rexapi.rate_limits
-     where bucket_key = p_key and window_start = win_start;
+    select rl.count into cur from rexapi.rate_limits rl
+     where rl.bucket_key = p_key and rl.window_start = win_start;
     return query select false, coalesce(cur, 0), win_start + make_interval(secs => p_window_s);
     return;
   end if;

@@ -26,6 +26,10 @@ const schema = z.object({
   ANON_DAILY_QUOTA: z.coerce.number().int().nonnegative().default(100),
   // Default daily quota for normal user keys (override per-key in DB).
   USER_DAILY_QUOTA: z.coerce.number().int().nonnegative().default(1000),
+
+  // Optional override for Chromium executable path (Playwright will use its
+  // bundled binary when omitted).
+  CHROME_BIN: z.string().optional(),
 });
 
 export type Env = z.infer<typeof schema>;

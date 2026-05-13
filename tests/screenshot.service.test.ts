@@ -105,14 +105,15 @@ describe('screenshot.service.capture', () => {
 
   it('falls back to domcontentloaded when networkidle times out', async () => {
     const page = makePage();
-    page.goto = vi
-      .fn()
+    const goto = vi
+      .fn<(...a: any[]) => Promise<void>>()
       .mockRejectedValueOnce(new Error('networkidle timeout'))
       .mockResolvedValueOnce(undefined);
+    page.goto = goto;
     browserMock.withPage.mockImplementationOnce(async (fn: any) => fn(page));
     await screenshotService.capture(ScreenshotQuery.parse({ url: 'https://example.com' }));
-    expect(page.goto).toHaveBeenCalledTimes(2);
-    expect(page.goto.mock.calls[1][1]).toMatchObject({ waitUntil: 'domcontentloaded' });
+    expect(goto).toHaveBeenCalledTimes(2);
+    expect(goto.mock.calls[1]![1]).toMatchObject({ waitUntil: 'domcontentloaded' });
   });
 
   it('honours waitFor', async () => {

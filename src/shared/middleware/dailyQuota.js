@@ -1,7 +1,7 @@
 const crypto = require('crypto');
-const usageStore = require('../auth/usageStore');
-const apiKeyStore = require('../auth/apiKeyStore');
-const usersStore = require('../auth/usersStore');
+const usageRepo = require('../repositories/usage.repo');
+const apiKeysRepo = require('../repositories/apiKeys.repo');
+const usersRepo = require('../repositories/users.repo');
 const ResponseHandler = require('../utils/response');
 const logger = require('../utils/logger');
 const { env } = require('../../../config');
@@ -23,18 +23,18 @@ function hashIp(ip) {
  * counter. Standalone keys (no user binding) bucket as `key:<keyId>`.
  * Anonymous traffic buckets by hashed IP.
  */
-function counterKeyFor(req) {
+async function counterKeyFor(req) {
   if (req.apiKey) {
-    const owner = usersStore.findByApiKeyId(req.apiKey.id);
+    const owner = await usersRepo.findByApiKeyId(req.apiKey.id);
     if (owner) return `user:${owner.id}`;
     return `key:${req.apiKey.id}`;
   }
   return `anon:${hashIp(req.ip)}`;
 }
 
-function limitFor(req) {
+async function limitFor(req) {
   if (!req.apiKey) return ANON_LIMIT;
-  const record = apiKeyStore.findById(req.apiKey.id);
+  const record = await apiKeysRepo.findById(req.apiKey.id);
   if (record && typeof record.dailyLimit === 'number') return record.dailyLimit;
   return USER_LIMIT;
 }
@@ -42,7 +42,7 @@ function limitFor(req) {
 function setQuotaHeaders(res, { limit, remaining }) {
   res.set('X-Quota-Limit', String(limit));
   res.set('X-Quota-Remaining', String(Math.max(0, remaining)));
-  res.set('X-Quota-Reset', usageStore.nextLocalMidnight().toISOString());
+  res.set('X-Quota-Reset', usageRepo.nextLocalMidnight().toISOString());
 }
 
 /**
@@ -54,11 +54,9 @@ function setQuotaHeaders(res, { limit, remaining }) {
 async function dailyQuota(req, res, next) {
   if (req.apiKey?.tier === 'master') return next();
 
-  const counterKey = counterKeyFor(req);
-  const limit = limitFor(req);
-
   try {
-    const { allowed, used, limit: appliedLimit } = await usageStore.checkAndIncrement(
+    const [counterKey, limit] = await Promise.all([counterKeyFor(req), limitFor(req)]);
+    const { allowed, used, limit: appliedLimit } = await usageRepo.checkAndIncrement(
       counterKey,
       limit
     );

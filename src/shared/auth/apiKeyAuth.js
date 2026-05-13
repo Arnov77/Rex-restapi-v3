@@ -1,5 +1,7 @@
-const { verifyKey, touchKey, KEY_PREFIX } = require('./apiKeyStore');
+const apiKeysService = require('../../core/auth/apiKeys.service');
 const ResponseHandler = require('../utils/response');
+
+const { KEY_PREFIX } = apiKeysService;
 
 /**
  * Extract a plaintext API key from the request. Honours the dedicated
@@ -21,7 +23,6 @@ function extractKey(req) {
       if (value.startsWith(KEY_PREFIX)) return value;
     }
   }
-
   return null;
 }
 
@@ -31,15 +32,10 @@ function extractKey(req) {
  *   - user   (valid non-master key)
  *   - master (valid master key; bypasses limits, can call /api/admin)
  *
- * Bearer tokens that don't start with `rex_` are ignored here — they're
- * treated as JWTs by the dashboard auth middleware (verifyToken). That
- * lets the same Authorization header serve both flows on different routes.
- *
- * Invalid or revoked API keys (X-API-Key header or rex_ Bearer that fails
- * verification) hard-fail with 401 — we never silently downgrade to anon,
- * otherwise typos in client config would look like quota issues.
+ * Invalid / revoked keys hard-fail with 401 — never silently downgrade to
+ * anon, otherwise a typo in client config would look like a quota issue.
  */
-function apiKeyAuth(req, res, next) {
+async function apiKeyAuth(req, res, next) {
   const supplied = extractKey(req);
   if (!supplied) {
     req.apiKey = null;
@@ -50,17 +46,21 @@ function apiKeyAuth(req, res, next) {
     return ResponseHandler.error(res, 'Invalid API key format', 401);
   }
 
-  const verified = verifyKey(supplied);
+  let verified;
+  try {
+    verified = await apiKeysService.verifyPlaintextKey(supplied);
+  } catch {
+    // Verification needs the DB; fail-closed here would lock everyone out
+    // on a transient outage. Treat as anon and let downstream quota decide.
+    req.apiKey = null;
+    return next();
+  }
   if (!verified) {
     return ResponseHandler.error(res, 'Invalid or revoked API key', 401);
   }
 
   req.apiKey = verified;
-  try {
-    touchKey(verified.id);
-  } catch {
-    /* lastUsedAt update is best-effort */
-  }
+  apiKeysService.touchKey(verified.id); // fire-and-forget
   return next();
 }
 

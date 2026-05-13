@@ -148,3 +148,70 @@ alter table public.rex_users enable row level security;
 alter table public.rex_api_keys enable row level security;
 alter table public.rex_usage_daily enable row level security;
 -- No policies defined: only the service role (bypasses RLS) ever connects.
+
+-- ── Rate limit (sliding window, persistent across instances) ─────────────────
+create table if not exists public.rex_rate_limits (
+  bucket_key   text not null,
+  window_start timestamptz not null,
+  count        integer not null default 0,
+  primary key (bucket_key, window_start)
+);
+create index if not exists rex_rate_limits_window_idx
+  on public.rex_rate_limits (window_start);
+
+-- Atomic check + increment. Returns (allowed, count, reset_at).
+--   * Window is fixed-size: floor(epoch / p_window_s) * p_window_s.
+--   * UPDATE is conditional on count < p_max — concurrent calls cannot both
+--     push the counter past p_max.
+create or replace function public.rex_rate_limit_hit(
+  p_key      text,
+  p_window_s integer,
+  p_max      integer
+)
+returns table(allowed boolean, count integer, reset_at timestamptz)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  win_epoch bigint := (extract(epoch from now())::bigint / p_window_s) * p_window_s;
+  win_start timestamptz := to_timestamp(win_epoch);
+  cur integer;
+begin
+  insert into public.rex_rate_limits (bucket_key, window_start, count)
+  values (p_key, win_start, 0)
+  on conflict (bucket_key, window_start) do nothing;
+
+  update public.rex_rate_limits
+     set count = count + 1
+   where bucket_key = p_key
+     and window_start = win_start
+     and count < p_max
+  returning count into cur;
+
+  if cur is null then
+    select count into cur from public.rex_rate_limits
+     where bucket_key = p_key and window_start = win_start;
+    return query select false, coalesce(cur, 0), win_start + make_interval(secs => p_window_s);
+    return;
+  end if;
+  return query select true, cur, win_start + make_interval(secs => p_window_s);
+end
+$$;
+
+-- Garbage-collect expired windows. Call periodically from the app.
+create or replace function public.rex_rate_limit_gc(p_older_than interval)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare n integer;
+begin
+  delete from public.rex_rate_limits where window_start < now() - p_older_than;
+  get diagnostics n = row_count;
+  return n;
+end
+$$;
+
+alter table public.rex_rate_limits enable row level security;

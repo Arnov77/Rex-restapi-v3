@@ -20,7 +20,7 @@ export const BratQuery = z.object({
   height: z.coerce.number().int().min(256).max(2048).default(720),
   format: z.enum(['png', 'jpeg', 'gif']).default('png'),
   quality: z.coerce.number().int().min(1).max(100).default(90),
-  blur: z.coerce.number().min(0).max(20).default(1.5),
+  blur: z.coerce.number().min(0).max(20).default(0.8),
   background: z
     .string()
     .regex(/^#[0-9a-fA-F]{6}$/, 'background must be a 6-digit hex like #8ACE00')
@@ -30,8 +30,8 @@ export const BratQuery = z.object({
     .regex(/^#[0-9a-fA-F]{6}$/, 'color must be a 6-digit hex like #000000')
     .default('#000000'),
   // Animated-only knobs — ignored for png/jpeg.
-  frames: z.coerce.number().int().min(2).max(30).default(12),
-  delay: z.coerce.number().int().min(40).max(200).default(80),
+  frames: z.coerce.number().int().min(2).max(30).default(8),
+  delay: z.coerce.number().int().min(40).max(200).default(100),
   bgImage: z.string().url().max(2048).optional(),
 });
 export type BratQuery = z.infer<typeof BratQuery>;

@@ -36,8 +36,8 @@ export function renderBratHtml(opts: BratTemplateOptions): string {
   html,body{margin:0;padding:0;width:${opts.width}px;height:${opts.height}px;overflow:hidden;background:${opts.background};${bgLayer}}
   .wrap{width:100%;height:100%;display:flex;align-items:flex-start;justify-content:flex-start;padding:6%;box-sizing:border-box;}
   .t{
-    font-family: Arial, Helvetica, sans-serif;
-    font-weight: 900;
+    font-family: "Arial Narrow", "ArialNarrow", "Liberation Sans Narrow", Arial, Helvetica, sans-serif;
+    font-weight: 700;
     font-stretch: condensed;
     color:${opts.color};
     text-transform:lowercase;

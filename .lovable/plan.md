@@ -1,161 +1,179 @@
+# Refactor: Async Stores, Layering, Persisted Rate Limiter, Tests
+
 ## Tujuan
 
-Ganti penyimpanan JSON+JSONB blob menjadi **schema relational** di Supabase, dengan kuota harian dijaga oleh **RPC atomic** (race-free walau ada 100 request bersamaan). Pakai `@supabase/supabase-js`.
+1. Hilangkan in-memory cache di `usersStore` & `apiKeyStore` → murni async ke Supabase, multi-instance ready.
+2. Pisahkan layer jadi **repository** (DB-only) + **service** (business logic) + **controller** (HTTP).
+3. Pindahkan rate limiter login & register ke Supabase (persisten, multi-instance safe).
+4. Aktifkan kembali test suite dengan mock `@supabase/supabase-js`.
 
-## Strategi arsitektur (penting)
+## Arsitektur Baru
 
-Agar refactor tidak meledak ke seluruh codebase (semua caller `verifyKey`, `findById`, dll. saat ini **sync**), kita pakai pendekatan hybrid:
+```text
+src/shared/auth/
+  supabaseClient.js                  (tetap)
+  apiKeyAuth.js                      (jadi async)
+  verifyToken.js                     (jadi async)
+  jwt.js                             (tetap)
 
-| Store | Pola | Alasan |
-|---|---|---|
-| `usersStore` | Load semua row ke in-memory map saat `init()`. Mutasi = write-through ke Supabase. Semua public API tetap **sync**. | Volume kecil, dipanggil sync dari banyak controller. |
-| `apiKeyStore` | Sama: in-memory cache + write-through. Tetap sync. | Sama. Verifikasi key per-request harus sync (apiKeyAuth middleware). |
-| `usageStore` | **Pure RPC**, no cache, no flush timer, no archive. | Counter berubah ribuan kali/hari, race-prone — perlu atomic. |
-| `dailyQuota` | Middleware **async** (`async (req,res,next)`) — panggil 1 RPC `rex_increment_usage` yang sekaligus check+increment+return remaining. | Race-free, 1 round-trip. |
+src/shared/repositories/             (BARU — pure DB access)
+  users.repo.js                      get/find/insert/update by Supabase
+  apiKeys.repo.js
+  usage.repo.js                      (eks usageStore)
+  rateLimit.repo.js                  (BARU — counter sliding window)
 
-## File berubah
+src/core/auth/                       (service + controller terpisah)
+  auth.service.js                    (BARU — register/login business logic)
+  auth.controller.js                 (HTTP only, panggil service)
+  apiKeys.service.js                 (BARU — create/rotate/revoke + crypto)
 
-### 1. `supabase/schema.sql` (rewrite total)
-
-```sql
-create table rex_users (
-  id uuid primary key default gen_random_uuid(),
-  username text unique not null,
-  email text unique not null,
-  password_hash text not null,
-  api_key_id uuid,
-  created_at timestamptz not null default now(),
-  last_login_at timestamptz
-);
-create index on rex_users (api_key_id);
-
-create table rex_api_keys (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  tier text not null check (tier in ('user','master')),
-  key_hash text unique not null,
-  key_encrypted text,
-  daily_limit int,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz,
-  last_used_at timestamptz,
-  revoked boolean not null default false,
-  revoked_at timestamptz
-);
-create index on rex_api_keys (key_hash);
-
-create table rex_usage_daily (
-  bucket_date date not null,
-  counter_key text not null,
-  count int not null default 0,
-  primary key (bucket_date, counter_key)
-);
-
--- Atomic check + increment.
--- Returns (allowed, used, limit_value). When p_limit = -1, treats as unlimited.
-create or replace function rex_increment_usage(
-  p_date date, p_counter text, p_limit int
-) returns table(allowed boolean, used int, limit_value int)
-language plpgsql as $$
-declare new_count int;
-begin
-  insert into rex_usage_daily (bucket_date, counter_key, count)
-  values (p_date, p_counter, 0)
-  on conflict (bucket_date, counter_key) do nothing;
-
-  if p_limit >= 0 then
-    update rex_usage_daily
-       set count = count + 1
-     where bucket_date = p_date and counter_key = p_counter
-       and count < p_limit
-    returning count into new_count;
-
-    if new_count is null then
-      select count into new_count from rex_usage_daily
-       where bucket_date = p_date and counter_key = p_counter;
-      return query select false, new_count, p_limit;
-      return;
-    end if;
-  else
-    update rex_usage_daily
-       set count = count + 1
-     where bucket_date = p_date and counter_key = p_counter
-    returning count into new_count;
-  end if;
-
-  return query select true, new_count, p_limit;
-end$$;
-
--- RLS: tabel hanya diakses lewat service role; tidak ada policy publik.
-alter table rex_users enable row level security;
-alter table rex_api_keys enable row level security;
-alter table rex_usage_daily enable row level security;
+src/shared/middleware/
+  dailyQuota.js                      (panggil usage.repo)
+  loginLimiter.js                    (pakai rateLimit.repo, bukan in-memory)
+  registerLimiter.js                 (pakai rateLimit.repo)
 ```
 
-### 2. `src/shared/auth/supabaseClient.js` (ganti `supabasePersistence.js`)
+**Aturan import**: controller → service → repository → supabaseClient. Tidak ada lompat layer.
 
-Tipis: ekspor `supabase` (createClient dgn service role) + `isEnabled()` + `assertEnabled()`. Buang `TABLES`, `loadRows`, `persistRows`, jsonb glue.
+## Perubahan Schema
 
-### 3. `src/shared/auth/usersStore.js` (rewrite)
+Tambah satu tabel + RPC untuk rate limiter sliding window:
 
-- `init()`: `select *` semua user → bangun cache + index (sama seperti sekarang).
-- Mutasi (`createUser`, `touchLogin`, `updateApiKeyId`): update cache **dan** kirim insert/update ke Supabase (fire-and-forget dengan logging error). Tetap sync untuk caller.
-- Hapus jalur file JSON.
-- Mapping kolom snake_case ↔ camelCase di boundary.
+```sql
+create table public.rex_rate_limits (
+  bucket_key   text not null,        -- "login-ip:1.2.3.4" / "login-id:user@x"
+  window_start timestamptz not null, -- awal window
+  count        integer not null default 0,
+  primary key (bucket_key, window_start)
+);
+create index on public.rex_rate_limits (bucket_key, window_start desc);
 
-### 4. `src/shared/auth/apiKeyStore.js` (rewrite)
+-- RPC: atomic check + increment dengan sliding window
+create or replace function public.rex_rate_limit_hit(
+  p_key      text,
+  p_window_s integer,    -- panjang window (detik)
+  p_max      integer
+) returns table(allowed boolean, count integer, reset_at timestamptz)
+language plpgsql security definer set search_path = public as $$
+declare
+  win_start timestamptz := date_trunc('second', now()) - make_interval(secs => extract(epoch from now())::int % p_window_s);
+  cur integer;
+begin
+  insert into public.rex_rate_limits (bucket_key, window_start, count)
+  values (p_key, win_start, 0)
+  on conflict (bucket_key, window_start) do nothing;
 
-Sama pola. Catatan:
-- `touchKey` tetap buffered (flush 60s) — kirim 1 update batch.
-- `ensureMasterKey` tetap, tapi insert ke tabel relational.
-- Enkripsi plaintext + hash logic dipertahankan persis.
+  update public.rex_rate_limits
+     set count = count + 1
+   where bucket_key = p_key and window_start = win_start and count < p_max
+   returning count into cur;
 
-### 5. `src/shared/auth/usageStore.js` (rewrite total, jauh lebih ramping)
+  if cur is null then
+    select count into cur from public.rex_rate_limits
+     where bucket_key = p_key and window_start = win_start;
+    return query select false, cur, win_start + make_interval(secs => p_window_s);
+  end if;
+  return query select true, cur, win_start + make_interval(secs => p_window_s);
+end$$;
 
-API baru:
-- `checkAndIncrement(counterKey, limit) → { allowed, used, limit }` — async, panggil RPC.
-- `getCount(counterKey) → Promise<number>` — async, untuk admin/debug.
-- `transfer(fromKey, toKey)` — async, lewat 1 SQL transaction (atau RPC `rex_transfer_usage`).
-- `nextLocalMidnight()` tetap (buat header reset).
-- Buang: `start`, `stop`, `flush`, `increment` (sync), file persistence, archive.
+-- Cleanup harian (cron-friendly, dipanggil dari Node interval)
+create or replace function public.rex_rate_limit_gc(p_older_than interval)
+returns integer language plpgsql security definer set search_path = public as $$
+declare n integer;
+begin
+  delete from public.rex_rate_limits where window_start < now() - p_older_than;
+  get diagnostics n = row_count;
+  return n;
+end$$;
+```
 
-### 6. `src/shared/middleware/dailyQuota.js` (rewrite)
+## Dampak Sync→Async (semua jadi `await`)
 
-- Jadi `async function dailyQuota(req,res,next)`.
-- Master tier → bypass (tanpa RPC call).
-- Selain itu: 1 panggilan `usageStore.checkAndIncrement(key, limit)` → 429 kalau `!allowed`, set headers `X-Quota-*`.
+Repository semua async. Pemanggil yang harus diubah:
 
-### 7. `server.js`
+- `apiKeyAuth.js` → `async apiKeyAuth(req,res,next)`, `await verifyKey(...)`, `await touchKey(...)` (best-effort, non-blocking).
+- `verifyToken.js` → `async`, `await usersRepo.findById(...)`.
+- `dailyQuota.js` → sudah async, ganti panggilan `apiKeyStore.findById` & `usersStore.findByApiKeyId` ke `await`.
+- `auth.controller.js`, `user.controller.js`, `admin.controller.js` → semua `findBy*` jadi `await`. Hapus semua `persistNow()` (write langsung await di service).
 
-- Hapus `usageStore.start()` dan `usageStore.stop()` di startup/shutdown (sudah stateless).
-- `apiKeyStore.flushPendingTouches()` tetap.
+`touchKey` (last-used update) tetap fire-and-forget di middleware — gagal di sini tidak boleh blok request.
 
-### 8. `package.json`
+## Rencana Eksekusi (Bertahap)
 
-Tambah `@supabase/supabase-js`.
+### Fase 1 — Schema & repository layer (BARU)
 
-## Tests
+1. Update `supabase/schema.sql`: tambah `rex_rate_limits`, RPC `rex_rate_limit_hit` & `rex_rate_limit_gc`.
+2. Buat `src/shared/repositories/`:
+   - `users.repo.js` — semua method async, no cache.
+   - `apiKeys.repo.js` — async, no cache. Crypto helpers tetap di sini (atau pindah ke `apiKeys.service.js`).
+   - `usage.repo.js` — pindahkan dari `usageStore.js` (tipis, sudah RPC).
+   - `rateLimit.repo.js` — `hit(key, windowSec, max)` & `gc(olderThan)`.
 
-Tests existing pakai JSON file + `_resetForTests`. Karena Supabase-only, opsi:
+### Fase 2 — Service layer (BARU)
 
-- **Skip dulu** test-test berikut dengan `describe.skip`: `users-store.test.js`, `api-key-store.test.js`, `usage-store.test.js`, `daily-quota.test.js`, `auth-routes.test.js`, `admin-routes.test.js`, `reveal-key.test.js`, `api-key-auth.test.js`, `login-limiter.test.js`, `register-limiter.test.js`. Tambah TODO note.
-- Tests yang tidak menyentuh store (smoke, ssrf-guard, music-adapters, dll.) tetap jalan.
+3. `src/core/auth/auth.service.js`: `register({email, username, password})`, `login({identifier, password})` — pindah business logic dari controller.
+4. `src/core/auth/apiKeys.service.js`: `createForUser`, `rotateForUser`, `revokeForUser`, `getPlaintext` — bungkus crypto + repo + transaksi (hapus old key + buat baru + transfer usage).
 
-Refactor test ke mock `@supabase/supabase-js` adalah pekerjaan terpisah (estimasi sama besarnya dengan refactor utama). Aku rekomendasi kerjakan di PR follow-up.
+### Fase 3 — Wire controllers
 
-## Migrasi data dari JSON existing
+5. Refactor `auth.controller.js`, `user.controller.js`, `admin.controller.js` → tipis, hanya parse req + panggil service + format response. Hapus `persistNow()`.
+6. Refactor `apiKeyAuth.js` & `verifyToken.js` jadi async.
+7. Update `dailyQuota.js` ke repo baru (await).
 
-Aku **tidak** menyentuh `data/*.json` di VPS. Kalau user mau migrate data lama, aku akan sediakan script `scripts/migrate-json-to-supabase.js` opsional di PR berikutnya.
+### Fase 4 — Rate limiter ke Supabase
 
-## Yang harus user lakukan setelah merge
+8. Buat custom express middleware `supabaseRateLimit({ key, windowSec, max, message })` di `src/shared/middleware/supabaseRateLimit.js` — internal pakai `rateLimit.repo.hit`. Set header `RateLimit-*` standar.
+9. Rewrite `loginLimiter.js` & `registerLimiter.js` → dua middleware (IP + identifier untuk login, IP untuk register) pakai `supabaseRateLimit`.
+10. Tambah interval GC di `server.js` startup: `setInterval(() => rateLimit.repo.gc('1 day'), 60*60*1000).unref()`.
 
-1. Jalankan `supabase/schema.sql` baru di SQL editor Supabase.
-2. Set env: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`. (Var `AUTH_STORE_BACKEND` jadi opsional/diabaikan.)
-3. `npm install` (untuk `@supabase/supabase-js`).
-4. Restart server.
+### Fase 5 — Cleanup `server.js`
 
-## Tidak termasuk dalam PR ini
+11. Hapus `usersStore.init()`, `apiKeyStore.init()`, `flushPendingTouches()` dari startup/shutdown — tidak ada cache lagi. Pertahankan `apiKeyStore.ensureMasterKey()` (sekarang jadi `apiKeysService.ensureMaster()`).
+12. Hapus file lama: `src/shared/auth/usersStore.js`, `apiKeyStore.js`, `usageStore.js` (digantikan repository + service).
 
-- Migrasi data JSON → Supabase (script terpisah).
-- Refactor test ke mock Supabase.
-- RLS policy untuk akses non-service-role (tidak dibutuhkan, server selalu service role).
+### Fase 6 — Tests
+
+13. Buat `tests/_helpers/supabaseMock.js` — in-memory mock dari `@supabase/supabase-js` chain (`from().select().eq().maybeSingle()`, `insert`, `update`, `rpc`). Cukup sederhana untuk semua suite.
+14. Setup `vi.mock('@supabase/supabase-js', ...)` di tiap test file yang butuh.
+15. Aktifkan kembali (hapus `.skip`) dan rewrite:
+    - `tests/users-store.test.js` → `tests/users-repo.test.js`
+    - `tests/api-key-store.test.js` → `tests/api-keys-repo.test.js`
+    - `tests/usage-store.test.js` → `tests/usage-repo.test.js`
+    - `tests/daily-quota.test.js`
+    - `tests/api-key-auth.test.js`
+    - `tests/auth-routes.test.js`
+    - `tests/admin-routes.test.js`
+    - `tests/reveal-key.test.js`
+    - `tests/login-limiter.test.js` & `tests/register-limiter.test.js` → mock RPC `rex_rate_limit_hit`.
+
+## File yang Diubah / Dibuat / Dihapus
+
+**Baru**:
+- `src/shared/repositories/{users,apiKeys,usage,rateLimit}.repo.js`
+- `src/core/auth/{auth,apiKeys}.service.js`
+- `src/shared/middleware/supabaseRateLimit.js`
+- `tests/_helpers/supabaseMock.js`
+
+**Diubah**:
+- `supabase/schema.sql` (tambah tabel + 2 RPC)
+- `server.js`, `dailyQuota.js`, `apiKeyAuth.js`, `verifyToken.js`
+- `auth.controller.js`, `user.controller.js`, `admin.controller.js`
+- `loginLimiter.js`, `registerLimiter.js`
+- Semua test (10 file) — un-skip + rewrite
+
+**Dihapus**:
+- `src/shared/auth/usersStore.js`
+- `src/shared/auth/apiKeyStore.js`
+- `src/shared/auth/usageStore.js`
+
+## Catatan / Trade-offs
+
+- **Latency**: setiap request kena 1–2 round-trip Supabase tambahan (sebelumnya cache hit). Untuk skala saat ini (single user) tidak masalah; jika nanti perlu, bisa tambah cache LRU per-instance dengan TTL pendek di repo layer.
+- **Failure mode**: rate limiter Supabase fail → default fail-open (log warn, izinkan request) supaya outage DB tidak 5xx semua login. Daily quota sudah pakai pola yang sama.
+- **Master key bootstrap**: `ensureMasterKey()` jalan di startup, butuh DB up. OK karena server tetap perlu DB untuk fungsi inti.
+
+## Setelah Merge (di VPS)
+
+1. Jalankan SQL baru (tabel `rex_rate_limits` + 2 RPC) di Supabase SQL editor.
+2. `git pull && npm install` (tidak ada dep baru).
+3. Restart server.

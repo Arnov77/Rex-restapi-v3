@@ -3,6 +3,7 @@ const usageStore = require('../auth/usageStore');
 const apiKeyStore = require('../auth/apiKeyStore');
 const usersStore = require('../auth/usersStore');
 const ResponseHandler = require('../utils/response');
+const logger = require('../utils/logger');
 const { env } = require('../../../config');
 
 const ANON_LIMIT = env.QUOTA_ANON_DAILY;
@@ -17,13 +18,10 @@ function hashIp(ip) {
 }
 
 /**
- * Resolve the counter key for the daily quota bucket.
- *
- * Quota follows the *user*, not the API key — otherwise regenerating a key
- * would reset the daily counter. When the API key is bound to a user record
- * we bucket as `user:<userId>`. Standalone keys with no user (created via
- * /api/admin/keys for partners/services) fall back to `key:<keyId>`.
- * Anonymous traffic is bucketed by hashed IP.
+ * Resolve the counter key for the daily quota bucket. Quota follows the
+ * *user*, not the API key — otherwise regenerating a key would reset the
+ * counter. Standalone keys (no user binding) bucket as `key:<keyId>`.
+ * Anonymous traffic buckets by hashed IP.
  */
 function counterKeyFor(req) {
   if (req.apiKey) {
@@ -42,40 +40,41 @@ function limitFor(req) {
 }
 
 function setQuotaHeaders(res, { limit, remaining }) {
-  const reset = usageStore.nextLocalMidnight().toISOString();
   res.set('X-Quota-Limit', String(limit));
   res.set('X-Quota-Remaining', String(Math.max(0, remaining)));
-  res.set('X-Quota-Reset', reset);
+  res.set('X-Quota-Reset', usageStore.nextLocalMidnight().toISOString());
 }
 
 /**
- * Per-day request quota that decrements on every successful pre-handler pass.
- *
- * This is the "business" limit (1 hit = 1 quota), distinct from the technical
- * anti-spam burst limiter. Master tier bypasses this entirely; user-tier keys
- * may carry an override `dailyLimit` field; anon callers fall back to the env
- * default. Counters are bucketed in-memory by key id (user) or IP hash (anon)
- * and reset at local midnight by usageStore.
+ * Per-day request quota. Atomic via Supabase RPC — race-free under burst
+ * concurrency. Master tier bypasses entirely (no DB round-trip). Failures
+ * fail-open with a warning log so a transient DB outage doesn't 5xx every
+ * single request — adjust if you'd rather fail-closed.
  */
-function dailyQuota(req, res, next) {
+async function dailyQuota(req, res, next) {
   if (req.apiKey?.tier === 'master') return next();
 
   const counterKey = counterKeyFor(req);
   const limit = limitFor(req);
-  const used = usageStore.getCount(counterKey);
 
-  if (used >= limit) {
-    setQuotaHeaders(res, { limit, remaining: 0 });
-    return ResponseHandler.error(
-      res,
-      `Daily quota exceeded (${used}/${limit}). Quota resets at local midnight.`,
-      429
+  try {
+    const { allowed, used, limit: appliedLimit } = await usageStore.checkAndIncrement(
+      counterKey,
+      limit
     );
+    setQuotaHeaders(res, { limit: appliedLimit, remaining: appliedLimit - used });
+    if (!allowed) {
+      return ResponseHandler.error(
+        res,
+        `Daily quota exceeded (${used}/${appliedLimit}). Quota resets at local midnight.`,
+        429
+      );
+    }
+    return next();
+  } catch (err) {
+    logger.error(`[quota] check failed (fail-open): ${err.message}`);
+    return next();
   }
-
-  const next_ = usageStore.increment(counterKey);
-  setQuotaHeaders(res, { limit, remaining: limit - next_ });
-  return next();
 }
 
 module.exports = { dailyQuota, counterKeyFor, limitFor, hashIp };

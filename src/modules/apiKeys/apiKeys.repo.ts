@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { Internal } from '../../shared/errors.js';
 
-const TABLE = 'rex_api_keys';
+const TABLE = 'api_keys';
 
 export type Tier = 'user' | 'master';
 

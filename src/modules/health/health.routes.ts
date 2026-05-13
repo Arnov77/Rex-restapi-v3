@@ -29,7 +29,7 @@ const healthRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (_req, reply) => {
-      const { error } = await app.supabase.from('rex_users').select('id').limit(1);
+      const { error } = await app.supabase.from('users').select('id').limit(1);
       if (error) return reply.code(503).send({ ok: false as const, db: 'down' as const });
       return { ok: true as const, db: 'up' as const };
     },

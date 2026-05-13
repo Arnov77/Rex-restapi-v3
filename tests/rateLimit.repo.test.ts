@@ -16,7 +16,7 @@ describe('rateLimitRepo.hit', () => {
     const repo = rateLimitRepo(db);
     const out = await repo.hit('bucket', 60.7, 10.9);
 
-    expect(db.rpc).toHaveBeenCalledWith('rex_rate_limit_hit', {
+    expect(db.rpc).toHaveBeenCalledWith('rate_limit_hit', {
       p_key: 'bucket',
       p_window_s: 60,
       p_max: 10,
@@ -31,7 +31,7 @@ describe('rateLimitRepo.hit', () => {
     }));
     const repo = rateLimitRepo(db);
     await repo.hit('k', 0, -5);
-    expect(db.rpc).toHaveBeenCalledWith('rex_rate_limit_hit', {
+    expect(db.rpc).toHaveBeenCalledWith('rate_limit_hit', {
       p_key: 'k',
       p_window_s: 1,
       p_max: 0,
@@ -53,7 +53,7 @@ describe('rateLimitRepo.gc', () => {
   it('calls RPC with default interval and returns deleted count', async () => {
     const db = makeDb(async () => ({ data: 17, error: null }));
     const n = await rateLimitRepo(db).gc();
-    expect(db.rpc).toHaveBeenCalledWith('rex_rate_limit_gc', { p_older_than: '1 day' });
+    expect(db.rpc).toHaveBeenCalledWith('rate_limit_gc', { p_older_than: '1 day' });
     expect(n).toBe(17);
   });
 

@@ -92,17 +92,23 @@ async function generateGif(opts: BratQuery): Promise<BratResult> {
           if (el) el.textContent = v;
         }, s);
 
+      // Quantize once on the richest (last) frame, then reuse the palette
+      // for every frame. Brat is just bg + text in one color with blur
+      // halos — the palette barely changes across frames, and reusing it
+      // skips the most expensive per-frame step (~40-60% of wall-time).
+      let sharedPalette: number[][] | null = null;
+
       for (let i = 0; i < frameCount; i++) {
         const partial = words.slice(0, i + 1).join(' ');
         await setText(partial);
         const png = await page.screenshot({ type: 'png', omitBackground: false });
         if (!png || png.length === 0) throw Internal('Brat frame produced empty buffer');
-        const rgba = await pngToRgba(page, png, opts.width, opts.height);
-        const palette = quantize(rgba, 256);
-        const indexed = applyPalette(rgba, palette);
+        const rgba = pngToRgba(png);
+        if (!sharedPalette) sharedPalette = quantize(rgba, 64, { format: 'rgb444' });
+        const indexed = applyPalette(rgba, sharedPalette, 'rgb444');
         const isLast = i === frameCount - 1;
         enc.writeFrame(indexed, opts.width, opts.height, {
-          palette,
+          palette: i === 0 ? sharedPalette : undefined,
           delay: isLast ? HOLD_MS : opts.delay,
         });
       }

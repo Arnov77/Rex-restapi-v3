@@ -105,15 +105,33 @@ async function generateStill(opts: BratQuery): Promise<BratResult> {
 }
 
 async function generateGif(opts: BratQuery): Promise<BratResult> {
-  // Animate by varying blur per frame — pulses 0 → opts.blur → 0.
+  // Render HTML ONCE, then animate by mutating the blur via CSS per frame.
+  // Re-running setContent per frame previously dominated runtime (font reload,
+  // shrink-to-fit recompute). Mutating one inline style reuses the laid-out
+  // page and cuts GIF time roughly in proportion to opts.frames.
   const buffer = await withPage(
     async (page) => {
+      const html = renderBratHtml(opts);
+      await page.setContent(html, { waitUntil: 'load', timeout: 15_000 });
+      await page
+        .waitForFunction("document.documentElement.dataset['ready'] === '1'", undefined, {
+          timeout: 2_000,
+        })
+        .catch(() => {});
+
       const enc = GIFEncoder();
+      const setBlur = (px: number) =>
+        page.evaluate((v: number) => {
+          const el = (globalThis as any).document.getElementById('t');
+          if (el) el.style.filter = `blur(${v}px)`;
+        }, px);
+
       for (let i = 0; i < opts.frames; i++) {
         const t = i / opts.frames;
-        const blur = Math.round((Math.sin(t * Math.PI * 2) * 0.5 + 0.5) * opts.blur);
-        const html = renderBratHtml({ ...opts, blur });
-        const png = await snapFrame(page, html);
+        const blur = (Math.sin(t * Math.PI * 2) * 0.5 + 0.5) * opts.blur;
+        await setBlur(blur);
+        const png = await page.screenshot({ type: 'png', omitBackground: false });
+        if (!png || png.length === 0) throw Internal('Brat frame produced empty buffer');
         const rgba = await pngToRgba(page, png, opts.width, opts.height);
         const palette = quantize(rgba, 256);
         const indexed = applyPalette(rgba, palette);

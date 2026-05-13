@@ -5,7 +5,9 @@ import { loadEnv } from '../config/env.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
-    supabase: SupabaseClient;
+    // Schema generic is widened to `any` since we use a custom (`rexapi`)
+    // schema and don't ship typed table definitions.
+    supabase: SupabaseClient<any, any, any>;
   }
 }
 

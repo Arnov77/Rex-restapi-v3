@@ -21,9 +21,14 @@ function assertEnabled() {
 function getClient() {
   assertEnabled();
   if (_client) return _client;
+  // Node.js < 22 doesn't have native WebSocket. Supabase realtime needs `ws`.
+  // We don't use realtime — but supabase-js still constructs a RealtimeClient
+  // eagerly. Provide `ws` as the transport to satisfy the runtime check.
+  const ws = require('ws');
   _client = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
     db: { schema: 'public' },
+    realtime: { transport: ws },
     global: { headers: { 'x-client-info': 'rex-rest-api' } },
   });
   return _client;

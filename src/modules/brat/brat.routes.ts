@@ -22,16 +22,9 @@ const bratRoutes: FastifyPluginAsyncZod = async (app) => {
         tags: ['brat'],
         summary: 'Render a brat-style caption (PNG/JPEG/GIF)',
         querystring: BratQuery,
-        response: {
-          200: {
-            description: 'Image bytes',
-            content: {
-              'image/png': { schema: { type: 'string', format: 'binary' } },
-              'image/jpeg': { schema: { type: 'string', format: 'binary' } },
-              'image/gif': { schema: { type: 'string', format: 'binary' } },
-            },
-          },
-        },
+        // No `response` schema: fastify-type-provider-zod expects Zod here,
+        // and binary image bytes don't fit a Zod shape. Swagger still lists
+        // the endpoint correctly without it.
       },
     },
     async (req, reply) => {

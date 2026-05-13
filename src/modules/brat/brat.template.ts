@@ -1,10 +1,11 @@
 /**
  * Returns a self-contained HTML document that renders one brat-style
- * caption frame. We intentionally avoid external font/CSS requests so the
- * page can be rendered with `setContent` (no network = no SSRF surface).
- *
- * Font-size auto-shrink: we let the browser size by viewport width, then
- * a tiny inline script trims font-size until the text fits both axes.
+ * caption frame. Mirrors bratify.vercel.app's CSS exactly:
+ *   font-family: arialnarrow (embedded TTF, no network)
+ *   text-align: justify
+ *   filter: blur(1.5px) by default
+ *   no padding, no letter-spacing, no text-transform
+ * Font-size auto-shrinks until the text fits both axes.
  */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -48,38 +49,41 @@ export function renderBratHtml(opts: BratTemplateOptions): string {
     ? `background-image:url("${esc(opts.bgImage)}");background-size:cover;background-position:center;`
     : '';
   const fontFace = FONT_DATA_URI
-    ? `@font-face{font-family:"BratArialNarrow";src:url("${FONT_DATA_URI}") format("truetype");font-weight:400;font-style:normal;font-display:block;}`
+    ? `@font-face{font-family:"arialnarrow";src:url("${FONT_DATA_URI}") format("truetype");font-weight:400;font-style:normal;font-display:block;}`
     : '';
+  // Bratify uses 48px on a 384px box (24rem). That's 12.5% of width.
+  // We start a bit larger and let the shrink-to-fit loop trim down.
+  const startSize = Math.round(opts.width * 0.16);
   return `<!doctype html>
 <html><head><meta charset="utf-8"><style>
   ${fontFace}
   html,body{margin:0;padding:0;width:${opts.width}px;height:${opts.height}px;overflow:hidden;background:${opts.background};${bgLayer}}
-  .wrap{width:100%;height:100%;display:flex;align-items:flex-start;justify-content:flex-start;padding:3%;box-sizing:border-box;}
-  .t{
-    font-family: "BratArialNarrow", "Arial Narrow", "Liberation Sans Narrow", Arial, Helvetica, sans-serif;
-    font-weight: 400;
+  #t{
+    box-sizing:border-box;
+    width:${opts.width}px;
+    height:${opts.height}px;
     color:${opts.color};
-    text-transform:lowercase;
-    line-height:1.0;
-    text-align:left;
-    filter: blur(${opts.blur}px);
-    word-break: break-word;
-    max-width:100%;
-    font-size:${Math.round(opts.width * 0.22)}px;
+    font-family:"arialnarrow","Arial Narrow",Arial,sans-serif;
+    font-weight:400;
+    text-align:justify;
+    filter:blur(${opts.blur}px);
+    backface-visibility:hidden;
+    word-break:break-word;
+    overflow:hidden;
+    font-size:${startSize}px;
   }
 </style></head><body>
-<div class="wrap"><div id="t" class="t">${esc(opts.text)}</div></div>
+<div id="t">${esc(opts.text)}</div>
 <script>
-  // Wait for the embedded font to be ready before measuring, otherwise the
-  // shrink-to-fit loop runs against the fallback metrics.
+  // Wait for the embedded font to load before measuring; otherwise the
+  // shrink loop runs against fallback metrics and over-shrinks.
   (function(){
     var el=document.getElementById('t');
-    var box=el.parentElement;
     function fit(){
       var size=parseInt(getComputedStyle(el).fontSize,10);
-      for(var i=0;i<60;i++){
-        if(el.scrollWidth<=box.clientWidth && el.scrollHeight<=box.clientHeight) break;
-        size=Math.max(12,size-Math.ceil(size*0.06));
+      for(var i=0;i<80;i++){
+        if(el.scrollHeight<=el.clientHeight && el.scrollWidth<=el.clientWidth) break;
+        size=Math.max(10,size-Math.ceil(size*0.05));
         el.style.fontSize=size+'px';
       }
       document.documentElement.dataset.ready='1';

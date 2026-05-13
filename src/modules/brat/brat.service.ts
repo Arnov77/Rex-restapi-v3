@@ -1,0 +1,133 @@
+import { GIFEncoder, quantize, applyPalette } from 'gifenc';
+import type { Page } from 'playwright-core';
+import { withPage } from '../../shared/browser/browserManager.js';
+import { assertPublicUrl } from '../../shared/utils/ssrfGuard.js';
+import { Internal } from '../../shared/errors.js';
+import { renderBratHtml } from './brat.template.js';
+import type { BratQuery } from './brat.schemas.js';
+
+export interface BratResult {
+  buffer: Buffer;
+  mimeType: 'image/png' | 'image/jpeg' | 'image/gif';
+  format: 'png' | 'jpeg' | 'gif';
+}
+
+const MIME = {
+  png: 'image/png',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+} as const;
+
+/**
+ * Render one brat caption frame at a fixed blur and return raw PNG bytes.
+ * Caller controls viewport via `withPage` so we can vary blur per frame
+ * without re-launching Chromium.
+ */
+async function snapFrame(page: Page, html: string): Promise<Buffer> {
+  // setContent is local — no network fetch happens for the HTML itself.
+  // The only outbound request would be the optional bgImage, which the
+  // service has already SSRF-guarded.
+  await page.setContent(html, { waitUntil: 'load', timeout: 15_000 });
+  // Give the auto-shrink script a moment to settle the layout.
+  await page.waitForFunction(
+    "document.documentElement.dataset['ready'] === '1'",
+    undefined,
+    { timeout: 2_000 },
+  ).catch(() => {
+    /* fall through — render anyway, worst case the text is slightly off-fit */
+  });
+  const buf = await page.screenshot({ type: 'png', omitBackground: false });
+  if (!buf || buf.length === 0) throw Internal('Brat frame produced empty buffer');
+  return buf;
+}
+
+/**
+ * Decode a PNG screenshot into raw RGBA pixels using the browser canvas
+ * we already have running. This avoids pulling a node-side PNG decoder
+ * (sharp/upng) just for GIF encoding.
+ */
+async function pngToRgba(
+  page: Page,
+  png: Buffer,
+  width: number,
+  height: number,
+): Promise<Uint8ClampedArray> {
+  const b64 = png.toString('base64');
+  // Run inside the page — DOM globals exist there, not in node.
+  const evalFn = (async ({ b64, w, h }: { b64: string; w: number; h: number }) => {
+    const D = (globalThis as any).document;
+    const ImageCtor = (globalThis as any).Image;
+    const img = new ImageCtor();
+    img.src = 'data:image/png;base64,' + b64;
+    await img.decode();
+    const c = D.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0, w, h);
+    return Array.from(ctx.getImageData(0, 0, w, h).data) as number[];
+  }) as unknown as (a: { b64: string; w: number; h: number }) => Promise<number[]>;
+  const data = await page.evaluate(evalFn, { b64, w: width, h: height });
+  return new Uint8ClampedArray(data);
+}
+
+export async function generate(opts: BratQuery): Promise<BratResult> {
+  // SSRF guard runs BEFORE the browser is touched. Same rule as screenshot:
+  // a blocked URL must never reach Playwright.
+  if (opts.bgImage) await assertPublicUrl(opts.bgImage);
+
+  if (opts.format === 'gif') return generateGif(opts);
+  return generateStill(opts);
+}
+
+async function generateStill(opts: BratQuery): Promise<BratResult> {
+  const html = renderBratHtml(opts);
+  const buffer = await withPage(
+    async (page) => {
+      await page.setContent(html, { waitUntil: 'load', timeout: 15_000 });
+      await page
+        .waitForFunction("document.documentElement.dataset['ready'] === '1'", undefined, {
+          timeout: 2_000,
+        })
+        .catch(() => {});
+      const fmt = opts.format as 'png' | 'jpeg';
+      const shotOpts: Parameters<typeof page.screenshot>[0] = { type: fmt };
+      if (fmt === 'jpeg') shotOpts.quality = opts.quality;
+      return page.screenshot(shotOpts);
+    },
+    { viewport: { width: opts.width, height: opts.height } },
+  );
+
+  if (!buffer || buffer.length === 0) throw Internal('Brat produced an empty buffer');
+  return { buffer, mimeType: MIME[opts.format], format: opts.format };
+}
+
+async function generateGif(opts: BratQuery): Promise<BratResult> {
+  // Animate by varying blur per frame — pulses 0 → opts.blur → 0.
+  const buffer = await withPage(
+    async (page) => {
+      const enc = GIFEncoder();
+      for (let i = 0; i < opts.frames; i++) {
+        const t = i / opts.frames;
+        const blur = Math.round((Math.sin(t * Math.PI * 2) * 0.5 + 0.5) * opts.blur);
+        const html = renderBratHtml({ ...opts, blur });
+        const png = await snapFrame(page, html);
+        const rgba = await pngToRgba(page, png, opts.width, opts.height);
+        const palette = quantize(rgba, 256);
+        const indexed = applyPalette(rgba, palette);
+        enc.writeFrame(indexed, opts.width, opts.height, {
+          palette,
+          delay: opts.delay,
+        });
+      }
+      enc.finish();
+      return Buffer.from(enc.bytes());
+    },
+    { viewport: { width: opts.width, height: opts.height } },
+  );
+
+  if (!buffer || buffer.length === 0) throw Internal('Brat GIF produced an empty buffer');
+  return { buffer, mimeType: MIME.gif, format: 'gif' };
+}
+
+export const bratService = { generate };

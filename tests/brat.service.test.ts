@@ -130,7 +130,7 @@ describe('brat.service.generate (still)', () => {
     const page = makePage();
     browserMock.withPage.mockImplementationOnce(async (fn: any) => fn(page));
     await bratService.generate(BratQuery.parse({ text: '<script>alert(1)</script>' }));
-    const html = page.setContent.mock.calls[0]![0] as string;
+    const html = (page.setContent as any).mock.calls[0][0] as string;
     expect(html).not.toContain('<script>alert(1)</script>');
     expect(html).toContain('&lt;script&gt;');
   });

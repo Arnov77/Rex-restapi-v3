@@ -30,8 +30,8 @@ export const BratQuery = z.object({
     .regex(/^#[0-9a-fA-F]{6}$/, 'color must be a 6-digit hex like #000000')
     .default('#000000'),
   // Animated-only knobs — ignored for png/jpeg.
-  frames: z.coerce.number().int().min(2).max(30).default(12),
-  delay: z.coerce.number().int().min(40).max(200).default(80),
+  frames: z.coerce.number().int().min(2).max(30).default(8),
+  delay: z.coerce.number().int().min(40).max(200).default(100),
   bgImage: z.string().url().max(2048).optional(),
 });
 export type BratQuery = z.infer<typeof BratQuery>;

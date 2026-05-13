@@ -23,7 +23,7 @@ export function rateLimitRepo(db: SupabaseClient) {
       if (!row) throw Internal('rateLimit.hit: empty result');
       return {
         allowed: !!row.allowed,
-        count: Number(row.count),
+        count: Number(row.count_out ?? row.count),
         resetAt: new Date(row.reset_at),
       };
     },

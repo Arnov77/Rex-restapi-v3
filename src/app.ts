@@ -60,6 +60,7 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(healthRoutes, { prefix: '/api' });
   await app.register(authRoutes, { prefix: '/api/auth' });
   await app.register(apiKeyRoutes, { prefix: '/api/keys' });
+  await app.register(screenshotRoutes, { prefix: '/api/screenshot' });
 
   return app;
 }

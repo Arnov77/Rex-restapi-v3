@@ -34,3 +34,13 @@ export const RevealKeyResponse = z.object({
 });
 
 export const OkResponse = z.object({ ok: z.literal(true) });
+
+export const ListKeysQuery = z.object({
+  includeRevoked: z.coerce.boolean().optional().default(false),
+});
+export type ListKeysQuery = z.infer<typeof ListKeysQuery>;
+
+export const ListKeysResponse = z.object({
+  ok: z.literal(true),
+  data: z.object({ keys: z.array(PublicKey) }),
+});

@@ -13,8 +13,8 @@ const { errorHandler } = require('./src/shared/middleware/errorHandler');
 const { antiSpamLimiter } = require('./src/shared/middleware/antiSpam');
 const { dailyQuota } = require('./src/shared/middleware/dailyQuota');
 const { apiKeyAuth } = require('./src/shared/auth/apiKeyAuth');
-const apiKeyStore = require('./src/shared/auth/apiKeyStore');
-const usersStore = require('./src/shared/auth/usersStore');
+const apiKeysService = require('./src/core/auth/apiKeys.service');
+const rateLimitRepo = require('./src/shared/repositories/rateLimit.repo');
 const requestId = require('./src/shared/middleware/requestId');
 const ResponseHandler = require('./src/shared/utils/response');
 const browserManager = require('./src/shared/browser/browserManager');
@@ -205,10 +205,12 @@ async function startServer() {
     // dynamic-import + JSON-parse cost (~150ms on cold start).
     await initColorIndex();
 
-    await usersStore.init();
-    await apiKeyStore.init();
-    apiKeyStore.ensureMasterKey();
-    // usageStore is now stateless (Supabase RPC) — no start/stop required.
+    // Stores are stateless (pure repositories) — only the master key needs
+    // bootstrapping. Rate-limit GC runs hourly to prune expired windows.
+    await apiKeysService.ensureMasterKey();
+    setInterval(() => {
+      rateLimitRepo.gc('1 day').catch(() => {});
+    }, 60 * 60 * 1000).unref();
 
     // Sweep stale files in /downloads on a TTL so the disk doesn't fill up
     // with old YouTube/TikTok artefacts. Runs an initial pass synchronously,
@@ -233,7 +235,6 @@ async function startServer() {
 function shutdown(signal) {
   logger.info(`Received ${signal}, shutting down gracefully...`);
   downloadsCleanup.stopCleanup();
-  apiKeyStore.flushPendingTouches();
   if (!httpServer) {
     browserManager.shutdown().finally(() => process.exit(0));
     return;

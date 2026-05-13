@@ -1,8 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { Internal } from '../../shared/errors.js';
 
-const RPC_HIT = 'rex_rate_limit_hit';
-const RPC_GC = 'rex_rate_limit_gc';
+const RPC_HIT = 'rate_limit_hit';
+const RPC_GC = 'rate_limit_gc';
 
 export interface HitResult {
   allowed: boolean;

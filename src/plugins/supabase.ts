@@ -5,7 +5,9 @@ import { loadEnv } from '../config/env.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
-    supabase: SupabaseClient;
+    // Schema generic is widened to `any` since we use a custom (`rexapi`)
+    // schema and don't ship typed table definitions.
+    supabase: SupabaseClient<any, any, any>;
   }
 }
 
@@ -20,10 +22,10 @@ export default fp(
     const env = loadEnv();
     const client = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
       auth: { persistSession: false, autoRefreshToken: false },
-      db: { schema: 'public' },
+      db: { schema: 'rexapi' },
       realtime: { transport: ws as never },
       global: { headers: { 'x-client-info': 'rex-api' } },
-    });
+    }) as SupabaseClient<any, any, any>;
     app.decorate('supabase', client);
   },
   { name: 'supabase' },

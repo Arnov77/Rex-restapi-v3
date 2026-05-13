@@ -1,320 +1,59 @@
-# Rex-RESTAPI
+# Rex API — v3 (Fastify + TypeScript)
 
-REST API untuk downloader media (YouTube / TikTok / Instagram / Twitter / Pinterest), generator gambar (Brat / MIQ / quote / smeme), NSFW detector, TTS WhatsApp voice note, sticker Telegram → WhatsApp, dan utilitas tambahan. Sistem **membership** sendiri (akun + JWT + API key + quota harian per-user) tanpa upstream auth provider.
+WhatsApp-bot oriented REST API. Repositori-Service-Routes layering, Supabase as the only persistence layer, Swagger docs di `/docs`.
 
-Struktur v2: kode dipecah ke `src/core/` (per-domain), `src/shared/` (cross-cutting), test suite Vitest, lint/format pipeline (eslint + prettier + husky).
-
----
-
-## Membership system
-
-Tiap request ke `/api/*` (kecuali `/api/auth/*` dan `/api/user/*`) wajib lewat **dailyQuota** middleware. Tier user ditentukan dari header `X-API-Key`:
-
-| Tier   | Cara identifikasi                                | Quota default | Tracking key    |
-| ------ | ------------------------------------------------ | ------------- | --------------- |
-| Anon   | Tidak ada `X-API-Key` (atau key invalid)         | 30 / hari     | `anon:<ipHash>` |
-| User   | `X-API-Key: rex_...` valid, milik user terdaftar | 250 / hari    | `user:<userId>` |
-| Master | `X-API-Key` cocok dengan `MASTER_API_KEY`        | bypass        | tidak di-track  |
-
-Anon quota dibagi rata se-IP (semua IP yang sama berbagi 30 hits). User quota privat per akun — **regenerate key TIDAK reset quota** (counter ikut user, bukan key). Reset terjadi tiap tengah malam waktu server.
-
-### Anti-abuse layering
-
-| Guard            | Scope              | Window   | Default cap   | Env override                            |
-| ---------------- | ------------------ | -------- | ------------- | --------------------------------------- |
-| Anti-spam burst  | Per IP, all routes | 1 detik  | 5 req         | `ANTI_SPAM_PER_SECOND`                  |
-| Login limiter    | Per IP             | 15 menit | 10 attempts   | `LOGIN_LIMIT_PER_IP`                    |
-| Login limiter    | Per username/email | 15 menit | 5 attempts    | `LOGIN_LIMIT_PER_IDENTIFIER`            |
-| Register limiter | Per IP             | 1 jam    | 5 attempts    | `REGISTER_LIMIT_PER_IP`                 |
-| Daily quota      | Per user/anon      | 24 jam   | 30 / 250 hits | `QUOTA_ANON_DAILY` / `QUOTA_USER_DAILY` |
-
-Login limiter sukses **tidak** konsumsi budget (bukan brute-force). Register limiter mencatat sukses + gagal (mencegah signup spam).
-
-### Auth endpoints (`/api/auth`)
-
-| Method | Path                 | Body                            | Returns                                    |
-| ------ | -------------------- | ------------------------------- | ------------------------------------------ |
-| `POST` | `/api/auth/register` | `{ username, email, password }` | User + plaintext API key + JWT (Bearer 7d) |
-| `POST` | `/api/auth/login`    | `{ identifier, password }`      | User + plaintext API key + JWT             |
-
-**Password policy**: minimal 10 karakter, harus mengandung minimal 1 huruf dan 1 angka. Hashed dengan bcrypt (`BCRYPT_ROUNDS`, default 10).
-
-### User endpoints (`/api/user`, JWT required)
-
-| Method | Path                       | Body           | Returns                                              |
-| ------ | -------------------------- | -------------- | ---------------------------------------------------- |
-| `GET`  | `/api/user/profile`        | —              | User + API key metadata (`key: null`) + usage live   |
-| `POST` | `/api/user/regenerate-key` | —              | API key baru (plaintext). Key lama langsung invalid. |
-| `POST` | `/api/user/reveal-key`     | `{ password }` | API key plaintext. Bcrypt-verified.                  |
-
-**Threat model**: `/profile` dipanggil tiap 30 detik oleh dashboard untuk live quota. Plaintext API key tidak dikirim di response /profile — kalau JWT bocor, attacker tidak otomatis dapat API key. Plaintext cuma dikirim di event yang fresh-auth (register, login, regenerate, reveal). Frontend cache plaintext di `localStorage` → kalau cache kosong, user wajib reveal manual dengan password.
-
-### Admin endpoints (`/api/admin`, master key required)
-
-Mounted tapi **disembunyikan dari Swagger publik** (`/api/docs.json` tidak tampilkan `/api/admin/*` paths atau tag `Admin`). Endpoint tetap fungsional dan di-gate `requireMaster` middleware (header `X-API-Key: <MASTER>`).
-
-| Method   | Path                  | Fungsi                                           |
-| -------- | --------------------- | ------------------------------------------------ |
-| `GET`    | `/api/admin/keys`     | List semua API key                               |
-| `POST`   | `/api/admin/keys`     | Buat key manual (tier, quota, name, owner)       |
-| `PATCH`  | `/api/admin/keys/:id` | Edit metadata / quota / tier                     |
-| `DELETE` | `/api/admin/keys/:id` | Revoke key                                       |
-| `GET`    | `/api/admin/usage`    | Lihat usage per scope (`user:`, `key:`, `anon:`) |
-
-**Master key**: dibaca dari env `MASTER_API_KEY`. Kalau env kosong, server auto-generate plaintext + simpan ke `data/master-key.txt` (chmod 0600) saat boot pertama. Pesan log warn akan muncul dengan path file. Move ke env untuk deploy multi-instance.
-
----
-
-## Endpoint media & utility
-
-| Method      | Path                                  | Catatan                                                            |
-| ----------- | ------------------------------------- | ------------------------------------------------------------------ |
-| `POST`      | `/api/youtube/mp3`                    | Audio MP3 dari URL atau judul                                      |
-| `POST`      | `/api/youtube/mp4`                    | Video MP4 + opsi `quality` (lihat di bawah)                        |
-| `POST`      | `/api/tiktok/download`                | Video TikTok (no watermark)                                        |
-| `POST`      | `/api/tiktok/audio`                   | Audio TikTok                                                       |
-| `POST`      | `/api/instagram/download`             | Video / reel / post Instagram                                      |
-| `POST`      | `/api/twitter/download`               | Video / foto Twitter / X (3-tier fallback)                         |
-| `POST`      | `/api/pinterest/download`             | Foto / video Pinterest (auto-upgrade ke `/originals/`)             |
-| `GET`       | `/api/music/resolve`                  | Metadata Spotify / Apple Music / SoundCloud (track+album+playlist) |
-| `GET`       | `/api/music/spotify/download`         | MP3 192 kbps dari URL track Spotify (single track, CAPSOLVER)      |
-| `GET`       | `/api/music/apple/download`           | MP3 dari URL track Apple Music via aaplmusicdownloader.com scrape  |
-| `GET`       | `/api/music/soundcloud/download`      | MP3 dari URL track SoundCloud via scloudplaylistdownloader scrape  |
-| `POST`      | `/api/tts/google`                     | Voice note ogg/opus PTT WhatsApp (16kHz mono 32kbps)               |
-| `GET\|POST` | `/api/gdrive`                         | Resolver direct-download Google Drive                              |
-| `POST`      | `/api/brat/image`                     | Generator gambar style "Brat"                                      |
-| `POST`      | `/api/brat/video`                     | Versi animasi GIF                                                  |
-| `POST`      | `/api/quote`, `/api/smeme`            | Generator gambar template                                          |
-| `POST`      | `/api/miq/generate`                   | "Make It a Quote" (avatar opsional via Discord webhook)            |
-| `POST`      | `/api/promosi`                        | Promotion detector (Gemini)                                        |
-| `POST`      | `/api/nsfw/detect`                    | NSFW detector dari `imageUrl` atau upload field `image`            |
-| `POST`      | `/api/telegram/sticker-pack`          | Info isi Telegram sticker pack                                     |
-| `POST`      | `/api/telegram/sticker-pack/download` | Convert seluruh pack ke `.wasticker` siap import WhatsApp          |
-| `POST`      | `/api/telegram/sticker`               | Convert 1 sticker (static / animated)                              |
-| `GET`       | `/mcapi/profile`                      | Minecraft Java/Bedrock profile (username, XUID, UUID)              |
-| `GET`       | `/mcapi/render/head`                  | Render kepala Minecraft dari skin URL / username                   |
-| `GET`       | `/health`, `/api/status`              | Probe                                                              |
-| `GET`       | `/api/docs`                           | Swagger UI live                                                    |
-
-## YouTube downloader
-
-Engine YouTube punya **fallback 3-tier** supaya tahan terhadap perubahan server-side YouTube:
-
-1. **Tier 1 — `youtubei.js`** (primary). Generate PO Token otomatis lewat `bgutils-js` BotGuard challenge in-process, tidak butuh PO Token manual. Coba beberapa client (TV → IOS → WEB_EMBEDDED → MWEB → ANDROID_VR → WEB) sampai dapat format yang playable. Decipher signature/n-param via custom JS evaluator.
-2. **Tier 2 — `@distube/ytdl-core`** (fallback 1). Pakai cookies user untuk auth, agent dibuat dari Netscape cookie file.
-3. **Tier 3 — `yt-dlp`** (fallback 2). Last resort, runtime binary, format selector `bestvideo[height<=N]+bestaudio/best[height<=N]/bestvideo+bestaudio/best`.
-
-Tier yang berhasil pertama menang. Tier 1+2 download per-format pakai **chunked range request** (~10MB per chunk, video+audio paralel) untuk bypass adaptive throttling YouTube.
-
-### Parameter `quality` (MP4)
-
-Opsional, default `best`. Nilai yang valid:
-
-```
-144 | 240 | 360 | 480 | 720 | 1080 | 1440 | 2160 | best
-```
-
-Nilai numerik diperlakukan sebagai **height ceiling** (bukan exact match). Server akan pilih resolusi tertinggi yang `<= cap`. Kalau resolusi yang diminta tidak tersedia (mis. video aslinya cuma 720p tapi user minta 1080p), server **tidak error** — tetap return video dengan resolusi tertinggi yang ada.
-
-YouTube cuma publish format muxed (video+audio dalam 1 file) sampai 360p. Untuk 480p ke atas, server otomatis pakai jalur adaptive (download video + audio terpisah, lalu merge via ffmpeg).
-
-## Music downloader (Spotify / Apple Music / SoundCloud)
-
-`GET /api/music/resolve?url=<...>` mengembalikan metadata ter-normalisasi dari URL Spotify, Apple Music, atau SoundCloud (auto-dispatch berdasarkan host). Download-nya terpisah per-service — masing-masing cuma menerima URL service-nya sendiri.
-
-### Resolve (metadata-only)
-
-| Service     | Source untuk `/api/music/resolve` | Track | Album | Playlist | Latensi |
-| ----------- | --------------------------------- | ----- | ----- | -------- | ------- |
-| Spotify     | scrape `spotidown.co` + CapSolver | yes   | yes   | yes (50) | 5–10 s  |
-| Apple Music | iTunes Search API (free, no auth) | yes   | yes   | no       | < 1 s   |
-| SoundCloud  | yt-dlp metadata extractor         | yes   | -     | yes      | 2–4 s   |
-
-### Download (per-service, single track only)
-
-Setiap endpoint download men-scrape site downloader yang sudah proven, lalu stream file MP3 hasilnya ke `downloads/` lokal sehingga URL final tetap di domain kita.
-
-| Endpoint                         | Primary source (scrape)                    | Fallback                           | Bitrate   |
-| -------------------------------- | ------------------------------------------ | ---------------------------------- | --------- |
-| `/api/music/spotify/download`    | `spotidown.co` (Turnstile via CapSolver)   | —                                  | ~192 kbps |
-| `/api/music/apple/download`      | `aaplmusicdownloader.com` (PHPSESSID)      | iTunes Search API + yt-dlp YouTube | ~192 kbps |
-| `/api/music/soundcloud/download` | `scloudplaylistdownloader.app` (PHPSESSID) | yt-dlp native SoundCloud extractor | 128 kbps  |
-
-**Spotify mewajibkan `CAPSOLVER_API_KEY`** (`spotidown.co` di-protek Cloudflare Turnstile). Tanpa key, endpoint return 503 untuk URL Spotify. Apple Music & SoundCloud tidak butuh credentials apa pun — captcha-nya image-text dan saat ini toggled OFF upstream.
-
-Apple Music user-curated **playlist** tidak didukung di `/api/music/resolve` (data ada di belakang Apple Music developer API berbayar). Album / track / single-in-album semua jalan.
-
-Ketiga endpoint `/api/music/<service>/download` cuma menerima URL track tunggal dari service yang cocok — URL yang salah service (mis. URL Apple Music ke `/spotify/download`) ditolak 400. Untuk playlist / album, panggil `/api/music/resolve` dulu, lalu loop per-track URL ke endpoint download service-nya.
-
-Spotify upstream (`spotidown.co`) internal-nya re-stream dari YouTube, jadi audio-nya sebenarnya YouTube 192-256 kbps MP3. Apple (`aaplmusicdownloader.com`) punya cache CDN `mymp3.xyz` sendiri dan return m4a yang server-side di-convert ke tagged MP3. SoundCloud (`scloudplaylistdownloader.app`) return signed CDN URL dari `cf-media.sndcdn.com` 128 kbps MP3.
-
-### Storage `downloads/`
-
-Endpoint MP3/MP4 menyimpan file di `downloads/` dan return URL `${baseUrl}/downloads/<file>`. File auto-dihapus ketika lebih tua dari TTL (default 1 jam). Sweep dijalankan saat server boot dan setiap N menit.
-
----
-
-## Menjalankan aplikasi
-
-### Quick start
+## Quick start
 
 ```bash
+cp .env.example .env
+# generate API_KEY_ENC_KEY:
+openssl rand -hex 32
+# fill SUPABASE_URL & SUPABASE_SERVICE_ROLE_KEY
 npm install
-npm start          # atau: node server.js
+npm run dev
 ```
 
-Server listen di `PORT` (default 7860). Kalau `JWT_SECRET` & `MASTER_API_KEY` belum di-set, server auto-generate keduanya saat boot pertama dan tulis ke `data/jwt-secret.txt` + `data/master-key.txt` (chmod 0600). Pesan warn akan muncul di log.
+Open http://localhost:3000/docs for Swagger UI.
 
-### Membership flow (manual / curl)
+## Scripts
 
-```bash
-# 1. Register — dapat plaintext key + JWT
-curl -X POST http://localhost:7860/api/auth/register \
-  -H 'Content-Type: application/json' \
-  -d '{"username":"alice","email":"alice@example.com","password":"hunter22pass"}'
-# → { data: { user, apiKey: { key: "rex_...", ... }, token } }
+- `npm run dev` — hot reload via `tsx watch`
+- `npm run build` — emit `dist/` via `tsc`
+- `npm start` — run compiled `dist/server.js`
+- `npm test` — run vitest once
+- `npm run typecheck` — TypeScript check only
 
-# 2. Pakai key untuk hit endpoint biasa
-curl -H 'X-API-Key: rex_...' \
-  -X POST http://localhost:7860/api/quote \
-  -H 'Content-Type: application/json' \
-  -d '{"name":"Alice","message":"halo"}'
-
-# 3. Cek profile + quota live
-curl http://localhost:7860/api/user/profile \
-  -H 'Authorization: Bearer <JWT>'
-# → apiKey.key === null (tidak leak); usage.user.daily.used = N
-
-# 4. Reveal plaintext key (kalau cache localStorage hilang)
-curl -X POST http://localhost:7860/api/user/reveal-key \
-  -H 'Authorization: Bearer <JWT>' \
-  -H 'Content-Type: application/json' \
-  -d '{"password":"hunter22pass"}'
-# → { data: { apiKey: { key: "rex_...", ... } } }
-
-# 5. Regenerate key (kalau bocor). Quota TIDAK reset.
-curl -X POST http://localhost:7860/api/user/regenerate-key \
-  -H 'Authorization: Bearer <JWT>'
-```
-
-Atau pakai dashboard di `/` (landing page) — modal Daftar / Login otomatis simpan JWT + plaintext key ke `localStorage`, dashboard `/profile` view live.
-
-### Minimal `.env`
-
-Cukup ini untuk jalan dasar (semua key auth auto-generate):
-
-```env
-PORT=7860
-NODE_ENV=development
-```
-
-Untuk production, MINIMAL set ini supaya restart tidak invalidate JWT existing + multi-instance pakai master key sama:
-
-```env
-JWT_SECRET=<64-byte random hex>
-MASTER_API_KEY=rex_<43-char base64url>
-API_KEY_ENCRYPTION_SECRET=<64-byte random hex>
-CORS_ORIGIN=https://your-app.onrender.com
-```
-
-Generate nilai production dengan Node:
-
-```bash
-# MASTER_API_KEY
-node -e "console.log('rex_' + require('crypto').randomBytes(32).toString('base64url'))"
-
-# JWT_SECRET
-node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
-
-# API_KEY_ENCRYPTION_SECRET
-node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
-```
-
-Masukkan hasilnya ke environment variables Render. Jangan mengandalkan `data/master-key.txt` atau `data/jwt-secret.txt` di Render, karena filesystem runtime bisa hilang saat restart/redeploy.
-
-Tambahkan upstream tokens hanya kalau pakai endpoint terkait (`GEMINI_API_KEY` untuk `/api/promosi`, `DISCORD_WEBHOOK_URL` untuk MIQ avatar upload, `TELEGRAM_BOT_TOKEN` untuk `/api/telegram/*`). Lihat [`.env.example`](./.env.example) untuk daftar lengkap dengan default.
-
-### Supabase persistence (Render)
-
-Default store tetap JSON lokal (`AUTH_STORE_BACKEND=json`). Untuk deploy Render tanpa kehilangan user/API key/quota saat redeploy, buat tabel Supabase dari [`supabase/schema.sql`](./supabase/schema.sql), lalu set env:
-
-```env
-AUTH_STORE_BACKEND=supabase
-SUPABASE_URL=https://<project-ref>.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
-JWT_SECRET=<64-byte random hex>
-MASTER_API_KEY=rex_<43-char base64url>
-API_KEY_ENCRYPTION_SECRET=<64-byte random hex>
-CORS_ORIGIN=https://your-app.onrender.com
-```
-
-Gunakan **service role key hanya di server/Render env**, jangan pernah di frontend. Saat Supabase masih kosong, server akan seed sekali dari JSON lokal `data/*.json` jika file itu ada. Setelah `AUTH_STORE_BACKEND=supabase` aktif, perubahan user/API key/quota berikutnya hanya ditulis ke Supabase, bukan lagi ke JSON lokal. Jika `API_KEY_ENCRYPTION_SECRET` diset, plaintext API key yang dipakai fitur reveal disimpan terenkripsi; record lama yang masih punya `key` plaintext akan dikonversi otomatis saat server start.
-
-### NSFW detector
-
-Endpoint ini memakai `nsfwjs` di server. Model `mobilenet_v2` dibundel di `public/models/nsfw/mobilenet_v2`, diload sekali dari disk, lalu dicache di memory. `NSFW_MODEL_URL` opsional kalau ingin memakai model eksternal. Gambar statis dianalisis langsung; GIF/video diekstrak beberapa frame dengan ffmpeg (`NSFW_MAX_FRAMES`, `NSFW_FRAME_INTERVAL_SEC`) lalu skor tertinggi dipakai sebagai hasil akhir.
-
-```bash
-curl -X POST http://localhost:7860/api/nsfw/detect \
-  -H 'Content-Type: application/json' \
-  -d '{"imageUrl":"https://example.com/image.jpg","threshold":0.7}'
-
-curl -X POST http://localhost:7860/api/nsfw/detect \
-  -F image=@photo.jpg \
-  -F threshold=0.7
-
-curl -X POST http://localhost:7860/api/nsfw/detect \
-  -F image=@video.mp4 \
-  -F threshold=0.7
-```
-
-Response utama berisi `isNsfw`, `mediaType`, `nsfwScore`, `safeScore`, `threshold`, `label`, dan `predictions` untuk gambar. Untuk GIF/video ada tambahan `analyzedFrames`, `nsfwFrames`, `maxFrame`, dan `frames`. `predictions` memakai class NSFWJS: `drawing`, `hentai`, `neutral`, `porn`, dan `sexy`.
-
-### YouTube cookies (opsional, untuk video age-restricted / region-locked)
-
-Letakkan file Netscape cookie di salah satu lokasi di bawah ini (dicek berurutan):
+## Project layout
 
 ```
-./cookies.txt            # repo-relative
-./.cookies.txt
-$HOME/.cookies/youtube.txt
+src/
+├── server.ts                # process bootstrap
+├── app.ts                   # buildApp() — registers plugins + routes
+├── config/env.ts            # zod-validated env loader
+├── plugins/                 # cross-cutting Fastify plugins
+│   ├── errorHandler.ts
+│   ├── supabase.ts
+│   ├── swagger.ts
+│   ├── auth.ts              # JWT + API-key decorators
+│   └── rateLimit.ts         # Supabase-backed rate-limit factory
+├── shared/
+│   └── errors.ts            # AppError + helpers
+└── modules/                 # one folder per feature
+    ├── health/
+    ├── auth/                # routes + service + repo + schemas
+    ├── apiKeys/
+    └── rateLimit/
+tests/                       # vitest, TDD-friendly
+supabase/schema.sql          # apply once via Supabase SQL editor
 ```
 
-Isi file: hasil export plugin "Get cookies.txt" dari browser yang sudah login YouTube. Kalau tidak ada cookies, video publik tetap berjalan via Tier 1 (PO Token auto-generated cukup untuk gate auth).
+## Conventions
 
----
+- **Routes** declare zod schemas; Swagger picks them up automatically.
+- **Services** contain business logic. They throw `AppError` (`Conflict`, `Unauthorized`, …) — the central error handler renders the JSON response.
+- **Repositories** are the only files that touch `app.supabase`. Pure async, no caching.
+- **Plugins** add cross-cutting capabilities via `fastify-plugin` (`fp`) so decorators leak to the parent scope.
 
-## Struktur proyek
+## Database
 
-```text
-Rex-RESTAPI/
-├── data/                  # Persistent state (users, api-keys, usage, secrets) — chmod 0600
-├── downloads/             # Hasil MP3/MP4 download, auto-sweep TTL
-├── public/                # Landing page + dashboard frontend
-├── src/
-│   ├── core/
-│   │   ├── auth/          # /api/auth — register, login
-│   │   ├── user/          # /api/user — profile, regenerate, reveal
-│   │   ├── admin/         # /api/admin — key management (master gated)
-│   │   ├── media/         # youtube, tiktok, instagram, twitter, pinterest, brat, telegram, ...
-│   │   └── tools/         # gdrive, mcprofile, miq, promosi, quote, smeme, tts
-│   └── shared/            # logger, errors, middleware (apiKeyAuth, dailyQuota, antiSpam, *Limiter), stores, swagger, ...
-├── tests/                 # Vitest suite
-├── server.js
-└── package.json
-```
-
-## Development
-
-```bash
-npm run lint        # eslint
-npm run format      # prettier
-npm test            # vitest (sekali jalan)
-npm run test:watch  # mode watch
-```
-
-Pre-commit hook (husky + lint-staged) sudah ke-set, akan run lint + format pada file yang di-stage.
-
-## API Docs (Swagger)
-
-Live di `GET /api/docs` saat server jalan. Spec digenerate dari JSDoc `@openapi` block di tiap routes file. Endpoint admin **tidak ditampilkan** di spec publik (di-strip sebelum di-export).
+Run `supabase/schema.sql` once in the Supabase SQL editor. The server connects with the service-role key and bypasses RLS.

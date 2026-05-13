@@ -1,5 +1,8 @@
+/**
+ * Daily-usage repository — wraps the Supabase RPCs. Stateless.
+ */
 const logger = require('../utils/logger');
-const supabase = require('./supabaseClient');
+const supabase = require('../auth/supabaseClient');
 
 const RPC_INCREMENT = 'rex_increment_usage';
 const RPC_TRANSFER = 'rex_transfer_usage';
@@ -17,14 +20,6 @@ function nextLocalMidnight(now = new Date()) {
   return next;
 }
 
-/**
- * Atomic check-and-increment for a daily counter. Race-free even under
- * heavy concurrency — the conditional UPDATE inside the RPC is the gate.
- *
- * @param {string} counterKey
- * @param {number} limit  Pass a negative number for unlimited.
- * @returns {Promise<{allowed:boolean, used:number, limit:number}>}
- */
 async function checkAndIncrement(counterKey, limit) {
   const { data, error } = await supabase.getClient().rpc(RPC_INCREMENT, {
     p_date: todayLocalIsoDate(),
@@ -32,18 +27,14 @@ async function checkAndIncrement(counterKey, limit) {
     p_limit: typeof limit === 'number' ? limit : -1,
   });
   if (error) {
-    logger.error(`[usage] RPC ${RPC_INCREMENT} failed: ${error.message}`);
+    logger.error(`[usage.repo] RPC ${RPC_INCREMENT}: ${error.message}`);
     throw new Error(error.message);
   }
   const row = Array.isArray(data) ? data[0] : data;
-  if (!row) throw new Error('[usage] RPC returned empty result');
+  if (!row) throw new Error('[usage.repo] RPC returned empty result');
   return { allowed: !!row.allowed, used: Number(row.used), limit: Number(row.limit_value) };
 }
 
-/**
- * Read-only count for the current day. Used by the user-profile endpoint
- * (`buildUsageView`) to display "X / Y used today". Returns 0 if no row yet.
- */
 async function getCount(counterKey) {
   const { data, error } = await supabase
     .getClient()
@@ -53,16 +44,12 @@ async function getCount(counterKey) {
     .eq('counter_key', counterKey)
     .maybeSingle();
   if (error) {
-    logger.error(`[usage] getCount failed: ${error.message}`);
+    logger.error(`[usage.repo] getCount: ${error.message}`);
     return 0;
   }
   return data ? Number(data.count) : 0;
 }
 
-/**
- * Snapshot of all counters for today. Used by the admin usage endpoint.
- * Returns { date, counters: { [counterKey]: count } }.
- */
 async function snapshot() {
   const date = todayLocalIsoDate();
   const { data, error } = await supabase
@@ -71,7 +58,7 @@ async function snapshot() {
     .select('counter_key, count')
     .eq('bucket_date', date);
   if (error) {
-    logger.error(`[usage] snapshot failed: ${error.message}`);
+    logger.error(`[usage.repo] snapshot: ${error.message}`);
     return { date, counters: {} };
   }
   const counters = {};
@@ -79,11 +66,6 @@ async function snapshot() {
   return { date, counters };
 }
 
-/**
- * Move today's counter from one key to another atomically. Used when an
- * API key is regenerated and we want the new key id to inherit the old
- * key's day-to-date usage.
- */
 async function transfer(fromKey, toKey) {
   const { data, error } = await supabase.getClient().rpc(RPC_TRANSFER, {
     p_date: todayLocalIsoDate(),
@@ -91,14 +73,10 @@ async function transfer(fromKey, toKey) {
     p_to: toKey,
   });
   if (error) {
-    logger.error(`[usage] RPC ${RPC_TRANSFER} failed: ${error.message}`);
+    logger.error(`[usage.repo] RPC ${RPC_TRANSFER}: ${error.message}`);
     throw new Error(error.message);
   }
   return Number(data || 0);
-}
-
-function _resetForTests() {
-  /* no-op — store is stateless. Kept for API parity with old version. */
 }
 
 module.exports = {
@@ -108,5 +86,4 @@ module.exports = {
   transfer,
   todayLocalIsoDate,
   nextLocalMidnight,
-  _resetForTests,
 };

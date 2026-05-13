@@ -105,10 +105,15 @@ async function generateStill(opts: BratQuery): Promise<BratResult> {
 }
 
 async function generateGif(opts: BratQuery): Promise<BratResult> {
-  // Render HTML ONCE, then animate by mutating the blur via CSS per frame.
-  // Re-running setContent per frame previously dominated runtime (font reload,
-  // shrink-to-fit recompute). Mutating one inline style reuses the laid-out
-  // page and cuts GIF time roughly in proportion to opts.frames.
+  // "Bratvid" — progressive word reveal. Frame N shows the first N words of
+  // the caption. We render the FULL text first so the shrink-to-fit loop
+  // settles on the final font-size, then per frame replace innerText with a
+  // cumulative slice. The last frame holds longer so the full caption is
+  // readable before the loop wraps.
+  const words = opts.text.split(/\s+/).filter(Boolean);
+  const frameCount = Math.max(1, Math.min(words.length, 30));
+  const HOLD_MS = 1200;
+
   const buffer = await withPage(
     async (page) => {
       const html = renderBratHtml(opts);
@@ -120,24 +125,24 @@ async function generateGif(opts: BratQuery): Promise<BratResult> {
         .catch(() => {});
 
       const enc = GIFEncoder();
-      const setBlur = (px: number) =>
-        page.evaluate((v: number) => {
+      const setText = (s: string) =>
+        page.evaluate((v: string) => {
           const el = (globalThis as any).document.getElementById('t');
-          if (el) el.style.filter = `blur(${v}px)`;
-        }, px);
+          if (el) el.textContent = v;
+        }, s);
 
-      for (let i = 0; i < opts.frames; i++) {
-        const t = i / opts.frames;
-        const blur = (Math.sin(t * Math.PI * 2) * 0.5 + 0.5) * opts.blur;
-        await setBlur(blur);
+      for (let i = 0; i < frameCount; i++) {
+        const partial = words.slice(0, i + 1).join(' ');
+        await setText(partial);
         const png = await page.screenshot({ type: 'png', omitBackground: false });
         if (!png || png.length === 0) throw Internal('Brat frame produced empty buffer');
         const rgba = await pngToRgba(page, png, opts.width, opts.height);
         const palette = quantize(rgba, 256);
         const indexed = applyPalette(rgba, palette);
+        const isLast = i === frameCount - 1;
         enc.writeFrame(indexed, opts.width, opts.height, {
           palette,
-          delay: opts.delay,
+          delay: isLast ? HOLD_MS : opts.delay,
         });
       }
       enc.finish();

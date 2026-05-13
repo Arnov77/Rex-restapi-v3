@@ -43,6 +43,11 @@ export function apiKeysService(db: SupabaseClient) {
       return decryptApiKey(record.keyEncrypted);
     },
 
+    async list(opts: { includeRevoked?: boolean } = {}) {
+      const records = await repo.list(opts);
+      return records.map((r) => repo.publicView(r));
+    },
+
     async revoke(id: string): Promise<void> {
       const record = await repo.findById(id);
       if (!record) throw NotFound('API key not found');

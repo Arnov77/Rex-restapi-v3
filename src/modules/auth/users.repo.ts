@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { Internal } from '../../shared/errors.js';
 
-const TABLE = 'rex_users';
+const TABLE = 'users';
 
 export interface UserRecord {
   id: string;

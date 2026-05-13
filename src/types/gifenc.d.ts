@@ -1,3 +1,6 @@
+declare module 'gifenc/dist/gifenc.esm.js' {
+  export * from 'gifenc';
+}
 declare module 'gifenc' {
   export interface GifEncoderInstance {
     writeFrame(

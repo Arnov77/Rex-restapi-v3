@@ -1,7 +1,7 @@
 const { verify } = require('./jwt');
-const usersStore = require('./usersStore');
+const usersRepo = require('../repositories/users.repo');
 const ResponseHandler = require('../utils/response');
-const { KEY_PREFIX } = require('./apiKeyStore');
+const { KEY_PREFIX } = require('../../core/auth/apiKeys.service');
 
 /**
  * Pull a JWT from `Authorization: Bearer <jwt>`. Skips values that look
@@ -21,11 +21,9 @@ function extractToken(req) {
  * Hard-require a valid JWT. Sets `req.user` to the public user record on
  * success. Used to gate dashboard routes (/api/user/*).
  */
-function verifyToken(req, res, next) {
+async function verifyToken(req, res, next) {
   const token = extractToken(req);
-  if (!token) {
-    return ResponseHandler.error(res, 'Missing bearer token', 401);
-  }
+  if (!token) return ResponseHandler.error(res, 'Missing bearer token', 401);
 
   let payload;
   try {
@@ -35,12 +33,10 @@ function verifyToken(req, res, next) {
     return ResponseHandler.error(res, msg, 401);
   }
 
-  const user = usersStore.findById(payload.sub);
-  if (!user) {
-    return ResponseHandler.error(res, 'User no longer exists', 401);
-  }
+  const user = await usersRepo.findById(payload.sub);
+  if (!user) return ResponseHandler.error(res, 'User no longer exists', 401);
 
-  req.user = usersStore.publicView(user);
+  req.user = usersRepo.publicView(user);
   return next();
 }
 

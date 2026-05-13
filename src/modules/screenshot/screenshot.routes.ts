@@ -21,15 +21,8 @@ const screenshotRoutes: FastifyPluginAsyncZod = async (app) => {
         tags: ['screenshot'],
         summary: 'Capture a screenshot of a public URL',
         querystring: ScreenshotQuery,
-        response: {
-          200: {
-            description: 'Image bytes',
-            content: {
-              'image/png': { schema: { type: 'string', format: 'binary' } },
-              'image/jpeg': { schema: { type: 'string', format: 'binary' } },
-            },
-          },
-        },
+        // No `response` schema: fastify-type-provider-zod expects Zod here,
+        // and binary image bytes don't fit a Zod shape.
       },
     },
     async (req, reply) => {

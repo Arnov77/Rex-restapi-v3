@@ -34,7 +34,7 @@ export function renderBratHtml(opts: BratTemplateOptions): string {
   return `<!doctype html>
 <html><head><meta charset="utf-8"><style>
   html,body{margin:0;padding:0;width:${opts.width}px;height:${opts.height}px;overflow:hidden;background:${opts.background};${bgLayer}}
-  .wrap{width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:6%;box-sizing:border-box;}
+  .wrap{width:100%;height:100%;display:flex;align-items:flex-start;justify-content:flex-start;padding:6%;box-sizing:border-box;}
   .t{
     font-family: Arial, Helvetica, sans-serif;
     font-weight: 900;
@@ -43,7 +43,7 @@ export function renderBratHtml(opts: BratTemplateOptions): string {
     text-transform:lowercase;
     letter-spacing:-0.04em;
     line-height:0.95;
-    text-align:center;
+    text-align:left;
     filter: blur(${opts.blur}px);
     word-break: break-word;
     max-width:100%;

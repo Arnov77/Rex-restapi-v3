@@ -33,6 +33,7 @@
     "fastify-type-provider-zod": "^4.0.2",
     "jsonwebtoken": "^9.0.2",
     "pino-pretty": "^11.3.0",
+    "playwright-core": "^1.60.0",
     "ws": "^8.18.0",
     "zod": "^3.23.8"
   },

@@ -14,7 +14,6 @@ const { antiSpamLimiter } = require('./src/shared/middleware/antiSpam');
 const { dailyQuota } = require('./src/shared/middleware/dailyQuota');
 const { apiKeyAuth } = require('./src/shared/auth/apiKeyAuth');
 const apiKeyStore = require('./src/shared/auth/apiKeyStore');
-const usageStore = require('./src/shared/auth/usageStore');
 const usersStore = require('./src/shared/auth/usersStore');
 const requestId = require('./src/shared/middleware/requestId');
 const ResponseHandler = require('./src/shared/utils/response');
@@ -209,7 +208,7 @@ async function startServer() {
     await usersStore.init();
     await apiKeyStore.init();
     apiKeyStore.ensureMasterKey();
-    await usageStore.start({ flushIntervalSec: env.QUOTA_FLUSH_INTERVAL_SEC });
+    // usageStore is now stateless (Supabase RPC) — no start/stop required.
 
     // Sweep stale files in /downloads on a TTL so the disk doesn't fill up
     // with old YouTube/TikTok artefacts. Runs an initial pass synchronously,
@@ -235,7 +234,6 @@ function shutdown(signal) {
   logger.info(`Received ${signal}, shutting down gracefully...`);
   downloadsCleanup.stopCleanup();
   apiKeyStore.flushPendingTouches();
-  usageStore.stop();
   if (!httpServer) {
     browserManager.shutdown().finally(() => process.exit(0));
     return;

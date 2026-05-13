@@ -48,7 +48,7 @@ async function revokeKey(req, res) {
  * `used` count. Anonymous counters are returned as IP-hash buckets.
  */
 async function getUsage(req, res) {
-  const { date, counters } = usageStore.snapshot();
+  const { date, counters } = await usageStore.snapshot();
   const keyRecordsById = new Map(apiKeyStore.listKeys().map((k) => [k.id, k]));
 
   const enriched = Object.entries(counters).map(([counterKey, used]) => {

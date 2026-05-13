@@ -10,6 +10,7 @@ import rateLimitPlugin from './plugins/rateLimit.js';
 import healthRoutes from './modules/health/health.routes.js';
 import authRoutes from './modules/auth/auth.routes.js';
 import apiKeyRoutes from './modules/apiKeys/apiKeys.routes.js';
+import screenshotRoutes from './modules/screenshot/screenshot.routes.js';
 
 export interface BuildOpts {
   logger?: boolean;

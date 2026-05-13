@@ -1,7 +1,8 @@
 const bcrypt = require('bcryptjs');
-const usersStore = require('../../shared/auth/usersStore');
-const apiKeyStore = require('../../shared/auth/apiKeyStore');
-const usageStore = require('../../shared/auth/usageStore');
+const usersRepo = require('../../shared/repositories/users.repo');
+const apiKeysRepo = require('../../shared/repositories/apiKeys.repo');
+const usageRepo = require('../../shared/repositories/usage.repo');
+const apiKeysService = require('../auth/apiKeys.service');
 const ResponseHandler = require('../../shared/utils/response');
 const { NotFoundError, AppError, UnauthorizedError } = require('../../shared/utils/errors');
 const logger = require('../../shared/utils/logger');
@@ -20,7 +21,7 @@ async function buildUsageView(user, apiKeyRecord) {
   }
   const limit = apiKeyRecord.dailyLimit ?? DEFAULT_USER_DAILY_LIMIT;
   // Quota is keyed per-user, not per-key — see middleware/dailyQuota.js.
-  const used = (await usageStore.getCount(`user:${user.id}`)) || 0;
+  const used = (await usageRepo.getCount(`user:${user.id}`)) || 0;
   return {
     used,
     limit,
@@ -30,15 +31,14 @@ async function buildUsageView(user, apiKeyRecord) {
   };
 }
 
-function publicApiKeyView(record, includePlaintext) {
+function publicApiKeyView(record, plaintext) {
   if (!record) return null;
-  const plaintext = includePlaintext ? apiKeyStore.getPlaintextById(record.id) : null;
   return {
     id: record.id,
     name: record.name,
     tier: record.tier,
     dailyLimit: record.dailyLimit ?? DEFAULT_USER_DAILY_LIMIT,
-    key: plaintext,
+    key: plaintext ?? null,
     createdAt: record.createdAt,
     lastUsedAt: record.lastUsedAt || null,
     revoked: !!record.revoked,
@@ -51,26 +51,23 @@ function publicApiKeyView(record, includePlaintext) {
 // /api/user/reveal-key (password re-auth) or read the cached value from the
 // login/register/regenerate response on the client.
 async function profile(req, res) {
-  const user = usersStore.findById(req.user.id);
+  const user = await usersRepo.findById(req.user.id);
   if (!user) throw new NotFoundError('User no longer exists');
 
-  const apiKeyRecord = apiKeyStore.findById(user.apiKeyId);
+  const apiKeyRecord = await apiKeysRepo.findById(user.apiKeyId);
   const usage = await buildUsageView(user, apiKeyRecord);
   return ResponseHandler.success(res, {
-    user: usersStore.publicView(user),
-    apiKey: publicApiKeyView(apiKeyRecord, false),
+    user: usersRepo.publicView(user),
+    apiKey: publicApiKeyView(apiKeyRecord, null),
     usage,
   });
 }
 
 // Returns the plaintext API key after re-confirming the user's password.
-// This is the recovery path when the client's localStorage cache was
-// cleared but the JWT is still valid — without this endpoint the user
-// would have to regenerate (and invalidate) their key just to see it.
 async function revealKey(req, res) {
   const { password } = req.validated;
 
-  const user = usersStore.findById(req.user.id);
+  const user = await usersRepo.findById(req.user.id);
   if (!user) throw new NotFoundError('User no longer exists');
 
   const ok = await bcrypt.compare(password, user.passwordHash);
@@ -79,12 +76,10 @@ async function revealKey(req, res) {
     throw new UnauthorizedError('Password salah');
   }
 
-  const apiKeyRecord = apiKeyStore.findById(user.apiKeyId);
-  if (!apiKeyRecord) {
-    throw new NotFoundError('API key not found');
-  }
+  const apiKeyRecord = await apiKeysRepo.findById(user.apiKeyId);
+  if (!apiKeyRecord) throw new NotFoundError('API key not found');
 
-  const plaintext = apiKeyStore.getPlaintextById(apiKeyRecord.id);
+  const plaintext = await apiKeysService.getPlaintextById(apiKeyRecord.id);
   if (!plaintext) {
     throw new AppError('Plaintext key tidak tersedia di server. Silakan regenerate.', 410);
   }
@@ -103,15 +98,15 @@ async function revealKey(req, res) {
 }
 
 async function regenerateKey(req, res) {
-  const user = usersStore.findById(req.user.id);
+  const user = await usersRepo.findById(req.user.id);
   if (!user) throw new NotFoundError('User no longer exists');
 
-  const previous = apiKeyStore.findById(user.apiKeyId);
-  if (previous) apiKeyStore.revokeKey(previous.id);
+  const previous = await apiKeysRepo.findById(user.apiKeyId);
+  if (previous) await apiKeysService.revokeKey(previous.id);
 
   let result;
   try {
-    result = apiKeyStore.createKey({
+    result = await apiKeysService.createKey({
       name: user.username,
       tier: 'user',
       dailyLimit: previous?.dailyLimit ?? DEFAULT_USER_DAILY_LIMIT,
@@ -121,16 +116,8 @@ async function regenerateKey(req, res) {
   }
 
   // Quota counter is keyed by `user:<userId>` (see middleware/dailyQuota.js),
-  // so regenerating the API key already preserves today's usage — no
-  // transfer needed. Any stale `key:<id>` entries from older deployments are
-  // garbage-collected at midnight reset.
-  usersStore.updateApiKeyId(user.id, result.record.id);
-  try {
-    await Promise.all([apiKeyStore.persistNow(), usersStore.persistNow()]);
-  } catch (err) {
-    logger.error(`[user] Failed to persist regenerated key for "${user.username}": ${err.message}`);
-    throw new AppError('Failed to persist regenerated API key', 500);
-  }
+  // so regenerating the API key already preserves today's usage.
+  await usersRepo.updateApiKeyId(user.id, result.record.id);
   logger.info(
     `[user] Regenerated API key for "${user.username}" (revoked ${previous?.id || 'none'})`
   );

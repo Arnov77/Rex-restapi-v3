@@ -1,31 +1,24 @@
-const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
-const ResponseHandler = require('../utils/response');
-
 /**
- * Per-IP throttle for `/api/auth/register`.
- *
- * Without this, a single IP can register hundreds of accounts to dodge anon
- * quota or to seed bot accounts. Anti-spam (5 req/sec/IP) is too generous
- * for an account-creation endpoint. Default: 5 successful registrations
- * per hour per IP. Failed (validation / duplicate) registrations also count
- * — a flood of bad attempts is itself the abuse we want to throttle.
+ * Per-IP throttle for `/api/auth/register`. Backed by Supabase so the
+ * counter survives restarts and is shared across instances.
  */
+const crypto = require('crypto');
+const { ipKeyGenerator } = require('express-rate-limit');
+const { supabaseRateLimit } = require('./supabaseRateLimit');
 
 const REGISTER_MAX = parseInt(process.env.REGISTER_LIMIT_PER_IP, 10) || 5;
-const WINDOW_MS = 60 * 60 * 1000;
+const WINDOW_SEC = 60 * 60;
 
-const registerLimiter = rateLimit({
-  windowMs: WINDOW_MS,
+function shortHash(value) {
+  return crypto.createHash('sha256').update(String(value || '')).digest('hex').slice(0, 16);
+}
+
+const registerLimiter = supabaseRateLimit({
+  prefix: 'register-ip',
+  windowSec: WINDOW_SEC,
   max: REGISTER_MAX,
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: (req) => `register-ip:${ipKeyGenerator(req.ip)}`,
-  handler: (req, res) =>
-    ResponseHandler.error(
-      res,
-      'Terlalu banyak percobaan registrasi dari IP ini. Coba lagi dalam 1 jam.',
-      429
-    ),
+  keyGenerator: (req) => `register-ip:${shortHash(ipKeyGenerator(req.ip))}`,
+  message: 'Terlalu banyak percobaan registrasi dari IP ini. Coba lagi dalam 1 jam.',
 });
 
 module.exports = { registerLimiter, REGISTER_MAX };

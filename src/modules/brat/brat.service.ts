@@ -1,7 +1,7 @@
 // gifenc has no `exports` map and ships CJS as `main`; named ESM imports
 // from the bare specifier fail under Node 20. Point at the ESM build directly.
 import { GIFEncoder, quantize, applyPalette } from 'gifenc/dist/gifenc.esm.js';
-import type { Page } from 'playwright-core';
+import { PNG } from 'pngjs';
 import { withPage } from '../../shared/browser/browserManager.js';
 import { assertPublicUrl } from '../../shared/utils/ssrfGuard.js';
 import { Internal } from '../../shared/errors.js';

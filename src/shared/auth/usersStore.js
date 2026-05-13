@@ -1,13 +1,17 @@
-const fs = require('fs');
-const path = require('path');
 const crypto = require('crypto');
 const logger = require('../utils/logger');
-const supabase = require('./supabasePersistence');
+const supabase = require('./supabaseClient');
 
-const STORE_DIR = path.join(__dirname, '../../../data');
-const STORE_PATH = path.join(STORE_DIR, 'users.json');
+const TABLE = 'rex_users';
 
-let cache = null;
+/**
+ * In-memory cache. Loaded once on init() and kept hot so all read APIs
+ * remain synchronous (apiKeyAuth + many controllers depend on this).
+ * Mutations write through to Supabase fire-and-forget; persistNow() is
+ * available for callers that need the round-trip to complete (e.g.
+ * registration, regenerate-key) before responding to the client.
+ */
+let cache = null; // { users: User[] }
 const indexes = {
   byEmail: new Map(),
   byUsername: new Map(),
@@ -15,31 +19,39 @@ const indexes = {
   byId: new Map(),
 };
 
-function ensureDir() {
-  if (!fs.existsSync(STORE_DIR)) {
-    fs.mkdirSync(STORE_DIR, { recursive: true, mode: 0o700 });
-  }
+const pendingWrites = new Set(); // Promises tracked by persistNow()
+
+function trackWrite(promise) {
+  pendingWrites.add(promise);
+  promise
+    .catch((err) => logger.error(`[users] Supabase write failed: ${err.message}`))
+    .finally(() => pendingWrites.delete(promise));
+  return promise;
 }
 
-function readStore() {
-  ensureDir();
-  if (!fs.existsSync(STORE_PATH)) return { users: [] };
-  try {
-    const raw = fs.readFileSync(STORE_PATH, 'utf-8');
-    const parsed = JSON.parse(raw);
-    if (!parsed || !Array.isArray(parsed.users)) return { users: [] };
-    return parsed;
-  } catch (err) {
-    logger.error(`[users] Store at ${STORE_PATH} is corrupt: ${err.message}`);
-    throw err;
-  }
+function rowToUser(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    username: row.username,
+    email: row.email,
+    passwordHash: row.password_hash,
+    apiKeyId: row.api_key_id,
+    createdAt: row.created_at,
+    lastLoginAt: row.last_login_at,
+  };
 }
 
-function writeStore(data) {
-  ensureDir();
-  const tmp = `${STORE_PATH}.${process.pid}.${Date.now()}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(data, null, 2), { mode: 0o600 });
-  fs.renameSync(tmp, STORE_PATH);
+function userToRow(user) {
+  return {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    password_hash: user.passwordHash,
+    api_key_id: user.apiKeyId,
+    created_at: user.createdAt,
+    last_login_at: user.lastLoginAt,
+  };
 }
 
 function rebuildIndexes() {
@@ -55,49 +67,22 @@ function rebuildIndexes() {
   }
 }
 
-function load() {
-  if (!cache) {
-    cache = readStore();
-    rebuildIndexes();
-  }
-  return cache;
-}
-
-function persist({ wait = false } = {}) {
-  if (!cache) return wait ? Promise.resolve() : undefined;
-  if (supabase.isEnabled()) {
-    const rows = cache.users.map((user) => ({
-      id: user.id,
-      data: user,
-      updated_at: new Date().toISOString(),
-    }));
-    if (wait) return supabase.persistRowsAsync(supabase.TABLES.users, rows);
-    supabase.persistRows(supabase.TABLES.users, rows, 'users');
-    return undefined;
-  }
-  writeStore(cache);
-  return wait ? Promise.resolve() : undefined;
-}
-
-function persistNow() {
-  return persist({ wait: true });
-}
-
 async function init() {
-  if (!supabase.isEnabled()) {
-    load();
-    return;
-  }
-
-  const rows = await supabase.loadRows(supabase.TABLES.users);
-  if (rows.length) {
-    cache = { users: rows.map((row) => row.data).filter(Boolean) };
-  } else {
-    cache = readStore();
-    if (cache.users.length) persist();
-  }
+  supabase.assertEnabled();
+  const { data, error } = await supabase
+    .getClient()
+    .from(TABLE)
+    .select('*');
+  if (error) throw new Error(`[users] init failed: ${error.message}`);
+  cache = { users: (data || []).map(rowToUser) };
   rebuildIndexes();
   logger.info(`[users] Supabase store ready (${cache.users.length} users)`);
+}
+
+function ensureLoaded() {
+  if (!cache) {
+    throw new Error('[users] Store not initialised — call init() at startup.');
+  }
 }
 
 function publicView(user) {
@@ -107,18 +92,18 @@ function publicView(user) {
 }
 
 function findById(id) {
-  load();
+  ensureLoaded();
   return indexes.byId.get(id) || null;
 }
 
 function findByEmail(email) {
-  load();
+  ensureLoaded();
   if (typeof email !== 'string') return null;
   return indexes.byEmail.get(email.toLowerCase()) || null;
 }
 
 function findByUsername(username) {
-  load();
+  ensureLoaded();
   if (typeof username !== 'string') return null;
   return indexes.byUsername.get(username.toLowerCase()) || null;
 }
@@ -128,21 +113,17 @@ function findByEmailOrUsername(value) {
 }
 
 function findByApiKeyId(apiKeyId) {
-  load();
+  ensureLoaded();
   return indexes.byApiKeyId.get(apiKeyId) || null;
 }
 
 function listUsers() {
-  return load().users.map(publicView);
+  ensureLoaded();
+  return cache.users.map(publicView);
 }
 
-/**
- * Create a new user. Caller is responsible for hashing the password
- * and creating the API key (so we don't pull bcrypt / apiKeyStore as
- * a dependency here — keeps the store layer pure).
- */
 function createUser({ username, email, passwordHash, apiKeyId }) {
-  load();
+  ensureLoaded();
   if (findByEmail(email)) {
     const err = new Error('Email already registered');
     err.code = 'EMAIL_TAKEN';
@@ -164,7 +145,9 @@ function createUser({ username, email, passwordHash, apiKeyId }) {
   };
   cache.users.push(user);
   rebuildIndexes();
-  persist();
+  trackWrite(supabase.getClient().from(TABLE).insert(userToRow(user)).then(({ error }) => {
+    if (error) throw new Error(error.message);
+  }));
   return publicView(user);
 }
 
@@ -172,7 +155,10 @@ function touchLogin(userId) {
   const user = findById(userId);
   if (!user) return null;
   user.lastLoginAt = new Date().toISOString();
-  persist();
+  trackWrite(
+    supabase.getClient().from(TABLE).update({ last_login_at: user.lastLoginAt }).eq('id', userId)
+      .then(({ error }) => { if (error) throw new Error(error.message); })
+  );
   return publicView(user);
 }
 
@@ -181,8 +167,20 @@ function updateApiKeyId(userId, newApiKeyId) {
   if (!user) return null;
   user.apiKeyId = newApiKeyId;
   rebuildIndexes();
-  persist();
+  trackWrite(
+    supabase.getClient().from(TABLE).update({ api_key_id: newApiKeyId }).eq('id', userId)
+      .then(({ error }) => { if (error) throw new Error(error.message); })
+  );
   return publicView(user);
+}
+
+/**
+ * Wait for any in-flight writes to finish. Call from request handlers that
+ * must guarantee durability before responding (register, regenerate-key).
+ */
+async function persistNow() {
+  if (pendingWrites.size === 0) return;
+  await Promise.allSettled([...pendingWrites]);
 }
 
 function _resetForTests() {
@@ -191,6 +189,7 @@ function _resetForTests() {
   indexes.byUsername.clear();
   indexes.byApiKeyId.clear();
   indexes.byId.clear();
+  pendingWrites.clear();
 }
 
 module.exports = {
@@ -207,5 +206,4 @@ module.exports = {
   init,
   persistNow,
   _resetForTests,
-  _STORE_PATH: STORE_PATH,
 };

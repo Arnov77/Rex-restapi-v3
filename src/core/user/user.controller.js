@@ -14,13 +14,13 @@ function nextMidnightIso() {
   return next.toISOString();
 }
 
-function buildUsageView(user, apiKeyRecord) {
+async function buildUsageView(user, apiKeyRecord) {
   if (!apiKeyRecord || apiKeyRecord.tier === 'master') {
     return { used: 0, limit: null, remaining: null, resetAt: nextMidnightIso(), unlimited: true };
   }
   const limit = apiKeyRecord.dailyLimit ?? DEFAULT_USER_DAILY_LIMIT;
   // Quota is keyed per-user, not per-key — see middleware/dailyQuota.js.
-  const used = usageStore.getCount(`user:${user.id}`) || 0;
+  const used = (await usageStore.getCount(`user:${user.id}`)) || 0;
   return {
     used,
     limit,
@@ -55,10 +55,11 @@ async function profile(req, res) {
   if (!user) throw new NotFoundError('User no longer exists');
 
   const apiKeyRecord = apiKeyStore.findById(user.apiKeyId);
+  const usage = await buildUsageView(user, apiKeyRecord);
   return ResponseHandler.success(res, {
     user: usersStore.publicView(user),
     apiKey: publicApiKeyView(apiKeyRecord, false),
-    usage: buildUsageView(user, apiKeyRecord),
+    usage,
   });
 }
 

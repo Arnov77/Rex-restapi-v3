@@ -176,7 +176,7 @@ describe('brat.service.generate (gif)', () => {
     gifMock.GIFEncoder.mockReturnValueOnce(enc);
     browserMock.withPage.mockImplementationOnce(async (fn: any) => fn(page));
     await expect(
-      bratService.generate(BratQuery.parse({ text: 'x', format: 'gif', frames: 2 })),
+      bratService.generate(BratQuery.parse({ text: 'hello world', format: 'gif', frames: 2 })),
     ).rejects.toMatchObject({ statusCode: 500 });
   });
 });

@@ -159,4 +159,5 @@ async function generateGif(opts: BratQuery): Promise<BratResult> {
   return { buffer, mimeType: MIME.gif, format: 'gif' };
 }
 
-export const bratService = { generate };
+export const bratService = { generate, cache };
+

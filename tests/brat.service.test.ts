@@ -55,11 +55,11 @@ describe('brat.schemas', () => {
       height: 720,
       format: 'png',
       quality: 90,
-      blur: 6,
+      blur: 0.8,
       background: '#8ACE00',
       color: '#000000',
       frames: 8,
-      delay: 80,
+      delay: 400,
     });
   });
   it.each([

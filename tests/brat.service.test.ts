@@ -155,7 +155,7 @@ describe('brat.service.generate (gif)', () => {
       return fn(page);
     });
     const out = await bratService.generate(
-      BratQuery.parse({ text: 'gif!', format: 'gif', width: 512, height: 512, frames: 4, delay: 100 }),
+      BratQuery.parse({ text: 'one two three four', format: 'gif', width: 512, height: 512, frames: 4, delay: 100 }),
     );
     expect(out.format).toBe('gif');
     expect(out.mimeType).toBe('image/gif');

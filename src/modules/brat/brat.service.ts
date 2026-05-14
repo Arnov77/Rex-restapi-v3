@@ -1,10 +1,12 @@
 // gifenc has no `exports` map and ships CJS as `main`; named ESM imports
 // from the bare specifier fail under Node 20. Point at the ESM build directly.
+import { createHash } from 'node:crypto';
 import { GIFEncoder, quantize, applyPalette } from 'gifenc/dist/gifenc.esm.js';
 import { PNG } from 'pngjs';
 import { withPage } from '../../shared/browser/browserManager.js';
 import { assertPublicUrl } from '../../shared/utils/ssrfGuard.js';
 import { Internal } from '../../shared/errors.js';
+import { LruCache } from '../../shared/utils/lruCache.js';
 import { renderBratHtml } from './brat.template.js';
 import type { BratQuery } from './brat.schemas.js';
 

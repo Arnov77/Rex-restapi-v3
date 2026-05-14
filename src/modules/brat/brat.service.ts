@@ -36,13 +36,48 @@ function pngToRgba(png: Buffer): Uint8ClampedArray {
   );
 }
 
+/**
+ * In-memory cache of finished brat renders. Brat is fully deterministic
+ * given its query — same params always produce identical bytes — so we can
+ * skip the browser entirely on a hit. Bounded LRU with TTL keeps memory
+ * predictable; in-flight Map dedupes concurrent identical requests so a
+ * burst from N clients only spawns ONE render.
+ */
+const CACHE_MAX = 200;
+const CACHE_TTL_MS = 30 * 60 * 1000; // 30 min
+const cache = new LruCache<string, BratResult>({ max: CACHE_MAX, ttlMs: CACHE_TTL_MS });
+const inflight = new Map<string, Promise<BratResult>>();
+
+function cacheKey(opts: BratQuery): string {
+  // JSON.stringify with sorted keys → stable hash regardless of query order.
+  const sorted = Object.fromEntries(
+    Object.entries(opts).sort(([a], [b]) => a.localeCompare(b)),
+  );
+  return createHash('sha1').update(JSON.stringify(sorted)).digest('hex');
+}
+
 export async function generate(opts: BratQuery): Promise<BratResult> {
   // SSRF guard runs BEFORE the browser is touched. Same rule as screenshot:
   // a blocked URL must never reach Playwright.
   if (opts.bgImage) await assertPublicUrl(opts.bgImage);
 
-  if (opts.format === 'gif') return generateGif(opts);
-  return generateStill(opts);
+  const key = cacheKey(opts);
+  const cached = cache.get(key);
+  if (cached) return cached;
+
+  const existing = inflight.get(key);
+  if (existing) return existing;
+
+  const promise = (opts.format === 'gif' ? generateGif(opts) : generateStill(opts))
+    .then((result) => {
+      cache.set(key, result);
+      return result;
+    })
+    .finally(() => {
+      inflight.delete(key);
+    });
+  inflight.set(key, promise);
+  return promise;
 }
 
 async function generateStill(opts: BratQuery): Promise<BratResult> {

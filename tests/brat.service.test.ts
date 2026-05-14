@@ -15,10 +15,15 @@ vi.mock('../src/shared/browser/browserManager.js', () => ({
 vi.mock('../src/shared/utils/ssrfGuard.js', () => ({
   assertPublicUrl: (...a: any[]) => ssrfMock.assertPublicUrl(...a),
 }));
-vi.mock('gifenc', () => ({
+vi.mock('gifenc/dist/gifenc.esm.js', () => ({
   GIFEncoder: (...a: any[]) => gifMock.GIFEncoder(...a),
   quantize: (...a: any[]) => gifMock.quantize(...a),
   applyPalette: (...a: any[]) => gifMock.applyPalette(...a),
+}));
+// pngjs is used in the service to decode screenshot PNGs to raw RGBA. Tests
+// pass synthetic non-PNG buffers, so stub the decoder to return empty pixels.
+vi.mock('pngjs', () => ({
+  PNG: { sync: { read: () => ({ data: Buffer.alloc(4), width: 1, height: 1 }) } },
 }));
 
 const { bratService } = await import('../src/modules/brat/brat.service.js');

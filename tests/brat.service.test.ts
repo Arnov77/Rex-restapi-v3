@@ -58,7 +58,7 @@ describe('brat.schemas', () => {
       blur: 6,
       background: '#8ACE00',
       color: '#000000',
-      frames: 12,
+      frames: 8,
       delay: 80,
     });
   });

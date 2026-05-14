@@ -28,12 +28,16 @@ const bratRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (req, reply) => {
+      const before = bratService.cache.hits;
       const result = await bratService.generate(req.query);
+      const cacheHit = bratService.cache.hits > before;
       const ext = result.format === 'jpeg' ? 'jpg' : result.format;
       return reply
         .header('content-type', result.mimeType)
         .header('content-length', String(result.buffer.length))
         .header('content-disposition', `inline; filename="brat.${ext}"`)
+        .header('cache-control', 'public, max-age=1800')
+        .header('x-cache', cacheHit ? 'HIT' : 'MISS')
         .send(result.buffer);
     },
   );

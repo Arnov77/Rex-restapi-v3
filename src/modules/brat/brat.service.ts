@@ -70,7 +70,9 @@ export async function generate(opts: BratQuery): Promise<BratResult> {
   const existing = inflight.get(key);
   if (existing) return existing;
 
-  const promise = (opts.format === 'gif' ? generateGif(opts) : generateStill(opts))
+  const animated = opts.format === 'gif' || opts.format === 'webp';
+  const isMulti = animated && /\s/.test(opts.text.trim());
+  const promise = (isMulti ? generateAnimated(opts) : generateStill(opts))
     .then((result) => {
       cache.set(key, result);
       return result;

@@ -195,9 +195,8 @@ async function encodeWebp(
   const delay = frames.map((_, i) => (i === frames.length - 1 ? holdMs : opts.delay));
   return sharp(stacked, {
     raw: { width: opts.width, height: opts.height * frames.length, channels: 4 },
-    pageHeight: opts.height,
   })
-    .webp({ quality: opts.quality, effort: 3, loop: 0, delay })
+    .webp({ quality: opts.quality, effort: 3, loop: 0, delay, pageHeight: opts.height })
     .toBuffer();
 }
 

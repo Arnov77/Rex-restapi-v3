@@ -3,6 +3,7 @@
 import { createHash } from 'node:crypto';
 import { GIFEncoder, quantize, applyPalette } from 'gifenc/dist/gifenc.esm.js';
 import { PNG } from 'pngjs';
+import sharp from 'sharp';
 import { withPage } from '../../shared/browser/browserManager.js';
 import { assertPublicUrl } from '../../shared/utils/ssrfGuard.js';
 import { Internal } from '../../shared/errors.js';
@@ -12,14 +13,15 @@ import type { BratQuery } from './brat.schemas.js';
 
 export interface BratResult {
   buffer: Buffer;
-  mimeType: 'image/png' | 'image/jpeg' | 'image/gif';
-  format: 'png' | 'jpeg' | 'gif';
+  mimeType: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp';
+  format: 'png' | 'jpeg' | 'gif' | 'webp';
 }
 
 const MIME = {
   png: 'image/png',
   jpeg: 'image/jpeg',
   gif: 'image/gif',
+  webp: 'image/webp',
 } as const;
 
 /**

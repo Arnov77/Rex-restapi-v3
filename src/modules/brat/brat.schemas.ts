@@ -18,7 +18,7 @@ export const BratQuery = z.object({
   text: z.string().trim().min(1).max(200),
   width: z.coerce.number().int().min(256).max(2048).default(720),
   height: z.coerce.number().int().min(256).max(2048).default(720),
-  format: z.enum(['png', 'jpeg', 'gif']).default('png'),
+  format: z.enum(['png', 'jpeg', 'gif', 'webp']).default('png'),
   quality: z.coerce.number().int().min(1).max(100).default(90),
   blur: z.coerce.number().min(0).max(20).default(0.8),
   background: z

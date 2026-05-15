@@ -114,9 +114,9 @@ async function generateStill(opts: BratQuery): Promise<BratResult> {
 
 /**
  * Capture progressive-word-reveal frames. Frame N shows the first N words.
- * Returns raw RGBA buffers — the caller picks GIF or WebP encoding.
+ * Returns PNG buffers (used as-is for WebP join, decoded to RGBA for GIF).
  */
-async function captureFrames(opts: BratQuery): Promise<{ rgba: Uint8ClampedArray[] }> {
+async function captureFrames(opts: BratQuery): Promise<Buffer[]> {
   const words = opts.text.split(/\s+/).filter(Boolean);
   const frameCount = Math.max(1, Math.min(words.length, 30));
 
@@ -130,7 +130,7 @@ async function captureFrames(opts: BratQuery): Promise<{ rgba: Uint8ClampedArray
         })
         .catch(() => {});
 
-      const rgba: Uint8ClampedArray[] = [];
+      const frames: Buffer[] = [];
       for (let i = 0; i < frameCount; i++) {
         const partial = words.slice(0, i + 1).join(' ');
         await page.evaluate((v: string) => {
@@ -139,31 +139,32 @@ async function captureFrames(opts: BratQuery): Promise<{ rgba: Uint8ClampedArray
         }, partial);
         const png = await page.screenshot({ type: 'png', omitBackground: false });
         if (!png || png.length === 0) throw Internal('Brat frame produced empty buffer');
-        rgba.push(pngToRgba(png));
+        frames.push(png);
       }
-      return { rgba };
+      return frames;
     },
     { viewport: { width: opts.width, height: opts.height } },
   );
 }
 
 async function generateAnimated(opts: BratQuery): Promise<BratResult> {
-  const { rgba } = await captureFrames(opts);
+  const frames = await captureFrames(opts);
   const HOLD_MS = 1200;
-  const buffer = opts.format === 'webp'
-    ? await encodeWebp(opts, rgba, HOLD_MS)
-    : encodeGif(opts, rgba, HOLD_MS);
+  const buffer =
+    opts.format === 'webp'
+      ? await encodeWebp(opts, frames, HOLD_MS)
+      : encodeGif(opts, frames, HOLD_MS);
   if (!buffer || buffer.length === 0) throw Internal('Brat animation produced empty buffer');
   return { buffer, mimeType: MIME[opts.format], format: opts.format };
 }
 
-function encodeGif(opts: BratQuery, frames: Uint8ClampedArray[], holdMs: number): Buffer {
+function encodeGif(opts: BratQuery, frames: Buffer[], holdMs: number): Buffer {
   const enc = GIFEncoder();
   // Quantize once on the first frame, reuse palette across all frames —
   // cuts ~40-60% off encoding time for brat's near-static palette.
   let sharedPalette: number[][] | null = null;
   for (let i = 0; i < frames.length; i++) {
-    const rgba = frames[i]!;
+    const rgba = pngToRgba(frames[i]!);
     if (!sharedPalette) sharedPalette = quantize(rgba, 64, { format: 'rgb444' });
     const indexed = applyPalette(rgba, sharedPalette, 'rgb444');
     const isLast = i === frames.length - 1;
@@ -178,25 +179,15 @@ function encodeGif(opts: BratQuery, frames: Uint8ClampedArray[], holdMs: number)
 
 async function encodeWebp(
   opts: BratQuery,
-  frames: Uint8ClampedArray[],
+  frames: Buffer[],
   holdMs: number,
 ): Promise<Buffer> {
-  // Sharp builds animated WebP from a single tall raw image where every
-  // page is `pageHeight` rows. Per-frame delay is set via the `delay` array
-  // metadata; loop=0 means infinite.
-  const frameBytes = opts.width * opts.height * 4;
-  const stacked = Buffer.alloc(frameBytes * frames.length);
-  for (let i = 0; i < frames.length; i++) {
-    Buffer.from(frames[i]!.buffer, frames[i]!.byteOffset, frames[i]!.byteLength).copy(
-      stacked,
-      i * frameBytes,
-    );
-  }
+  // Sharp joins multiple input images into a single animated WebP via the
+  // `join.animated` constructor option. Per-frame delay is an array; loop=0
+  // means infinite playback. effort=3 is a good speed/size trade-off.
   const delay = frames.map((_, i) => (i === frames.length - 1 ? holdMs : opts.delay));
-  return sharp(stacked, {
-    raw: { width: opts.width, height: opts.height * frames.length, channels: 4 },
-  })
-    .webp({ quality: opts.quality, effort: 3, loop: 0, delay, pageHeight: opts.height })
+  return sharp(frames, { join: { animated: true } })
+    .webp({ quality: opts.quality, effort: 3, loop: 0, delay })
     .toBuffer();
 }
 

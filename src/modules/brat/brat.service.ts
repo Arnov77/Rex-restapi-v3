@@ -94,10 +94,16 @@ async function generateStill(opts: BratQuery): Promise<BratResult> {
           timeout: 2_000,
         })
         .catch(() => {});
-      const fmt = opts.format as 'png' | 'jpeg';
-      const shotOpts: Parameters<typeof page.screenshot>[0] = { type: fmt };
-      if (fmt === 'jpeg') shotOpts.quality = opts.quality;
-      return page.screenshot(shotOpts);
+      // Playwright's page.screenshot only does png/jpeg. For still webp we
+      // grab a PNG and re-encode via sharp — fast since libwebp is native.
+      const shotType: 'png' | 'jpeg' = opts.format === 'jpeg' ? 'jpeg' : 'png';
+      const shotOpts: Parameters<typeof page.screenshot>[0] = { type: shotType };
+      if (shotType === 'jpeg') shotOpts.quality = opts.quality;
+      const png = await page.screenshot(shotOpts);
+      if (opts.format === 'webp') {
+        return sharp(png).webp({ quality: opts.quality, effort: 3 }).toBuffer();
+      }
+      return png;
     },
     { viewport: { width: opts.width, height: opts.height } },
   );
@@ -106,17 +112,15 @@ async function generateStill(opts: BratQuery): Promise<BratResult> {
   return { buffer, mimeType: MIME[opts.format], format: opts.format };
 }
 
-async function generateGif(opts: BratQuery): Promise<BratResult> {
-  // "Bratvid" — progressive word reveal. Frame N shows the first N words of
-  // the caption. We render the FULL text first so the shrink-to-fit loop
-  // settles on the final font-size, then per frame replace innerText with a
-  // cumulative slice. The last frame holds longer so the full caption is
-  // readable before the loop wraps.
+/**
+ * Capture progressive-word-reveal frames. Frame N shows the first N words.
+ * Returns raw RGBA buffers — the caller picks GIF or WebP encoding.
+ */
+async function captureFrames(opts: BratQuery): Promise<{ rgba: Uint8ClampedArray[] }> {
   const words = opts.text.split(/\s+/).filter(Boolean);
   const frameCount = Math.max(1, Math.min(words.length, 30));
-  const HOLD_MS = 1200;
 
-  const buffer = await withPage(
+  return withPage(
     async (page) => {
       const html = renderBratHtml(opts);
       await page.setContent(html, { waitUntil: 'load', timeout: 15_000 });
@@ -126,41 +130,75 @@ async function generateGif(opts: BratQuery): Promise<BratResult> {
         })
         .catch(() => {});
 
-      const enc = GIFEncoder();
-      const setText = (s: string) =>
-        page.evaluate((v: string) => {
-          const el = (globalThis as any).document.getElementById('t');
-          if (el) el.textContent = v;
-        }, s);
-
-      // Quantize once on the richest (last) frame, then reuse the palette
-      // for every frame. Brat is just bg + text in one color with blur
-      // halos — the palette barely changes across frames, and reusing it
-      // skips the most expensive per-frame step (~40-60% of wall-time).
-      let sharedPalette: number[][] | null = null;
-
+      const rgba: Uint8ClampedArray[] = [];
       for (let i = 0; i < frameCount; i++) {
         const partial = words.slice(0, i + 1).join(' ');
-        await setText(partial);
+        await page.evaluate((v: string) => {
+          const el = (globalThis as any).document.getElementById('t');
+          if (el) el.textContent = v;
+        }, partial);
         const png = await page.screenshot({ type: 'png', omitBackground: false });
         if (!png || png.length === 0) throw Internal('Brat frame produced empty buffer');
-        const rgba = pngToRgba(png);
-        if (!sharedPalette) sharedPalette = quantize(rgba, 64, { format: 'rgb444' });
-        const indexed = applyPalette(rgba, sharedPalette, 'rgb444');
-        const isLast = i === frameCount - 1;
-        enc.writeFrame(indexed, opts.width, opts.height, {
-          palette: i === 0 ? sharedPalette : undefined,
-          delay: isLast ? HOLD_MS : opts.delay,
-        });
+        rgba.push(pngToRgba(png));
       }
-      enc.finish();
-      return Buffer.from(enc.bytes());
+      return { rgba };
     },
     { viewport: { width: opts.width, height: opts.height } },
   );
+}
 
-  if (!buffer || buffer.length === 0) throw Internal('Brat GIF produced an empty buffer');
-  return { buffer, mimeType: MIME.gif, format: 'gif' };
+async function generateAnimated(opts: BratQuery): Promise<BratResult> {
+  const { rgba } = await captureFrames(opts);
+  const HOLD_MS = 1200;
+  const buffer = opts.format === 'webp'
+    ? await encodeWebp(opts, rgba, HOLD_MS)
+    : encodeGif(opts, rgba, HOLD_MS);
+  if (!buffer || buffer.length === 0) throw Internal('Brat animation produced empty buffer');
+  return { buffer, mimeType: MIME[opts.format], format: opts.format };
+}
+
+function encodeGif(opts: BratQuery, frames: Uint8ClampedArray[], holdMs: number): Buffer {
+  const enc = GIFEncoder();
+  // Quantize once on the first frame, reuse palette across all frames —
+  // cuts ~40-60% off encoding time for brat's near-static palette.
+  let sharedPalette: number[][] | null = null;
+  for (let i = 0; i < frames.length; i++) {
+    const rgba = frames[i]!;
+    if (!sharedPalette) sharedPalette = quantize(rgba, 64, { format: 'rgb444' });
+    const indexed = applyPalette(rgba, sharedPalette, 'rgb444');
+    const isLast = i === frames.length - 1;
+    enc.writeFrame(indexed, opts.width, opts.height, {
+      palette: i === 0 ? sharedPalette : undefined,
+      delay: isLast ? holdMs : opts.delay,
+    });
+  }
+  enc.finish();
+  return Buffer.from(enc.bytes());
+}
+
+async function encodeWebp(
+  opts: BratQuery,
+  frames: Uint8ClampedArray[],
+  holdMs: number,
+): Promise<Buffer> {
+  // Sharp builds animated WebP from a single tall raw image where every
+  // page is `pageHeight` rows. Per-frame delay is set via the `delay` array
+  // metadata; loop=0 means infinite.
+  const frameBytes = opts.width * opts.height * 4;
+  const stacked = Buffer.alloc(frameBytes * frames.length);
+  for (let i = 0; i < frames.length; i++) {
+    Buffer.from(frames[i]!.buffer, frames[i]!.byteOffset, frames[i]!.byteLength).copy(
+      stacked,
+      i * frameBytes,
+    );
+  }
+  const delay = frames.map((_, i) => (i === frames.length - 1 ? holdMs : opts.delay));
+  return sharp(stacked, {
+    raw: { width: opts.width, height: opts.height * frames.length, channels: 4 },
+    pageHeight: opts.height,
+  })
+    .webp({ quality: opts.quality, effort: 3, loop: 0, delay })
+    .toBuffer();
 }
 
 export const bratService = { generate, cache };

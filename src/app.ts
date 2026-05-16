@@ -7,13 +7,14 @@ import supabasePlugin from './plugins/supabase.js';
 import swaggerPlugin from './plugins/swagger.js';
 import authPlugin from './plugins/auth.js';
 import rateLimitPlugin from './plugins/rateLimit.js';
+import quotaPlugin from './plugins/quota.js';
 import healthRoutes from './modules/health/health.routes.js';
 import authRoutes from './modules/auth/auth.routes.js';
 import apiKeyRoutes from './modules/apiKeys/apiKeys.routes.js';
 import screenshotRoutes from './modules/screenshot/screenshot.routes.js';
 import bratRoutes from './modules/brat/brat.routes.js';
 import quoteRoutes from './modules/quote/quote.routes.js';
-import { getBrowser } from './shared/browser/browserManager.js';
+import { getBrowser, shutdown as shutdownBrowser } from './shared/browser/browserManager.js';
 
 export interface BuildOpts {
   logger?: boolean;
@@ -21,6 +22,14 @@ export interface BuildOpts {
 
 export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   const env = loadEnv();
+
+  // Parse TRUSTED_PROXIES into the shape Fastify expects:
+  //  - "*"   → boolean true (trust every hop)
+  //  - CSV   → string passed straight to proxy-addr
+  // Named tokens like "loopback,linklocal,uniquelocal" are understood by
+  // proxy-addr natively, so we don't need to expand them ourselves.
+  const trustProxy: boolean | string =
+    env.TRUSTED_PROXIES.trim() === '*' ? true : env.TRUSTED_PROXIES;
 
   const app = Fastify({
     logger: opts.logger
@@ -32,7 +41,7 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
               : undefined,
         }
       : false,
-    trustProxy: true,
+    trustProxy,
     bodyLimit: 10 * 1024 * 1024,
   }).withTypeProvider<ZodTypeProvider>();
 
@@ -58,6 +67,7 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(swaggerPlugin);
   await app.register(authPlugin);
   await app.register(rateLimitPlugin);
+  await app.register(quotaPlugin);
 
   // Routes — namespaced for clean Swagger grouping.
   await app.register(healthRoutes, { prefix: '/api' });
@@ -71,6 +81,13 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   // ~1-2s cold-launch tax. Fire-and-forget — failure here just means the
   // first request launches normally.
   void getBrowser().catch((err) => app.log.warn({ err }, 'browser pre-warm failed'));
+
+  // Tear down the shared Chromium when Fastify closes. Without this, every
+  // SIGTERM (or dev hot-reload) leaks a chromium process — they accumulate
+  // fast and exhaust container memory in production.
+  app.addHook('onClose', async () => {
+    await shutdownBrowser();
+  });
 
   return app;
 }

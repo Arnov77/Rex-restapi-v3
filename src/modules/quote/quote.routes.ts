@@ -3,6 +3,10 @@ import { quoteService } from './quote.service.js';
 import { QuoteQuery } from './quote.schemas.js';
 
 const quoteRoutes: FastifyPluginAsyncZod = async (app) => {
+  // Daily quota first (cheap short-circuit), then per-minute rate-limit.
+  // Master keys bypass the quota check entirely.
+  const quota = app.quota({ message: 'Daily quote quota exceeded' });
+
   // Quote is lighter than brat (single screenshot, no frame loop), but it
   // still spins up a browser page. Same bucket as brat/screenshot.
   const limit = app.rateLimit({
@@ -16,7 +20,7 @@ const quoteRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get(
     '/',
     {
-      preHandler: [limit],
+      preHandler: [quota, limit],
       schema: {
         tags: ['quote'],
         summary: 'Render a Twitter-style quote card (PNG/JPEG/WebP)',

@@ -33,6 +33,7 @@ async function buildApp(opts: {
   skip?: (req: any) => boolean;
   prefix?: string;
   message?: string;
+  userMultiplier?: number;
 } = {}): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
   await app.register(errorHandler);
@@ -50,6 +51,7 @@ async function buildApp(opts: {
           keyGenerator: opts.keyGenerator ?? ((req) => req.ip),
           skip: opts.skip,
           message: opts.message,
+          userMultiplier: opts.userMultiplier,
         }),
       ],
     },
@@ -183,5 +185,78 @@ describe('rateLimit plugin — per-tier key generators', () => {
     expect(buckets[0]).toMatch(/^api:user:/);
     expect(buckets[1]).toMatch(/^api:master:/);
     expect(buckets[0]).not.toBe(buckets[1]);
+  });
+});
+
+// ── Tier-aware behavior driven by req.apiKey (set via a fake auth hook) ──
+// We don't load the real auth plugin here — just stuff an apiKey-shaped
+// object on the request from a header so the tier branches in the plugin
+// run end-to-end.
+
+async function buildAppWithTier(
+  tier: 'master' | 'user' | null,
+  opts: Parameters<typeof buildApp>[0] = {},
+): Promise<FastifyInstance> {
+  const inner = Fastify({ logger: false });
+  await inner.register(errorHandler);
+  await inner.register(supabasePlugin);
+  inner.addHook('onRequest', async (req) => {
+    (req as any).apiKey =
+      tier === null ? null : { id: 'k1', tier, dailyLimit: null };
+  });
+  await inner.register(rateLimitPlugin);
+
+  inner.get(
+    '/ping',
+    {
+      preHandler: [
+        inner.rateLimit({
+          windowSec: 60,
+          max: 30,
+          prefix: 'tier-test',
+          keyGenerator: (req) => req.ip,
+          ...opts,
+        }),
+      ],
+    },
+    async () => ({ ok: true }),
+  );
+  await inner.ready();
+  return inner;
+}
+
+describe('rateLimit plugin — tier policy', () => {
+  it('master tier bypasses rate-limit entirely (no repo call, no headers)', async () => {
+    app = await buildAppWithTier('master');
+    const res = await app.inject({ method: 'GET', url: '/ping' });
+    expect(res.statusCode).toBe(200);
+    expect(rateLimitRepoMock.hit).not.toHaveBeenCalled();
+    expect(res.headers['ratelimit-limit']).toBeUndefined();
+  });
+
+  it('user tier multiplies max by userMultiplier (default 2)', async () => {
+    rateLimitRepoMock.hit.mockResolvedValue({ allowed: true, count: 1, resetAt: new Date() });
+    app = await buildAppWithTier('user', { max: 30 });
+    const res = await app.inject({ method: 'GET', url: '/ping' });
+    expect(res.statusCode).toBe(200);
+    // user multiplier = 2 → effective max 60
+    expect(rateLimitRepoMock.hit.mock.calls[0]![2]).toBe(60);
+    expect(res.headers['ratelimit-limit']).toBe('60');
+  });
+
+  it('anon (no apiKey) uses base max as-is', async () => {
+    rateLimitRepoMock.hit.mockResolvedValue({ allowed: true, count: 1, resetAt: new Date() });
+    app = await buildAppWithTier(null, { max: 30 });
+    const res = await app.inject({ method: 'GET', url: '/ping' });
+    expect(res.statusCode).toBe(200);
+    expect(rateLimitRepoMock.hit.mock.calls[0]![2]).toBe(30);
+    expect(res.headers['ratelimit-limit']).toBe('30');
+  });
+
+  it('respects a custom userMultiplier', async () => {
+    rateLimitRepoMock.hit.mockResolvedValue({ allowed: true, count: 1, resetAt: new Date() });
+    app = await buildAppWithTier('user', { max: 10, userMultiplier: 5 });
+    await app.inject({ method: 'GET', url: '/ping' });
+    expect(rateLimitRepoMock.hit.mock.calls[0]![2]).toBe(50);
   });
 });

@@ -44,3 +44,19 @@ export const ListKeysResponse = z.object({
   ok: z.literal(true),
   data: z.object({ keys: z.array(PublicKey) }),
 });
+
+export const UpdateKeyBody = z
+  .object({
+    name: z.string().min(1).max(128).optional(),
+    // Allow null explicitly so callers can opt INTO unlimited.
+    dailyLimit: z.number().int().nonnegative().nullable().optional(),
+  })
+  .refine((v) => v.name !== undefined || v.dailyLimit !== undefined, {
+    message: 'Provide at least one field to update (name, dailyLimit)',
+  });
+export type UpdateKeyBody = z.infer<typeof UpdateKeyBody>;
+
+export const UpdateKeyResponse = z.object({
+  ok: z.literal(true),
+  data: z.object({ key: PublicKey }),
+});

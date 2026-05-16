@@ -119,6 +119,52 @@ export function apiKeysRepo(db: SupabaseClient) {
       if (error) throw Internal(`apiKeys.revoke: ${error.message}`);
     },
 
+    /**
+     * Patch a key's mutable fields. Only `name` and `dailyLimit` are
+     * exposed today — tier/hash/revoked are managed by dedicated paths.
+     * Pass `dailyLimit: null` for "unlimited" (the schema column is nullable).
+     */
+    async update(
+      id: string,
+      patch: { name?: string; dailyLimit?: number | null },
+    ): Promise<ApiKeyRecord> {
+      const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+      if (patch.name !== undefined) row.name = patch.name;
+      if (patch.dailyLimit !== undefined) row.daily_limit = patch.dailyLimit;
+      const { data, error } = await db
+        .from(TABLE)
+        .update(row)
+        .eq('id', id)
+        .select('*')
+        .single<Row>();
+      if (error || !data) throw Internal(`apiKeys.update: ${error?.message ?? 'no data'}`);
+      return toRecord(data)!;
+    },
+
+    /**
+     * Replace the hash/encrypted blob in-place. Used by regenerate so the
+     * key id stays the same — dependent rows (users.api_key_id, daily
+     * usage carry-over) don't need to migrate.
+     */
+    async rotateHash(
+      id: string,
+      keyHash: string,
+      keyEncrypted: string | null,
+    ): Promise<ApiKeyRecord> {
+      const { data, error } = await db
+        .from(TABLE)
+        .update({
+          key_hash: keyHash,
+          key_encrypted: keyEncrypted,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .select('*')
+        .single<Row>();
+      if (error || !data) throw Internal(`apiKeys.rotateHash: ${error?.message ?? 'no data'}`);
+      return toRecord(data)!;
+    },
+
     async touch(id: string): Promise<void> {
       const { error } = await db.from(TABLE).update({ last_used_at: new Date().toISOString() }).eq('id', id);
       if (error) throw Internal(`apiKeys.touch: ${error.message}`);

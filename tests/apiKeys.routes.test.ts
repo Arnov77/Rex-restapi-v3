@@ -11,6 +11,8 @@ const apiKeysRepoMock = {
   insert: vi.fn(),
   list: vi.fn(),
   revoke: vi.fn(),
+  update: vi.fn(),
+  rotateHash: vi.fn(),
   touch: vi.fn().mockResolvedValue(undefined),
   publicView: vi.fn((rec: any) => {
     const { keyHash: _h, keyEncrypted: _e, ...rest } = rec;
@@ -263,5 +265,77 @@ describe('DELETE /api/keys/:id (revoke)', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ ok: true });
     expect(apiKeysRepoMock.revoke).toHaveBeenCalledWith(masterRecord.id);
+  });
+});
+
+describe('PATCH /api/keys/:id (update)', () => {
+  it('forbids without master key', async () => {
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/keys/${userRecord.id}`,
+      payload: { dailyLimit: 5000 },
+    });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('rejects empty body (must provide at least one field)', async () => {
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/keys/${userRecord.id}`,
+      headers: masterHeader,
+      payload: {},
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('rejects negative dailyLimit', async () => {
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/keys/${userRecord.id}`,
+      headers: masterHeader,
+      payload: { dailyLimit: -1 },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('returns 404 when key does not exist', async () => {
+    apiKeysRepoMock.findById.mockResolvedValue(null);
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/keys/00000000-0000-0000-0000-000000000000',
+      headers: masterHeader,
+      payload: { dailyLimit: 5000 },
+    });
+    expect(res.statusCode).toBe(404);
+    expect(apiKeysRepoMock.update).not.toHaveBeenCalled();
+  });
+
+  it('upgrades dailyLimit and returns sanitized record', async () => {
+    apiKeysRepoMock.findById.mockResolvedValue(userRecord);
+    apiKeysRepoMock.update.mockResolvedValue({ ...userRecord, dailyLimit: 5000 });
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/keys/${userRecord.id}`,
+      headers: masterHeader,
+      payload: { dailyLimit: 5000 },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.data.key.dailyLimit).toBe(5000);
+    expect(body.data.key).not.toHaveProperty('keyHash');
+    expect(apiKeysRepoMock.update).toHaveBeenCalledWith(userRecord.id, { dailyLimit: 5000 });
+  });
+
+  it('accepts null dailyLimit (unlimited)', async () => {
+    apiKeysRepoMock.findById.mockResolvedValue(userRecord);
+    apiKeysRepoMock.update.mockResolvedValue({ ...userRecord, dailyLimit: null });
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/keys/${userRecord.id}`,
+      headers: masterHeader,
+      payload: { dailyLimit: null },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().data.key.dailyLimit).toBeNull();
   });
 });

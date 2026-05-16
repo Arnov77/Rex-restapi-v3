@@ -19,6 +19,11 @@ export interface CreateResult {
   record: ApiKeyRecord;
 }
 
+export interface UpdateInput {
+  name?: string;
+  dailyLimit?: number | null;
+}
+
 export function apiKeysService(db: SupabaseClient) {
   const repo = apiKeysRepo(db);
 
@@ -52,6 +57,36 @@ export function apiKeysService(db: SupabaseClient) {
       const record = await repo.findById(id);
       if (!record) throw NotFound('API key not found');
       await repo.revoke(id);
+    },
+
+    async update(id: string, patch: UpdateInput): Promise<ApiKeyRecord> {
+      const record = await repo.findById(id);
+      if (!record) throw NotFound('API key not found');
+      return repo.update(id, patch);
+    },
+
+    /**
+     * Rotate the secret of an existing key, keeping the same id (so the
+     * user's user.api_key_id pointer stays valid and today's usage counter
+     * — keyed by `key:<apiKeyId>` in the quota plugin — doesn't reset just
+     * by rotating). The plaintext is returned ONCE here; caller surfaces
+     * it to the user.
+     *
+     * If the existing key was stored encrypted (master tier, or created
+     * with storeEncrypted), the new plaintext is also stored encrypted so
+     * the owner can re-reveal later.
+     */
+    async regenerate(id: string): Promise<CreateResult> {
+      const record = await repo.findById(id);
+      if (!record) throw NotFound('API key not found');
+      const plaintext = generatePlaintextKey();
+      const wasStored = record.keyEncrypted !== null;
+      const updated = await repo.rotateHash(
+        id,
+        hashApiKey(plaintext),
+        wasStored || record.tier === 'master' ? encryptApiKey(plaintext) : null,
+      );
+      return { plaintext, record: updated };
     },
 
     repo,

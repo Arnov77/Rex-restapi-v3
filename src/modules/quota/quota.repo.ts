@@ -53,5 +53,36 @@ export function quotaRepo(db: SupabaseClient) {
         limit: Number(row.limit_value),
       };
     },
+
+    /**
+     * Read-only counter peek. Returns 0 when no row exists for the day yet
+     * (a fresh counter just hasn't been created — semantically equivalent
+     * to "used: 0").
+     */
+    async peek(counterKey: string, date: string = todayUtc()): Promise<number> {
+      const { data, error } = await db
+        .from('usage_daily')
+        .select('count')
+        .eq('bucket_date', date)
+        .eq('counter_key', counterKey)
+        .maybeSingle<{ count: number }>();
+      if (error) throw Internal(`quota.peek: ${error.message}`);
+      return data?.count ?? 0;
+    },
+
+    /**
+     * Move a counter's value to a new key. Used when an API key is
+     * regenerated — the user shouldn't get a free reset just by rotating.
+     * Backed by the `transfer_usage` RPC defined in schema.sql.
+     */
+    async transfer(fromKey: string, toKey: string, date: string = todayUtc()): Promise<number> {
+      const { data, error } = await db.rpc('transfer_usage', {
+        p_date: date,
+        p_from: fromKey,
+        p_to: toKey,
+      });
+      if (error) throw Internal(`quota.transfer: ${error.message}`);
+      return Number(data ?? 0);
+    },
   };
 }

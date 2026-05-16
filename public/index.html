@@ -1,105 +1,47 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Rex REST API</title>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rex API</title>
+  <link rel="icon" type="image/x-icon" href="/assets/image/favicon.ico" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/image/favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/assets/image/favicon-16x16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/assets/image/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
-<div class="layout">
+  <main class="wrap">
+    <header class="hero">
+      <div class="logo">// Rex API</div>
+      <div class="ver">v3 — Fastify + TypeScript</div>
+    </header>
 
-  <div class="mobile-sidebar-overlay" id="mobileOverlay"></div>
+    <section class="card">
+      <h1>WhatsApp-bot oriented REST API</h1>
+      <p class="lead">
+        Repositori-Service-Routes layering with Supabase persistence, JWT + API-key auth,
+        tier-aware rate-limiting, and daily quotas.
+      </p>
 
-  <aside class="sidebar" id="sidebar">
-    <div class="sidebar-logo">
-      <div class="logo-mark">//</div>
-      <div class="logo-name">Rex REST API</div>
-      <div class="logo-ver">v2.0.0 — by Arnov</div>
-    </div>
-    <div class="sidebar-base">
-      <div class="base-label">Base URL</div>
-      <div class="base-url" id="baseUrl">http://localhost:7860</div>
-    </div>
-    <div class="sidebar-stats">
-      <div class="stat-box">
-        <div class="stat-num" id="totalEp">0</div>
-        <div class="stat-lbl">Endpoints</div>
+      <div class="links">
+        <a class="btn primary" href="/docs">Open Swagger Docs &rarr;</a>
+        <a class="btn" href="/api/health">Liveness check</a>
+        <a class="btn" href="/api/ready">Readiness check</a>
       </div>
-      <div class="stat-box">
-        <div class="stat-num" id="totalCat">0</div>
-        <div class="stat-lbl">Kategori</div>
-      </div>
-    </div>
-    <nav class="sidebar-nav">
-      <div class="nav-label">Navigasi</div>
-      <div id="navItems"></div>
-    </nav>
-    <div class="sidebar-foot">
-      <div class="clock-row">
-        <span class="pulse"></span>
-        <div>
-          <div class="clock-time" id="clock">00:00:00</div>
-          <div class="clock-status">Server aktif</div>
-        </div>
-      </div>
-      <div id="authSlot" class="auth-slot"></div>
-      <a class="docs-btn" href="/api/docs" target="_blank" rel="noopener noreferrer">API Documentation</a>
-    </div>
-  </aside>
+    </section>
 
-  <div class="content">
-    <div class="mobile-bar">
-      <button class="hamburger-btn" id="mobileMenuBtn">☰</button>
-      <span class="mobile-logo">// Rex API</span>
-      <span class="mobile-clock" id="mclock">00:00:00</span>
-    </div>
-    <div id="anonBanner" class="anon-banner" hidden></div>
-    <div class="content-header">
-      <div class="content-title" id="activeTitle">Semua Endpoint</div>
-      <div class="search-wrap">
-        <span class="search-icon">⌕</span>
-        <input class="search-input" id="searchInput" type="text" placeholder="Cari endpoint...">
-      </div>
-    </div>
-    <div id="mainContent"></div>
-  </div>
-</div>
+    <section class="card">
+      <h2>Playground</h2>
+      <p>An interactive playground (Vue 3) is under construction in PR 3b.</p>
+      <p class="hint">For now, use the Swagger UI at <code>/docs</code> to try every endpoint with the right auth.</p>
+    </section>
 
-<div class="toast-container" id="toastContainer"></div>
-
-<div class="overlay" id="authOverlay">
-  <div class="modal auth-modal">
-    <div class="auth-top">
-      <div class="auth-titlerow">
-        <div class="auth-title" id="authTitle">Masuk</div>
-        <button class="close-btn" onclick="closeAuthModal()">✕</button>
-      </div>
-      <p class="auth-sub" id="authSub">Masuk ke akun Rex API kamu</p>
-    </div>
-    <div class="auth-body" id="authBody"></div>
-  </div>
-</div>
-
-<div class="overlay" id="overlay">
-  <div class="modal" id="modal">
-    <div class="modal-top">
-      <div class="modal-titlerow">
-        <div class="modal-name" id="mName"></div>
-        <button class="close-btn" onclick="closeModal()">✕</button>
-      </div>
-      <div class="modal-meta">
-        <span class="mtag" id="mMethod"></span>
-        <span class="modal-path" id="mPath"></span>
-      </div>
-      <p class="modal-desc" id="mDesc"></p>
-    </div>
-    <div class="tabs" id="tabRow"></div>
-    <div class="tab-body" id="tabBody"></div>
-  </div>
-</div>
-
-<script src="js/script.js"></script>
+    <footer class="foot">
+      <span>Source:</span>
+      <a href="https://github.com/Arnov77/rex-api-access" target="_blank" rel="noopener noreferrer">github.com/Arnov77/rex-api-access</a>
+    </footer>
+  </main>
 </body>
 </html>

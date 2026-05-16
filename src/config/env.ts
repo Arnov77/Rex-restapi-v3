@@ -54,6 +54,12 @@ const schema = z.object({
   // Optional override for Chromium executable path (Playwright will use its
   // bundled binary when omitted).
   CHROME_BIN: z.string().optional(),
+
+  // Optional override for the static landing page directory. Defaults to
+  // `process.cwd() + '/public'`. Set this when running the binary from a
+  // path other than the project root (e.g., a packaged container that
+  // copies dist/ to `/app/dist` and public/ to `/app/public`).
+  STATIC_DIR: z.string().optional(),
 });
 
 export type Env = z.infer<typeof schema>;

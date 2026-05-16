@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+
+# Cancel an in-flight run when a new commit lands on the same ref.
+# Saves runner minutes when contributors push corrections quickly.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      # Uses tsconfig.test.json so test files are typechecked too —
+      # missing only the prod-build narrow rootDir.
+      - run: npm run typecheck
+
+  test:
+    name: Test (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    # Matrix lets us catch breakage on the next-LTS early. 20 is the
+    # min `engines.node`; 22 is the next LTS expected to be required.
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm test
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    # Compile the production bundle exactly the way Docker does, so a
+    # broken build (e.g., bad rootDir, missing file) fails CI before merge.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+      # Sanity: the `start` script must point at a file that actually
+      # exists post-build. Catches the rootDir bug that Docker exposed.
+      - run: test -f dist/server.js

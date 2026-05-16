@@ -1,5 +1,26 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
+import { getBrowser } from '../../shared/browser/browserManager.js';
+
+/**
+ * Health probes.
+ *
+ * `/health` — liveness: process is up. Cheap, never touches dependencies.
+ *             Container orchestrators use this for restart decisions.
+ *
+ * `/ready`  — readiness: dependencies are reachable. Returns 503 when any
+ *             critical dep is down so load balancers can drain traffic.
+ *             We probe two: Supabase (data plane) and Chromium (render
+ *             plane — screenshot/brat/quote all rely on the singleton).
+ *             Each component is reported individually so operators can
+ *             tell *which* dep failed without grepping logs.
+ */
+
+const ReadyResponse = z.object({
+  ok: z.boolean(),
+  db: z.enum(['up', 'down']),
+  browser: z.enum(['up', 'down']),
+});
 
 const healthRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get(
@@ -21,17 +42,32 @@ const healthRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       schema: {
         tags: ['health'],
-        summary: 'Readiness probe (checks DB)',
-        response: {
-          200: z.object({ ok: z.literal(true), db: z.literal('up') }),
-          503: z.object({ ok: z.literal(false), db: z.literal('down') }),
-        },
+        summary: 'Readiness probe (checks DB and headless browser)',
+        response: { 200: ReadyResponse, 503: ReadyResponse },
       },
     },
     async (_req, reply) => {
-      const { error } = await app.supabase.from('users').select('id').limit(1);
-      if (error) return reply.code(503).send({ ok: false as const, db: 'down' as const });
-      return { ok: true as const, db: 'up' as const };
+      // Probe both deps in parallel. We don't short-circuit on the first
+      // failure — operators want a complete picture.
+      const [dbResult, browserResult] = await Promise.allSettled([
+        app.supabase.from('users').select('id').limit(1),
+        // getBrowser() either returns the cached singleton (no-op) or
+        // launches Chromium. If launch fails it throws → 'down'.
+        // We don't open a page — just confirming the browser process is
+        // reachable is enough for readiness.
+        getBrowser().then((browser) => browser.isConnected()),
+      ]);
+
+      const dbUp =
+        dbResult.status === 'fulfilled' && (dbResult.value as { error: unknown }).error == null;
+      const browserUp = browserResult.status === 'fulfilled' && browserResult.value === true;
+
+      const body = {
+        ok: dbUp && browserUp,
+        db: (dbUp ? 'up' : 'down') as 'up' | 'down',
+        browser: (browserUp ? 'up' : 'down') as 'up' | 'down',
+      };
+      return body.ok ? body : reply.code(503).send(body);
     },
   );
 };

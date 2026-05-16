@@ -1,5 +1,6 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import { serializerCompiler, validatorCompiler, type ZodTypeProvider } from 'fastify-type-provider-zod';
+import { resolve } from 'node:path';
 
 import { loadEnv } from './config/env.js';
 import errorHandler from './plugins/errorHandler.js';
@@ -101,6 +102,27 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(bratRoutes, { prefix: '/api/brat' });
   await app.register(quoteRoutes, { prefix: '/api/quote' });
   await app.register(meRoutes, { prefix: '/api/me' });
+
+  // Static landing page. Registered AFTER all /api/* routes so the route
+  // tree is checked first — every API path is more specific than the
+  // static plugin's catch-all and therefore wins. The `public/` directory
+  // ships index.html + css + favicon assets; PR 3b will replace the
+  // placeholder with a Vue 3 playground.
+  //
+  // Path resolution: STATIC_DIR env override → `<cwd>/public` default.
+  // Using process.cwd() works in both `tsx` (dev) and `node dist/server.js`
+  // (prod) as long as the server is launched from the project root, which
+  // our `npm run dev` and `npm start` scripts do. STATIC_DIR exists so a
+  // packaged container with a non-standard layout can override.
+  const staticRoot = env.STATIC_DIR ?? resolve(process.cwd(), 'public');
+  await app.register(import('@fastify/static'), {
+    root: staticRoot,
+    // No prefix → serves at `/`. wildcard: false means a request for an
+    // unknown path returns 404 instead of falling through to index.html;
+    // we don't want a missing-asset request to silently render HTML.
+    wildcard: false,
+    // index.html for `/` is automatic. dotfiles ignored by default.
+  });
 
   // Pre-warm Chromium so the first screenshot/brat request doesn't pay the
   // ~1-2s cold-launch tax. Fire-and-forget — failure here just means the

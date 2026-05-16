@@ -13,7 +13,16 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000/docs for Swagger UI.
+Open http://localhost:3000/ for the landing page (placeholder; PR 3b will replace it with a Vue 3 playground) and http://localhost:3000/docs for Swagger UI.
+
+## Docker
+
+```bash
+docker build -t rex-api .
+docker run --rm -p 3000:3000 --env-file .env rex-api
+```
+
+The image ships system Chromium for the Playwright-based render endpoints (screenshot/brat/quote). If you mount a different `public/` directory, point at it with `STATIC_DIR=/abs/path`.
 
 ## Scripts
 

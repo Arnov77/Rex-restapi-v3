@@ -8,6 +8,8 @@ import {
   ListKeysResponse,
   OkResponse,
   RevealKeyResponse,
+  UpdateKeyBody,
+  UpdateKeyResponse,
 } from './apiKeys.schemas.js';
 
 const apiKeyRoutes: FastifyPluginAsyncZod = async (app) => {
@@ -84,6 +86,28 @@ const apiKeyRoutes: FastifyPluginAsyncZod = async (app) => {
     async (req) => {
       await apiKeysService(app.supabase).revoke(req.params.id);
       return { ok: true as const };
+    },
+  );
+
+  app.patch(
+    '/:id',
+    {
+      preHandler: [app.requireMaster],
+      schema: {
+        tags: ['api-keys'],
+        summary: 'Update mutable fields on an API key (master only)',
+        description:
+          'Use this to upgrade/downgrade `dailyLimit` (set to `null` for unlimited) or rename a key. Other fields (tier, hash, revoked) have dedicated paths.',
+        security: [{ apiKey: [] }],
+        params: KeyIdParam,
+        body: UpdateKeyBody,
+        response: { 200: UpdateKeyResponse },
+      },
+    },
+    async (req) => {
+      const svc = apiKeysService(app.supabase);
+      const updated = await svc.update(req.params.id, req.body);
+      return { ok: true as const, data: { key: svc.repo.publicView(updated) } };
     },
   );
 };

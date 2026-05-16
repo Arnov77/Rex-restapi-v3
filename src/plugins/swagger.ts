@@ -27,7 +27,11 @@ export default fp(
         tags: [
           { name: 'health', description: 'Liveness & readiness' },
           { name: 'auth', description: 'Register / login / session' },
-          { name: 'api-keys', description: 'Manage API keys' },
+          { name: 'me', description: 'Self-service: profile, key, usage' },
+          { name: 'api-keys', description: 'Manage API keys (admin)' },
+          { name: 'screenshot', description: 'URL screenshot capture' },
+          { name: 'brat', description: 'Brat caption renderer' },
+          { name: 'quote', description: 'Twitter-style quote card' },
         ],
       },
       transform: jsonSchemaTransform,

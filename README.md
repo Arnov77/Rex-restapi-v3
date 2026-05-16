@@ -27,25 +27,55 @@ Open http://localhost:3000/docs for Swagger UI.
 
 ```
 src/
-├── server.ts                # process bootstrap
+├── server.ts                # process bootstrap (+ master-key bootstrap)
 ├── app.ts                   # buildApp() — registers plugins + routes
+├── bootstrap.ts             # first-start master API key provisioning
 ├── config/env.ts            # zod-validated env loader
 ├── plugins/                 # cross-cutting Fastify plugins
 │   ├── errorHandler.ts
 │   ├── supabase.ts
 │   ├── swagger.ts
 │   ├── auth.ts              # JWT + API-key decorators
-│   └── rateLimit.ts         # Supabase-backed rate-limit factory
+│   ├── rateLimit.ts         # tier-aware Supabase-backed limiter
+│   └── quota.ts             # daily usage counter
 ├── shared/
-│   └── errors.ts            # AppError + helpers
+│   ├── errors.ts            # AppError + helpers
+│   ├── browser/             # singleton Chromium (screenshot/brat/quote)
+│   └── utils/               # lruCache, ssrfGuard
 └── modules/                 # one folder per feature
     ├── health/
-    ├── auth/                # routes + service + repo + schemas
-    ├── apiKeys/
-    └── rateLimit/
-tests/                       # vitest, TDD-friendly
+    ├── auth/
+    ├── apiKeys/             # admin CRUD + PATCH dailyLimit
+    ├── me/                  # self-service: profile, key, usage
+    ├── quota/               # daily usage repo
+    ├── rateLimit/
+    ├── screenshot/
+    ├── brat/
+    └── quote/
+tests/                       # vitest specs
 supabase/schema.sql          # apply once via Supabase SQL editor
 ```
+
+## Endpoints
+
+| Path | Auth | Notes |
+|---|---|---|
+| `GET /api/health`, `GET /api/ready` | none | Liveness/readiness probes |
+| `POST /api/auth/register`, `/login` | none | Returns JWT + auto-provisions a user API key |
+| `GET /api/me` | JWT | Self profile |
+| `GET /api/me/key` | JWT | Self API key (no plaintext) |
+| `POST /api/me/key/reveal` | JWT + password | Reveal stored plaintext (404 if not stored) |
+| `POST /api/me/key/regenerate` | JWT + password | Rotate secret; key id preserved (quota survives) |
+| `GET /api/me/usage` | JWT | Today's UTC usage + limit |
+| `GET /api/keys`, `POST`, `PATCH`, `DELETE` | master API key | Admin CRUD |
+| `GET /api/keys/:id/reveal` | master API key | Reveal stored plaintext |
+| `GET /api/screenshot`, `/brat`, `/quote` | optional API key | Heavy renderers; tier-aware quota + rate-limit |
+
+## Tier policy
+
+- **master** API key → no rate-limit, no daily quota
+- **user** API key → daily quota (`USER_DAILY_QUOTA` or per-key override) + 2× anon per-minute budget
+- **anon** (no key) → daily quota (`ANON_DAILY_QUOTA`) keyed by IP, base per-minute budget
 
 ## Conventions
 

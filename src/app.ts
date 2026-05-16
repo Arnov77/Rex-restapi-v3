@@ -14,6 +14,7 @@ import apiKeyRoutes from './modules/apiKeys/apiKeys.routes.js';
 import screenshotRoutes from './modules/screenshot/screenshot.routes.js';
 import bratRoutes from './modules/brat/brat.routes.js';
 import quoteRoutes from './modules/quote/quote.routes.js';
+import meRoutes from './modules/me/me.routes.js';
 import { getBrowser, shutdown as shutdownBrowser } from './shared/browser/browserManager.js';
 
 export interface BuildOpts {
@@ -63,6 +64,29 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   });
   await app.register(import('@fastify/helmet'), { contentSecurityPolicy: false });
 
+  // Backpressure guard. When event-loop is saturated or memory is high we
+  // start returning 503 so upstream (e.g. WhatsApp bot) can back off
+  // instead of piling on more work. Health endpoints are exempt by virtue
+  // of `exposeStatusRoute: false` + our own /api/health doing nothing
+  // CPU/IO heavy.
+  await app.register(import('@fastify/under-pressure'), {
+    maxEventLoopDelay: 1000, // 1s loop block → unhealthy
+    maxHeapUsedBytes: 0, // disabled (sharp/playwright are RSS-heavy, heap is misleading)
+    maxRssBytes: 1024 * 1024 * 1024, // 1 GiB; production container limits will be tighter
+    maxEventLoopUtilization: 0.95,
+    retryAfter: 30,
+    exposeStatusRoute: false, // /api/health and /api/ready already serve liveness/readiness
+    healthCheckInterval: 5000,
+  });
+
+  // Echo request id back to clients on every reply. Fastify auto-generates
+  // req.id (UUID-ish counter). Surfacing it lets bot operators report
+  // "request abc123 failed at 10:42" → grep server log → root cause.
+  // Registered BEFORE routes so 4xx/5xx error responses also carry the id.
+  app.addHook('onSend', async (req, reply) => {
+    reply.header('x-request-id', String(req.id));
+  });
+
   await app.register(supabasePlugin);
   await app.register(swaggerPlugin);
   await app.register(authPlugin);
@@ -76,6 +100,7 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(screenshotRoutes, { prefix: '/api/screenshot' });
   await app.register(bratRoutes, { prefix: '/api/brat' });
   await app.register(quoteRoutes, { prefix: '/api/quote' });
+  await app.register(meRoutes, { prefix: '/api/me' });
 
   // Pre-warm Chromium so the first screenshot/brat request doesn't pay the
   // ~1-2s cold-launch tax. Fire-and-forget — failure here just means the

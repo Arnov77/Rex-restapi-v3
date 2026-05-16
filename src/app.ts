@@ -12,6 +12,7 @@ import authRoutes from './modules/auth/auth.routes.js';
 import apiKeyRoutes from './modules/apiKeys/apiKeys.routes.js';
 import screenshotRoutes from './modules/screenshot/screenshot.routes.js';
 import bratRoutes from './modules/brat/brat.routes.js';
+import quoteRoutes from './modules/quote/quote.routes.js';
 import { getBrowser } from './shared/browser/browserManager.js';
 
 export interface BuildOpts {

@@ -68,7 +68,7 @@ describe('brat.schemas', () => {
     { text: 'a'.repeat(201) },
     { text: 'x', width: 100 },
     { text: 'x', height: 9999 },
-    { text: 'x', format: 'webp' },
+    { text: 'x', format: 'avif' },
     { text: 'x', background: 'red' },
     { text: 'x', color: '#fff' },
     { text: 'x', blur: -1 },

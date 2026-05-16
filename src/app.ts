@@ -65,6 +65,7 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(apiKeyRoutes, { prefix: '/api/keys' });
   await app.register(screenshotRoutes, { prefix: '/api/screenshot' });
   await app.register(bratRoutes, { prefix: '/api/brat' });
+  await app.register(quoteRoutes, { prefix: '/api/quote' });
 
   // Pre-warm Chromium so the first screenshot/brat request doesn't pay the
   // ~1-2s cold-launch tax. Fire-and-forget — failure here just means the

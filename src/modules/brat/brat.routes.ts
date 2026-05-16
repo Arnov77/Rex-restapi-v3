@@ -3,6 +3,10 @@ import { bratService } from './brat.service.js';
 import { BratQuery } from './brat.schemas.js';
 
 const bratRoutes: FastifyPluginAsyncZod = async (app) => {
+  // Daily quota first (cheap short-circuit), then per-minute rate-limit.
+  // Master keys bypass the quota check entirely.
+  const quota = app.quota({ message: 'Daily brat quota exceeded' });
+
   // Brat is heavier than screenshot when format=gif (multiple frames + GIF
   // encode). Same per-key/IP bucket as screenshot keeps the API surface
   // predictable for clients juggling both endpoints.
@@ -17,7 +21,7 @@ const bratRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get(
     '/',
     {
-      preHandler: [limit],
+      preHandler: [quota, limit],
       schema: {
         tags: ['brat'],
         summary: 'Render a brat-style caption (PNG/JPEG/GIF)',

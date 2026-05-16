@@ -3,6 +3,10 @@ import { screenshotService } from './screenshot.service.js';
 import { ScreenshotQuery } from './screenshot.schemas.js';
 
 const screenshotRoutes: FastifyPluginAsyncZod = async (app) => {
+  // Daily quota first (cheap short-circuit), then per-minute rate-limit.
+  // Master keys bypass the quota check entirely.
+  const quota = app.quota({ message: 'Daily screenshot quota exceeded' });
+
   // Screenshot is heavy (one Chromium tab per call) — keep buckets tight.
   // Anonymous IPs share a small budget; authenticated keys get more.
   const limit = app.rateLimit({
@@ -16,7 +20,7 @@ const screenshotRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get(
     '/',
     {
-      preHandler: [limit],
+      preHandler: [quota, limit],
       schema: {
         tags: ['screenshot'],
         summary: 'Capture a screenshot of a public URL',

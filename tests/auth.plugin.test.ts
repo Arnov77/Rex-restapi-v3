@@ -16,6 +16,7 @@ const usersRepoMock = {
 };
 const apiKeysRepoMock = {
   findByHash: vi.fn(),
+  findById: vi.fn(),
   touch: vi.fn().mockResolvedValue(undefined),
 };
 
@@ -64,6 +65,7 @@ let app: FastifyInstance;
 beforeEach(async () => {
   usersRepoMock.findById.mockReset();
   apiKeysRepoMock.findByHash.mockReset();
+  apiKeysRepoMock.findById.mockReset();
   apiKeysRepoMock.touch.mockClear();
   usersRepoMock.publicView.mockImplementation((u: any) => {
     const { passwordHash: _h, ...rest } = u;
@@ -216,7 +218,12 @@ describe('authPlugin.requireMaster (API key tier guard)', () => {
     expect(res.statusCode).toBe(403);
   });
 
-  it('ignores revoked keys (treated as anon → 403)', async () => {
+  it('rejects revoked keys with 401 (was: silently degrade to anon → 403)', async () => {
+    // Hardening from the rate-limit-leak fix: a syntactically valid
+    // key that lookup says is revoked now returns 401 INVALID/REVOKED
+    // at preHandler instead of being treated as anon. This stops the
+    // ghost "I'm logged in but headers say 100/day" reports we got
+    // when stale clients held a regenerated-out key.
     apiKeysRepoMock.findByHash.mockResolvedValue({
       id: 'k-master',
       tier: 'master',
@@ -235,7 +242,22 @@ describe('authPlugin.requireMaster (API key tier guard)', () => {
       url: '/master-only',
       headers: { 'x-api-key': 'rex_revoked-master-key' },
     });
-    expect(res.statusCode).toBe(403);
+    expect(res.statusCode).toBe(401);
+    expect(res.json().error.code).toBe('REVOKED_API_KEY');
+  });
+
+  it('rejects unknown-hash keys with 401 INVALID_API_KEY', async () => {
+    // Same hardening: a syntactically valid key whose hash doesn't
+    // match any row (deleted, never existed, regenerated and the
+    // client kept the old plaintext) now fails loudly.
+    apiKeysRepoMock.findByHash.mockResolvedValue(null);
+    const res = await app.inject({
+      method: 'GET',
+      url: '/master-only',
+      headers: { 'x-api-key': 'rex_unknown-hash' },
+    });
+    expect(res.statusCode).toBe(401);
+    expect(res.json().error.code).toBe('INVALID_API_KEY');
   });
 
   it('allows a valid master-tier key', async () => {
@@ -259,5 +281,148 @@ describe('authPlugin.requireMaster (API key tier guard)', () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ ok: true });
+  });
+});
+
+describe('authPlugin global preHandler — JWT → key cross-link', () => {
+  // This block covers the rate-limit-leak fix. A request that ships
+  // only a JWT (no X-API-Key) must still arrive at downstream
+  // pre-handlers with req.apiKey populated, otherwise rate-limit and
+  // quota bucket as anon-IP and the user sees 100/day despite being
+  // signed in.
+  const userKey = {
+    id: 'k-1',
+    tier: 'user',
+    revoked: false,
+    keyHash: 'h',
+    keyEncrypted: null,
+    dailyLimit: 1000,
+    name: 'alice-key',
+    createdAt: '',
+    updatedAt: null,
+    lastUsedAt: null,
+    revokedAt: null,
+  };
+
+  let inspector: { apiKeyTier: string | null; userId: string | null };
+  let probeApp: FastifyInstance;
+
+  beforeEach(async () => {
+    inspector = { apiKeyTier: null, userId: null };
+    // The /protected route runs after the global preHandler, so by
+    // the time its handler fires req.apiKey + req.user should be
+    // populated. We mount a tiny inspector that records what the
+    // global preHandler decided for assertion.
+    probeApp = Fastify({ logger: false });
+    await probeApp.register(errorHandler);
+    await probeApp.register(supabasePlugin);
+    await probeApp.register(authPlugin);
+    probeApp.get('/inspect', async (req) => {
+      inspector.apiKeyTier = req.apiKey?.tier ?? null;
+      inspector.userId = req.user?.id ?? null;
+      return { ok: true };
+    });
+    await probeApp.ready();
+    apiKeysRepoMock.findById = vi.fn();
+  });
+
+  afterEach(async () => {
+    await probeApp.close();
+  });
+
+  it('JWT only → resolves user, cross-links to apiKey row, attaches both', async () => {
+    usersRepoMock.findById.mockResolvedValue(validUser);
+    apiKeysRepoMock.findById.mockResolvedValue(userKey);
+    const token = sign({ sub: validUser.id, type: 'access' });
+
+    const res = await probeApp.inject({
+      method: 'GET',
+      url: '/inspect',
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(inspector.userId).toBe('u-1');
+    expect(inspector.apiKeyTier).toBe('user');
+    // The user lookup happens via JWT, the key lookup via the
+    // user.api_key_id pointer — never via X-API-Key hash.
+    expect(apiKeysRepoMock.findByHash).not.toHaveBeenCalled();
+    expect(apiKeysRepoMock.findById).toHaveBeenCalledWith('k-1');
+  });
+
+  it('JWT only, but user has no apiKeyId → falls back to anon (no apiKey attached)', async () => {
+    usersRepoMock.findById.mockResolvedValue({ ...validUser, apiKeyId: null });
+    const token = sign({ sub: validUser.id, type: 'access' });
+
+    const res = await probeApp.inject({
+      method: 'GET',
+      url: '/inspect',
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(inspector.userId).toBe('u-1');
+    expect(inspector.apiKeyTier).toBe(null);
+  });
+
+  it('JWT only, but the cross-linked key is revoked → no apiKey attached', async () => {
+    usersRepoMock.findById.mockResolvedValue(validUser);
+    apiKeysRepoMock.findById.mockResolvedValue({ ...userKey, revoked: true });
+    const token = sign({ sub: validUser.id, type: 'access' });
+
+    const res = await probeApp.inject({
+      method: 'GET',
+      url: '/inspect',
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    // user is authenticated, but apiKey stays null — request will
+    // bucket as anon downstream. (Future: surface a "your key is
+    // revoked, regenerate" hint to the dashboard.)
+    expect(inspector.userId).toBe('u-1');
+    expect(inspector.apiKeyTier).toBe(null);
+  });
+
+  it('expired JWT → silent anon (auth-optional endpoints stay reachable)', async () => {
+    const expired = sign({ sub: validUser.id, type: 'access' }, { expiresIn: -10 });
+    const res = await probeApp.inject({
+      method: 'GET',
+      url: '/inspect',
+      headers: { authorization: `Bearer ${expired}` },
+    });
+    // No throw — global preHandler swallows verify failures so the
+    // route stays anonymous-callable. authenticate() would 401 here
+    // if the route required a JWT, but /inspect doesn't.
+    expect(res.statusCode).toBe(200);
+    expect(inspector.userId).toBe(null);
+    expect(inspector.apiKeyTier).toBe(null);
+  });
+
+  it('X-API-Key wins over JWT when both supplied', async () => {
+    // Belt-and-suspenders: a request that ships both should follow
+    // the canonical bot path, not the dashboard fallback. extractJwt
+    // skips bearer tokens that look like API keys, but the X-API-Key
+    // header path is checked first regardless.
+    apiKeysRepoMock.findByHash.mockResolvedValue({
+      ...userKey,
+      tier: 'master',
+    });
+    usersRepoMock.findById.mockResolvedValue(validUser);
+    const token = sign({ sub: validUser.id, type: 'access' });
+
+    const res = await probeApp.inject({
+      method: 'GET',
+      url: '/inspect',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-api-key': 'rex_some-master-key',
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(inspector.apiKeyTier).toBe('master');
+    expect(apiKeysRepoMock.findByHash).toHaveBeenCalled();
+    // The JWT branch shouldn't run when X-API-Key is present.
+    expect(usersRepoMock.findById).not.toHaveBeenCalled();
   });
 });

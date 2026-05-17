@@ -25,13 +25,14 @@ export default fp(
           },
         },
         tags: [
+          // Public, developer-facing taxonomy. Auth/me/api-keys routes
+          // are still mounted but flagged `hide: true` so they don't
+          // surface in /docs or /docs/json — see auth.routes.ts and
+          // friends. The dashboard groups its sidebar by these tags
+          // verbatim, so any rename here is observable in the UI.
           { name: 'health', description: 'Liveness & readiness' },
-          { name: 'auth', description: 'Register / login / session' },
-          { name: 'me', description: 'Self-service: profile, key, usage' },
-          { name: 'api-keys', description: 'Manage API keys (admin)' },
-          { name: 'screenshot', description: 'URL screenshot capture' },
-          { name: 'brat', description: 'Brat caption renderer' },
-          { name: 'quote', description: 'Twitter-style quote card' },
+          { name: 'maker', description: 'Image generators (brat, quote)' },
+          { name: 'tool', description: 'Web utilities (screenshot)' },
         ],
       },
       transform: jsonSchemaTransform,

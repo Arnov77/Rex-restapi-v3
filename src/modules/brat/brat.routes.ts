@@ -23,7 +23,7 @@ const bratRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       preHandler: [quota, limit],
       schema: {
-        tags: ['brat'],
+        tags: ['maker'],
         summary: 'Render a brat-style caption (PNG/JPEG/GIF)',
         querystring: BratQuery,
         // No `response` schema: fastify-type-provider-zod expects Zod here,

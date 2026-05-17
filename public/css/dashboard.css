@@ -1,0 +1,910 @@
+/*
+  Rex API — playground stylesheet.
+
+  Goals:
+  - Dark theme, calm contrast (no pure-white text on pure-black bg).
+  - JetBrains-Mono only for code; sans for UI prose.
+  - Sidebar + main + modal pattern, mobile-first via single breakpoint.
+  - No utility classes — pure semantic CSS keeps the file scannable.
+*/
+
+/* ─────────────── Reset ─────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+
+/* ─────────────── Tokens ─────────────── */
+:root {
+  /* Background layers, lightest on top */
+  --bg-0: #07090c;          /* page */
+  --bg-1: #0c1018;          /* sidebar */
+  --bg-2: #101720;          /* card */
+  --bg-3: #131d28;          /* card hover / input */
+
+  /* Borders, low to high contrast */
+  --b-1: rgba(255, 255, 255, 0.06);
+  --b-2: rgba(255, 255, 255, 0.10);
+  --b-3: rgba(255, 255, 255, 0.16);
+
+  /* Text */
+  --fg:     #e7e9ea;        /* default */
+  --fg-mu:  #9aa6b1;        /* muted (helper text, meta) */
+  --fg-dim: #6c7682;        /* dim (timestamp, secondary) */
+
+  --accent:      #1d9bf0;
+  --accent-2:    #1a8cd8;   /* hover */
+  --accent-soft: rgba(29, 155, 240, 0.12);
+
+  --ok:   #22c55e;
+  --warn: #f59e0b;
+  --err:  #ef4444;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
+
+  --r-sm: 6px;
+  --r:    10px;
+  --r-lg: 14px;
+
+  --sidebar-w: 280px;
+}
+
+html, body {
+  background: var(--bg-0);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+button { font-family: inherit; cursor: pointer; }
+
+code, pre, .mono { font-family: var(--font-mono); }
+
+/* ─────────────── Layout ─────────────── */
+/*
+  Desktop layout: two-column grid, sidebar fixed on the left.
+
+  Mobile layout: single column with the sidebar moved off-canvas. A
+  hamburger button in the .topbar slides it back in as an overlay so
+  the user only sees the nav when they ask for it — main content stays
+  the focus.
+*/
+.layout {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  min-height: 100vh;
+  /*
+    Pin auto-rows to the top. Without this, `align-content` resolves to
+    `stretch` on grid containers — so when topbar+main are shorter than
+    100vh on a phone, the rows expand to fill, leaving phantom empty
+    space above the actual content. Belt for desktop, suspenders for
+    mobile (where the next rule replaces grid entirely).
+  */
+  align-content: start;
+}
+
+@media (max-width: 860px) {
+  /*
+    On mobile we don't need the two-column layout (sidebar is off-canvas
+    via position:fixed). Drop grid for plain block flow so children just
+    stack: topbar then main, no implicit row sizing rules to worry about.
+    This is what fixes the "huge gap above category title" symptom.
+  */
+  .layout {
+    display: block;
+    min-height: 0;
+  }
+}
+
+/* ─────────────── Top bar (mobile only) ─────────────── */
+/*
+  Sticky bar that hosts the hamburger button + brand. Only visible on
+  narrow viewports — desktop never sees it because the sidebar is
+  always present.
+*/
+.topbar-mobile {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  .topbar-mobile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--bg-1);
+    border-bottom: 1px solid var(--b-1);
+    position: sticky;
+    top: 0;
+    z-index: 30;
+  }
+  .topbar-mobile .brand { flex: 1; }
+  .topbar-mobile .brand-mark { font-size: 16px; }
+  .topbar-mobile .brand-name { font-size: 14px; }
+  .hamburger {
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-2);
+    border: 1px solid var(--b-1);
+    border-radius: var(--r-sm);
+    color: var(--fg);
+    font-size: 18px;
+    line-height: 1;
+    padding: 0;
+    cursor: pointer;
+  }
+  .hamburger:hover { background: var(--bg-3); }
+  /* Hide the inner brand on mobile — the topbar already shows it. */
+  .sidebar > .brand { display: none; }
+}
+
+/* ─────────────── Sidebar ─────────────── */
+.sidebar {
+  background: var(--bg-1);
+  border-right: 1px solid var(--b-1);
+  padding: 22px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  position: sticky;
+  top: 0;
+  align-self: start;
+  /*
+    Use dvh (dynamic viewport) so the mobile URL bar collapsing/showing
+    doesn't push the footer offscreen. Falls back gracefully because
+    the next rule still sets a 100vh on older browsers via the @media
+    block.
+
+    No `overflow-y: auto` on the outer sidebar: the inner
+    `.sidebar-nav-wrap` is the scroller (flex: 1 + overflow-y: auto).
+    Locking the outer to overflow:auto would let the whole sidebar —
+    footer included — scroll out of view when the category list grows
+    past the viewport, which is exactly the mobile bug we're fixing.
+  */
+  height: 100dvh;
+  overflow: hidden;
+}
+
+@media (max-width: 860px) {
+  .sidebar {
+    /* Off-canvas: pinned to the left edge, full-height, slid out by
+       default. JS toggles `.sidebar-open` on the layout element. */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: min(86vw, 320px);
+    /* dvh → tracks Chrome / Safari mobile UI-chrome resizing so the
+       footer never gets pushed below the visible area. */
+    height: 100dvh;
+    z-index: 50;
+    transform: translateX(-100%);
+    transition: transform 220ms ease;
+    box-shadow: 8px 0 32px rgba(0, 0, 0, 0.45);
+    border-right: 1px solid var(--b-1);
+  }
+  .sidebar-open .sidebar {
+    transform: translateX(0);
+  }
+  /* Backdrop dims the main content while the drawer is open. Tap to close. */
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 40;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 220ms ease;
+  }
+  .sidebar-open .sidebar-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  /* Stop body scroll when drawer is open — prevents the under-page
+     from scrolling under the user's finger. */
+  .sidebar-open { overflow: hidden; }
+}
+
+/* Desktop hides the backdrop entirely (it's mobile-only). */
+@media (min-width: 861px) {
+  .sidebar-backdrop { display: none; }
+}
+
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--fg);
+  text-decoration: none;
+  border-radius: var(--r-sm);
+  padding: 4px 6px;
+  margin: -4px -6px;
+  transition: background 120ms ease;
+}
+.brand:hover { background: var(--bg-3); text-decoration: none; }
+.brand-mark {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--accent);
+  font-size: 16px;
+}
+.brand-name {
+  font-weight: 600;
+  font-size: 15px;
+}
+.brand-ver {
+  font-size: 12px;
+  color: var(--fg-dim);
+  margin-left: auto;
+}
+
+.section-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-dim);
+  margin-bottom: 8px;
+}
+
+/* ─────────────── Form controls ─────────────── */
+.input, .textarea, .select {
+  background: var(--bg-3);
+  color: var(--fg);
+  border: 1px solid var(--b-1);
+  border-radius: var(--r-sm);
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: var(--font-sans);
+  width: 100%;
+  outline: none;
+  transition: border-color 120ms ease;
+}
+.input:focus, .textarea:focus, .select:focus { border-color: var(--accent); }
+.textarea { font-family: var(--font-mono); font-size: 12.5px; min-height: 90px; resize: vertical; }
+
+/* Form-row pairing for labels + inputs (used on login/profile pages). */
+.auth-row { display: flex; flex-direction: column; gap: 4px; }
+.auth-row label { font-size: 11px; color: var(--fg-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+
+/* Tabbed segmented control (login/register, fields/JSON in modal). */
+.auth-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-3);
+  padding: 3px;
+  border-radius: 7px;
+  border: 1px solid var(--b-1);
+}
+.auth-tabs button {
+  flex: 1;
+  background: transparent;
+  border: 0;
+  color: var(--fg-mu);
+  padding: 6px 8px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.auth-tabs button.active {
+  background: var(--bg-1);
+  color: var(--fg);
+}
+
+/* ─────────────── Buttons ─────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: var(--r-sm);
+  background: var(--bg-3);
+  color: var(--fg);
+  border: 1px solid var(--b-1);
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 120ms ease, border-color 120ms ease;
+  text-decoration: none;
+}
+.btn:hover:not(:disabled) { background: var(--bg-2); border-color: var(--b-2); text-decoration: none; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.primary:hover:not(:disabled) { background: var(--accent-2); border-color: var(--accent-2); }
+.btn.danger { color: var(--err); border-color: rgba(239, 68, 68, 0.3); }
+.btn.danger:hover:not(:disabled) { background: rgba(239, 68, 68, 0.08); }
+.btn.full { width: 100%; }
+.btn.sm { padding: 6px 10px; font-size: 12px; }
+
+/* ─────────────── Sidebar nav ─────────────── */
+.sidebar-nav-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.nav { display: flex; flex-direction: column; gap: 2px; }
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  color: var(--fg-mu);
+  font-size: 13px;
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  width: 100%;
+}
+.nav-item:hover { background: var(--bg-3); color: var(--fg); }
+.nav-item.active { background: var(--accent-soft); color: var(--accent); }
+.nav-item .count { margin-left: auto; font-size: 11px; color: var(--fg-dim); }
+.nav-item.active .count { color: var(--accent); }
+
+/* ─────────────── Sidebar footer (actions + auth) ─────────────── */
+.sidebar-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--b-1);
+  /*
+    Critical: never let the footer collapse or scroll out of view when
+    the category nav above it is long. flex-shrink:0 keeps the row of
+    action buttons (Home, Docs, GitHub, Login) anchored at the bottom
+    while .sidebar-nav-wrap takes the remaining space and scrolls.
+  */
+  flex-shrink: 0;
+}
+
+.sidebar-actions {
+  display: flex;
+  gap: 6px;
+}
+.sidebar-actions .btn {
+  flex: 1;
+  padding: 7px 6px;
+  font-size: 11.5px;
+  /* Tighten so 3 buttons fit on a 280px sidebar without wrapping. */
+}
+.sidebar-actions .btn .icon {
+  font-size: 13px;
+  line-height: 1;
+}
+.sidebar-actions .btn .lbl {
+  font-weight: 500;
+}
+
+/* Compact user card — clickable strip that goes to /profile. */
+.me-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg-2);
+  border: 1px solid var(--b-1);
+  border-radius: var(--r);
+  text-decoration: none;
+  color: inherit;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.me-card:hover {
+  background: var(--bg-3);
+  border-color: var(--b-2);
+  text-decoration: none;
+}
+.me-avatar {
+  width: 32px; height: 32px; flex: 0 0 32px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 14px;
+}
+.me-meta { flex: 1; min-width: 0; line-height: 1.2; }
+.me-name {
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.me-tier { color: var(--fg-dim); font-size: 11px; }
+.me-logout {
+  background: transparent;
+  border: 1px solid var(--b-1);
+  color: var(--fg-mu);
+  width: 30px; height: 30px;
+  border-radius: var(--r-sm);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.me-logout:hover {
+  color: var(--err);
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+/* Usage bar — used on /profile (kept here so dashboard.css is a
+   superset of /profile's needs, since both pages link the same CSS). */
+.usage-line {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 12px;
+  color: var(--fg-mu);
+}
+.usage-line strong { color: var(--fg); font-weight: 600; }
+.usage-bar {
+  height: 4px;
+  background: var(--bg-3);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.usage-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 200ms ease;
+}
+.usage-bar-fill.warn { background: var(--warn); }
+.usage-bar-fill.err  { background: var(--err); }
+
+/* ─────────────── Main content ─────────────── */
+.main {
+  padding: 20px 28px 48px;
+  max-width: 1180px;
+  width: 100%;
+}
+@media (max-width: 860px) {
+  .main { padding: 16px 18px 32px; }
+}
+
+.main-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.main-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.main-title {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.main-count {
+  color: var(--fg-dim);
+  font-size: 13px;
+}
+/* Legacy support for the old sub-text class — no longer rendered, but
+   a stray reference shouldn't paint as an unstyled grey block. */
+.main-sub { color: var(--fg-mu); font-size: 13px; }
+
+.search {
+  margin-left: auto;
+  background: var(--bg-2);
+  border: 1px solid var(--b-1);
+  border-radius: var(--r);
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 280px;
+  max-width: 100%;
+}
+@media (max-width: 860px) {
+  .search { margin-left: 0; width: 100%; }
+}
+.search input {
+  background: transparent; border: 0; outline: 0;
+  color: var(--fg);
+  font-size: 13px;
+  flex: 1;
+}
+.search-icon { color: var(--fg-dim); font-size: 14px; }
+
+.empty {
+  padding: 40px;
+  text-align: center;
+  color: var(--fg-mu);
+  border: 1px dashed var(--b-1);
+  border-radius: var(--r-lg);
+}
+
+/* Endpoint group */
+.group { margin-bottom: 28px; }
+.group-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--b-1);
+}
+.group-head h2 {
+  font-size: 15px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+.group-head .meta { color: var(--fg-dim); font-size: 12px; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.ep-card {
+  background: var(--bg-2);
+  border: 1px solid var(--b-1);
+  border-radius: var(--r);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: pointer;
+  transition: border-color 120ms ease, transform 120ms ease;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+}
+.ep-card:hover { border-color: var(--b-2); }
+.ep-card:active { transform: translateY(1px); }
+
+.ep-row { display: flex; align-items: center; gap: 8px; }
+.method-tag {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--bg-3);
+  color: var(--fg-mu);
+}
+.method-GET    { color: #22c55e; background: rgba(34, 197, 94, 0.10); }
+.method-POST   { color: #1d9bf0; background: rgba(29, 155, 240, 0.10); }
+.method-PATCH  { color: #f59e0b; background: rgba(245, 158, 11, 0.10); }
+.method-DELETE { color: #ef4444; background: rgba(239, 68, 68, 0.10); }
+
+.ep-path {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg);
+  word-break: break-all;
+}
+.ep-summary {
+  font-size: 13px;
+  color: var(--fg-mu);
+  line-height: 1.4;
+}
+.ep-secs { display: flex; gap: 4px; flex-wrap: wrap; margin-top: auto; }
+.ep-sec {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--bg-3);
+  color: var(--fg-dim);
+  border: 1px solid var(--b-1);
+}
+.ep-sec.api  { color: #c084fc; border-color: rgba(192, 132, 252, 0.25); }
+.ep-sec.jwt  { color: #1d9bf0; border-color: rgba(29, 155, 240, 0.25); }
+
+/* ─────────────── Modal ─────────────── */
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  z-index: 100;
+}
+.modal {
+  background: var(--bg-1);
+  border: 1px solid var(--b-2);
+  border-radius: var(--r-lg);
+  width: 100%;
+  max-width: 720px;
+  /*
+    dvh tracks the dynamic viewport (mobile URL bar in/out) so the
+    footer is never pushed below the screen edge. 90dvh leaves a small
+    breathing margin from the overlay edges on desktop.
+  */
+  max-height: 90dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.modal-head {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--b-1);
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  /* Header is sticky-by-flex: it stays at the top while the body scrolls. */
+  flex-shrink: 0;
+}
+.modal-head .title { flex: 1; }
+.modal-head h2 { font-size: 15px; font-weight: 600; line-height: 1.2; }
+.modal-head .modal-meta { display: flex; gap: 8px; align-items: center; margin-top: 5px; flex-wrap: wrap; }
+.modal-head .desc { color: var(--fg-mu); font-size: 12.5px; margin-top: 6px; line-height: 1.5; }
+.modal-close {
+  background: transparent;
+  border: 0;
+  color: var(--fg-dim);
+  font-size: 18px;
+  width: 28px; height: 28px;
+  border-radius: var(--r-sm);
+  display: flex; align-items: center; justify-content: center;
+}
+.modal-close:hover { color: var(--fg); background: var(--bg-3); }
+
+.modal-body {
+  /*
+    Bottom padding is intentionally chunky (~80px). Even though the
+    footer is a flex sibling and not literally overlaid, on tall
+    responses (a 1080px Google screenshot, a 200-line JSON) the user
+    scrolls all the way down only to find the final pixel sitting
+    flush against the footer's top border — there's no breathing
+    room, and their reflex is "scroll didn't actually finish, the
+    image is cut off". Padding gives the response a clear visual
+    end-of-content gap before the action row begins.
+  */
+  padding: 16px 20px 80px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+  /*
+    min-height:0 is required on a flex child that needs to scroll —
+    without it Firefox/Safari grow the body to fit content and ignore
+    the parent's max-height, pushing the footer offscreen.
+  */
+  min-height: 0;
+}
+
+.modal-foot {
+  padding: 12px 20px;
+  border-top: 1px solid var(--b-1);
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  background: var(--bg-1);
+  /*
+    Pin the action row (Close / Execute) to the bottom of the modal
+    no matter how tall the form gets. Without flex-shrink:0 the footer
+    collapses to 0 when the body's intrinsic height pushes past the
+    modal's max-height, hiding the buttons — that's the original bug.
+  */
+  flex-shrink: 0;
+  /* Defensive z-index in case any field renders something with stacking
+     context (sticky labels, autocomplete dropdowns). */
+  position: relative;
+  z-index: 1;
+}
+
+/* Auth gate — shown inside the modal when the operation requires auth and
+   the user has none. Form fields stay rendered above the gate so users can
+   browse the schema before deciding to register; only Execute is locked. */
+.auth-gate {
+  background: var(--accent-soft);
+  border: 1px solid rgba(29, 155, 240, 0.3);
+  border-radius: var(--r);
+  padding: 12px 14px;
+}
+.auth-gate-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.auth-gate-icon { font-size: 18px; line-height: 1; }
+.auth-gate-text {
+  font-size: 13px;
+  color: var(--fg);
+  line-height: 1.5;
+  flex: 1;
+}
+.auth-gate-text strong {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 2px;
+  color: var(--accent);
+}
+.auth-gate-text div { color: var(--fg-mu); font-size: 12.5px; }
+
+/* Form sections in modal */
+.form-section h4 {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg-mu);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.field-label {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--fg);
+}
+.field-label .name { font-family: var(--font-mono); font-weight: 500; }
+.field-label .type { color: var(--fg-dim); font-size: 11px; }
+.field-label .req  { color: var(--err); font-size: 11px; }
+.field-help { color: var(--fg-dim); font-size: 11px; line-height: 1.4; }
+
+.checkbox {
+  display: inline-flex; align-items: center; gap: 8px;
+  user-select: none;
+}
+.checkbox input { width: 14px; height: 14px; accent-color: var(--accent); }
+
+/* Result pane */
+.result {
+  border: 1px solid var(--b-1);
+  border-radius: var(--r);
+  background: var(--bg-2);
+  overflow: hidden;
+  /*
+    The response card is the last child of .modal-body (a flex column).
+    Without flex-shrink:0 the browser is allowed to compress it when
+    the modal is shorter than the form + response combined — which
+    visually clips the screenshot/JSON even though the body itself is
+    scrollable. Pin it at its natural height; the body's overflow:auto
+    handles the scrolling.
+  */
+  flex-shrink: 0;
+}
+.result-head {
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--b-1);
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+.status-pill {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.status-2xx { color: var(--ok);   background: rgba(34, 197, 94, 0.12); }
+.status-3xx { color: #94a3b8;     background: rgba(148, 163, 184, 0.12); }
+.status-4xx { color: var(--warn); background: rgba(245, 158, 11, 0.12); }
+.status-5xx { color: var(--err);  background: rgba(239, 68, 68, 0.12); }
+
+.result-meta { color: var(--fg-mu); }
+.result-meta strong { color: var(--fg); }
+.result-id {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-dim);
+}
+.result-id .copy { color: var(--fg-mu); cursor: pointer; }
+.result-id .copy:hover { color: var(--fg); }
+
+.result-body {
+  padding: 14px;
+  /*
+    No nested max-height/overflow here. The modal-body above is the
+    single scroll container — adding a 420px cap on the result-body
+    creates a scroller-inside-a-scroller, which is what caused the
+    Google-screenshot to feel "stuck": the user thought the modal had
+    bottomed out when actually the inner pane had its own scroll that
+    was hard to spot on a touch device. One scroll surface, full
+    response visible.
+  */
+  overflow: visible;
+}
+.result-body pre {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--fg);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.result-body img {
+  /*
+    `max-width: 100%` alone isn't enough: if the <img> arrives with
+    an explicit `height` attribute (the API can return any-size PNG),
+    the browser keeps that pixel height and squashes the aspect ratio,
+    which on a Google screenshot means a very tall narrow strip that
+    spills past the modal-body's scroll bounds. `height: auto`
+    re-derives height from the constrained width. `display: block`
+    drops the inline-baseline whitespace gap below the image, and
+    `object-fit: contain` is a belt — never has anything to do under
+    `width: 100%; height: auto` but guards against future changes
+    that introduce a fixed-aspect parent.
+  */
+  display: block;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+  border-radius: var(--r-sm);
+  background: repeating-conic-gradient(#1a1a1a 0% 25%, #222 0% 50%) 50% / 16px 16px;
+}
+.result-body .download-row {
+  margin-top: 10px;
+  display: flex; gap: 8px;
+}
+
+.error-msg {
+  color: var(--err);
+  font-weight: 500;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+.error-hint { color: var(--fg-mu); font-size: 12.5px; margin-bottom: 8px; }
+.error-hint code {
+  background: var(--bg-3);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 11.5px;
+}
+.countdown {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--warn);
+}
+
+/* Toasts */
+.toasts {
+  position: fixed;
+  bottom: 18px; right: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 200;
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  background: var(--bg-2);
+  border: 1px solid var(--b-2);
+  border-radius: var(--r);
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--fg);
+  min-width: 220px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.32);
+}
+.toast.ok  { border-color: rgba(34, 197, 94, 0.4); }
+.toast.err { border-color: rgba(239, 68, 68, 0.4); }
+
+/* Loading spinner — used in result pane */
+.spinner {
+  width: 16px; height: 16px;
+  border: 2px solid var(--b-2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 700ms linear infinite;
+  display: inline-block;
+}
+@keyframes spin { to { transform: rotate(360deg); } }

@@ -42,6 +42,7 @@ const meRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       preHandler: [app.authenticate, ipLimit],
       schema: {
+        hide: true,
         tags: ['me'],
         summary: 'Get the authenticated user profile',
         security: [{ bearerAuth: [] }],
@@ -59,6 +60,7 @@ const meRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       preHandler: [app.authenticate, ipLimit],
       schema: {
+        hide: true,
         tags: ['me'],
         summary: "Get the authenticated user's API key (no plaintext)",
         security: [{ bearerAuth: [] }],
@@ -76,6 +78,7 @@ const meRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       preHandler: [app.authenticate, ipLimit],
       schema: {
+        hide: true,
         tags: ['me'],
         summary: "Reveal the plaintext of the user's API key (password required)",
         description:
@@ -96,6 +99,7 @@ const meRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       preHandler: [app.authenticate, ipLimit],
       schema: {
+        hide: true,
         tags: ['me'],
         summary: "Rotate the secret of the user's API key (password required)",
         description:
@@ -117,6 +121,7 @@ const meRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       preHandler: [app.authenticate, ipLimit],
       schema: {
+        hide: true,
         tags: ['me'],
         summary: "Today's usage for the authenticated user",
         description: 'UTC daily bucket. limit/remaining are null when the tier has unlimited quota (master).',

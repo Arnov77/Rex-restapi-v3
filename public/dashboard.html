@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rex API · Dashboard</title>
+  <link rel="icon" type="image/x-icon" href="/assets/image/favicon.ico" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/image/favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/assets/image/favicon-16x16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/assets/image/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <link rel="stylesheet" href="/css/dashboard.css" />
+
+  <!--
+    Vue 3 via import map (no build step). Pinned to a known-good version
+    so a CDN-side update can't silently break the page. esm.sh serves the
+    minified ESM build with proper CORS + caching headers.
+  -->
+  <script type="importmap">
+    {
+      "imports": {
+        "vue": "https://esm.sh/vue@3.5.13/dist/vue.esm-browser.prod.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <!--
+    Mount point. Vue takes over once /js/app.js loads. Fallback content
+    inside #app is shown only if the module fails to load (offline or
+    blocked CDN); we keep it minimal so the experience is "still works"
+    rather than blank.
+  -->
+  <div id="app">
+    <noscript>
+      <main style="padding:64px 24px;font-family:system-ui;color:#e7e9ea;background:#07090c;min-height:100vh;">
+        <h1>Rex API · Dashboard</h1>
+        <p>The dashboard requires JavaScript. Use <a href="/docs" style="color:#1d9bf0;">/docs</a> for the static API reference, or <a href="/" style="color:#1d9bf0;">go back to the homepage</a>.</p>
+      </main>
+    </noscript>
+  </div>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

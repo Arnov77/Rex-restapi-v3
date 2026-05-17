@@ -124,6 +124,35 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
     // index.html for `/` is automatic. dotfiles ignored by default.
   });
 
+  // Clean URLs for the SPA-ish HTML pages. We want the address bar to
+  // read `/dashboard` rather than `/dashboard.html` — looks more like
+  // a product, easier to share, and decouples public URLs from the
+  // file extension if we ever migrate to SSR.
+  //
+  // Implementation: explicit GET handlers, one per page, that delegate
+  // to `reply.sendFile(...)` (provided by @fastify/static's decorator).
+  // We keep the .html files reachable too — direct asset URLs still
+  // resolve via the static plugin above — so existing bookmarks and
+  // hard-coded references don't 404 during a rollout.
+  //
+  // Registration order matters: the static plugin must be registered
+  // first because its `decorateReply('sendFile', …)` is what these
+  // handlers rely on. The static plugin's `wildcard: false` keeps it
+  // from intercepting the bare `/dashboard` path itself.
+  const HTML_PAGES = ['dashboard', 'login', 'profile'] as const;
+  for (const page of HTML_PAGES) {
+    app.get(
+      `/${page}`,
+      {
+        // Hidden from /docs — these aren't API endpoints, just routes
+        // that serve pre-built HTML, and listing them in OpenAPI would
+        // pollute the playground sidebar.
+        schema: { hide: true },
+      },
+      (_req, reply) => reply.sendFile(`${page}.html`),
+    );
+  }
+
   // Pre-warm Chromium so the first screenshot/brat request doesn't pay the
   // ~1-2s cold-launch tax. Fire-and-forget — failure here just means the
   // first request launches normally.

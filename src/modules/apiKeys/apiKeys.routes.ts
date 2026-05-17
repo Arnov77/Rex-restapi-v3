@@ -18,6 +18,7 @@ const apiKeyRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       preHandler: [app.requireMaster],
       schema: {
+        hide: true,
         tags: ['api-keys'],
         summary: 'List API keys (master only)',
         security: [{ apiKey: [] }],
@@ -36,6 +37,7 @@ const apiKeyRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       preHandler: [app.requireMaster],
       schema: {
+        hide: true,
         tags: ['api-keys'],
         summary: 'Create a new API key (master only)',
         security: [{ apiKey: [] }],
@@ -58,6 +60,7 @@ const apiKeyRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       preHandler: [app.requireMaster],
       schema: {
+        hide: true,
         tags: ['api-keys'],
         summary: 'Reveal stored plaintext for a key (master only)',
         security: [{ apiKey: [] }],
@@ -76,6 +79,7 @@ const apiKeyRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       preHandler: [app.requireMaster],
       schema: {
+        hide: true,
         tags: ['api-keys'],
         summary: 'Revoke an API key (master only)',
         security: [{ apiKey: [] }],
@@ -94,6 +98,7 @@ const apiKeyRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       preHandler: [app.requireMaster],
       schema: {
+        hide: true,
         tags: ['api-keys'],
         summary: 'Update mutable fields on an API key (master only)',
         description:

@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Profile · Rex API</title>
+  <link rel="icon" type="image/x-icon" href="/assets/image/favicon.ico" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <link rel="stylesheet" href="/css/dashboard.css" />
+  <style>
+    /*
+      Profile page is a single-column document, not the dashboard's
+      sidebar/main grid. Reuse buttons + tokens from dashboard.css.
+    */
+    body { background: var(--bg-0); }
+    .page {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 24px 20px 60px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .pg-top { display: flex; align-items: center; gap: 12px; }
+    .pg-top .brand { flex: 1; color: var(--fg); text-decoration: none; }
+
+    .pg-card {
+      background: var(--bg-2);
+      border: 1px solid var(--b-1);
+      border-radius: var(--r-lg);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .pg-card h2 {
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--fg-mu);
+    }
+    .pg-id-row { display: flex; align-items: center; gap: 14px; }
+    .pg-id-row .me-avatar { width: 48px; height: 48px; flex: 0 0 48px; font-size: 18px; }
+    .pg-id-meta { flex: 1; min-width: 0; }
+    .pg-id-name { font-size: 18px; font-weight: 600; }
+    .pg-id-email { color: var(--fg-mu); font-size: 13px; }
+    .pg-tier {
+      display: inline-block;
+      margin-top: 4px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-radius: 999px;
+    }
+
+    .quota-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      text-align: center;
+    }
+    .quota-stat {
+      background: var(--bg-3);
+      border: 1px solid var(--b-1);
+      border-radius: var(--r);
+      padding: 14px 8px;
+    }
+    .quota-stat .num { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+    .quota-stat .lbl {
+      color: var(--fg-mu);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-top: 4px;
+    }
+
+    .key-mono {
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      background: var(--bg-3);
+      border: 1px solid var(--b-1);
+      border-radius: var(--r-sm);
+      padding: 10px 12px;
+      color: var(--fg-mu);
+      word-break: break-all;
+      user-select: all;
+    }
+
+    .row-split { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    .pg-loading, .pg-error { text-align: center; color: var(--fg-mu); padding: 40px; }
+    .pg-error { color: var(--err); }
+
+    /*
+      Modal-form sizing tweak — the dashboard's .modal is sized for the
+      try-it form (max-width: 720px). For a confirmation we want a more
+      compact shell.
+    */
+    .modal-compact { max-width: 420px; }
+    .modal-compact .modal-body { padding: 18px 20px; }
+    .modal-message { color: var(--fg-mu); font-size: 13.5px; line-height: 1.55; }
+    .modal-error {
+      color: var(--err);
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      border-radius: var(--r-sm);
+      padding: 8px 10px;
+      font-size: 12.5px;
+      line-height: 1.4;
+      margin-top: 10px;
+    }
+    .reveal-key {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      background: var(--bg-3);
+      border: 1px solid var(--b-1);
+      border-radius: var(--r-sm);
+      padding: 10px 12px;
+      color: var(--fg);
+      word-break: break-all;
+      user-select: all;
+    }
+
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="pg-top">
+      <a class="brand" href="/dashboard">
+        <span class="brand-mark">//</span>
+        <span class="brand-name">Rex API</span>
+      </a>
+      <a class="btn sm" href="/dashboard">← Dashboard</a>
+    </header>
+
+    <h1 style="font-size:22px;font-weight:600;letter-spacing:-0.01em">Profile</h1>
+
+    <div id="state-loading" class="pg-loading">Loading…</div>
+    <div id="state-error" class="pg-error" hidden></div>
+
+    <div id="state-ready" hidden style="display:flex;flex-direction:column;gap:18px">
+
+      <!-- Identity card -->
+      <section class="pg-card">
+        <div class="pg-id-row">
+          <div class="me-avatar" id="avatar">?</div>
+          <div class="pg-id-meta">
+            <div class="pg-id-name" id="username"></div>
+            <div class="pg-id-email" id="email"></div>
+            <span class="pg-tier" id="tier">Free</span>
+          </div>
+          <button class="btn danger sm" id="btn-logout">Logout</button>
+        </div>
+      </section>
+
+      <!-- Usage card -->
+      <section class="pg-card">
+        <h2>Today's usage</h2>
+
+        <div class="quota-stats">
+          <div class="quota-stat">
+            <div class="num" id="stat-used">0</div>
+            <div class="lbl">Used</div>
+          </div>
+          <div class="quota-stat">
+            <div class="num" id="stat-remaining">—</div>
+            <div class="lbl">Remaining</div>
+          </div>
+          <div class="quota-stat">
+            <div class="num" id="stat-reset">—</div>
+            <div class="lbl">Resets in</div>
+          </div>
+        </div>
+
+        <div>
+          <div class="usage-line" style="margin-bottom:6px">
+            <span>Daily quota</span>
+            <span><strong id="quota-used">0</strong> / <span id="quota-limit">—</span></span>
+          </div>
+          <div class="usage-bar">
+            <div id="quota-fill" class="usage-bar-fill" style="width:0%"></div>
+          </div>
+          <div class="usage-line" style="margin-top:6px">
+            <span style="color:var(--fg-dim)">UTC date</span>
+            <span class="mono" id="quota-date" style="color:var(--fg-dim);font-size:11px"></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- API key card -->
+      <section class="pg-card">
+        <h2>API key</h2>
+        <p style="color:var(--fg-mu);font-size:13px;line-height:1.5;margin:-4px 0 0">
+          Use this key in the <code style="background:var(--bg-3);padding:1px 5px;border-radius:3px;font-size:12px">X-API-Key</code> header from your bot.
+          Regenerating will issue a new value and the old one stops working immediately.
+        </p>
+
+        <div class="key-mono" id="key-display">— no key cached on this device —</div>
+
+        <div class="row-split">
+          <button class="btn" id="btn-copy">Copy key</button>
+          <button class="btn primary" id="btn-regen">Regenerate key</button>
+        </div>
+      </section>
+
+      <a href="/dashboard" style="text-align:center;color:var(--fg-mu);font-size:13px;margin-top:8px">← Back to dashboard</a>
+    </div>
+  </main>
+
+  <!--
+    ─── Modals ──────────────────────────────────────────────────────
+    Two modals share the dashboard's .overlay/.modal styles so the look
+    is consistent with the try-it modal on the dashboard. Each is
+    `hidden` by default; the script toggles them on demand.
+  -->
+
+  <!-- Regenerate confirm modal -->
+  <div class="overlay" id="regen-modal" hidden>
+    <div class="modal modal-compact" role="dialog" aria-labelledby="regen-title" aria-modal="true">
+      <div class="modal-head">
+        <div class="title">
+          <h2 id="regen-title">Regenerate API key</h2>
+        </div>
+        <button class="modal-close" data-close-regen aria-label="Close">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-message">
+          The current key stops working immediately and a new one is issued.
+          Re-enter your password to confirm.
+        </p>
+        <form id="regen-form" autocomplete="off">
+          <div class="auth-row">
+            <label for="regen-password">Password</label>
+            <input class="input" type="password" id="regen-password" autocomplete="current-password" required />
+          </div>
+          <div class="modal-error" id="regen-error" hidden></div>
+        </form>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" type="button" data-close-regen>Cancel</button>
+        <button class="btn primary" type="button" id="regen-confirm">Regenerate</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reveal-after-regenerate modal — shown once with the fresh plaintext. -->
+  <div class="overlay" id="reveal-modal" hidden>
+    <div class="modal modal-compact" role="dialog" aria-labelledby="reveal-title" aria-modal="true">
+      <div class="modal-head">
+        <div class="title">
+          <h2 id="reveal-title">Your new API key</h2>
+        </div>
+        <button class="modal-close" data-close-reveal aria-label="Close">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-message">
+          Copy this somewhere safe. It's also cached on this device, but you
+          won't be able to view it again from the server.
+        </p>
+        <div class="reveal-key" id="reveal-text"></div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" type="button" data-close-reveal>Close</button>
+        <button class="btn primary" type="button" id="reveal-copy">Copy &amp; close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast region — used for "Copied!" feedback and benign errors that
+       don't deserve a full modal. -->
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <script type="module">
+    /*
+      Vanilla profile page — no Vue. Reads the same localStorage keys
+      as auth.js so it stays in sync with the dashboard.
+
+      All UI feedback uses in-page elements (modals + toasts). No
+      window.alert / window.prompt / window.confirm anywhere — those
+      look like a browser intrusion, leak the page origin in their
+      titles, and break the dark theme.
+    */
+    const LS_JWT = 'rex.jwt';
+    const LS_KEY = 'rex.apiKey';
+    const $ = (id) => document.getElementById(id);
+
+    // ── Toast helpers ───────────────────────────────────────────────
+    function toast(text, kind = 'ok', ttl = 2500) {
+      const el = document.createElement('div');
+      el.className = 'toast ' + kind;
+      el.textContent = text;
+      $('toasts').appendChild(el);
+      setTimeout(() => { el.remove(); }, ttl);
+    }
+
+    // ── Clipboard helper ────────────────────────────────────────────
+    /**
+     * Copy text with a graceful fallback for non-secure contexts.
+     *
+     * Why a fallback at all: `navigator.clipboard.writeText` is gated to
+     * secure contexts (HTTPS, localhost). When we serve the dashboard
+     * over plain HTTP — e.g. an internal IP or a self-host preview
+     * before TLS is wired up — the API is `undefined` and the call
+     * throws `TypeError`. Devs trying their key get a "Clipboard
+     * blocked by browser" toast and have to long-press to select.
+     *
+     * The legacy path uses `document.execCommand('copy')` against an
+     * off-screen `<textarea>`. It's deprecated but still works in every
+     * browser we care about (incl. iOS Safari and Firefox), and it
+     * doesn't require a secure context. We prefer the modern API when
+     * it's available because it's permission-aware and works with
+     * `await`; the legacy path is purely a safety net.
+     */
+    async function copyText(text) {
+      if (!text) throw new Error('Nothing to copy');
+      // Try modern API first when it's actually available. `navigator.clipboard`
+      // can be `undefined` on http: origins, so guard against the property
+      // access too — not just the function call.
+      if (
+        typeof navigator !== 'undefined' &&
+        navigator.clipboard &&
+        typeof navigator.clipboard.writeText === 'function' &&
+        window.isSecureContext
+      ) {
+        try {
+          await navigator.clipboard.writeText(text);
+          return true;
+        } catch {
+          // Fall through to the legacy path. Some browsers throw even on
+          // https when the page lacks user activation; execCommand uses a
+          // synchronous user-gesture context that often succeeds where
+          // the async API doesn't.
+        }
+      }
+
+      // Legacy fallback — works on http:// origins (no secure-context
+      // requirement). The textarea sits off-screen, briefly receives
+      // focus + a full selection, and is removed immediately after.
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      // Position off-screen but keep it focusable; display:none breaks
+      // selection on some browsers.
+      ta.style.position = 'fixed';
+      ta.style.top = '0';
+      ta.style.left = '0';
+      ta.style.width = '1px';
+      ta.style.height = '1px';
+      ta.style.padding = '0';
+      ta.style.border = '0';
+      ta.style.opacity = '0';
+      ta.style.pointerEvents = 'none';
+      document.body.appendChild(ta);
+
+      // iOS Safari needs the contenteditable + manual range trick to
+      // honour `select()` programmatically.
+      const isIOS = /iP(hone|od|ad)/.test(navigator.platform);
+      if (isIOS) {
+        ta.contentEditable = 'true';
+        const range = document.createRange();
+        range.selectNodeContents(ta);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        ta.setSelectionRange(0, text.length);
+      } else {
+        ta.select();
+      }
+
+      let ok = false;
+      try {
+        ok = document.execCommand('copy');
+      } catch {
+        ok = false;
+      } finally {
+        document.body.removeChild(ta);
+      }
+      if (!ok) throw new Error('Copy command rejected');
+      return true;
+    }
+
+    // ── Modal helpers ───────────────────────────────────────────────
+    /**
+     * Open a custom modal. Locks body scroll, gives the first input
+     * (or any [data-autofocus] / .primary button) keyboard focus, and
+     * wires three close paths: the X button, any `[data-close-<id>]`
+     * elements inside, Escape, and clicking the overlay outside the
+     * modal box. Returns a `close()` function.
+     *
+     * The data-attribute convention is `data-close-<base>` where <base>
+     * is the modal's id without the trailing `-modal` (e.g.
+     * `data-close-regen` for `#regen-modal`). Lets each modal carry
+     * its own close affordances without shared id collisions.
+     */
+    function openModal(el, { onClose } = {}) {
+      el.hidden = false;
+      document.body.style.overflow = 'hidden';
+      const focusable =
+        el.querySelector('[data-autofocus]') ||
+        el.querySelector('input, textarea') ||
+        el.querySelector('.btn.primary') ||
+        el;
+      requestAnimationFrame(() => focusable.focus?.());
+
+      const closeAttr = 'data-close-' + el.id.replace(/-modal$/, '');
+      const closeButtons = el.querySelectorAll('[' + closeAttr + ']');
+
+      const close = () => {
+        el.hidden = true;
+        document.body.style.overflow = '';
+        document.removeEventListener('keydown', onKey);
+        el.removeEventListener('click', onOverlayClick);
+        closeButtons.forEach((b) => b.removeEventListener('click', close));
+        onClose?.();
+      };
+      const onKey = (e) => { if (e.key === 'Escape') close(); };
+      const onOverlayClick = (e) => { if (e.target === el) close(); };
+
+      document.addEventListener('keydown', onKey);
+      el.addEventListener('click', onOverlayClick);
+      closeButtons.forEach((b) => b.addEventListener('click', close));
+      return close;
+    }
+
+    function gotoLogin() {
+      const next = encodeURIComponent('/profile');
+      location.href = `/login?next=${next}`;
+    }
+
+    const jwt = localStorage.getItem(LS_JWT);
+    if (!jwt) gotoLogin();
+
+    async function api(path, init = {}) {
+      const res = await fetch(path, {
+        ...init,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${jwt}`,
+          ...(init.headers || {}),
+        },
+      });
+      let body = null;
+      try { body = await res.json(); } catch { /* empty body */ }
+      if (!res.ok) {
+        if (res.status === 401) {
+          // Token rejected → wipe full credential state. Mirrors the
+          // explicit-logout path: see the apiKey leak comment on the
+          // 'Logout' click handler below.
+          localStorage.removeItem(LS_JWT);
+          localStorage.removeItem(LS_KEY);
+          gotoLogin();
+          throw new Error('redirecting');
+        }
+        const msg = body?.error?.message || `HTTP ${res.status}`;
+        throw new Error(msg);
+      }
+      return body;
+    }
+
+    function showError(msg) {
+      $('state-loading').hidden = true;
+      $('state-ready').hidden = true;
+      const err = $('state-error');
+      err.textContent = msg;
+      err.hidden = false;
+    }
+    function showReady() {
+      $('state-loading').hidden = true;
+      $('state-error').hidden = true;
+      $('state-ready').hidden = false;
+    }
+
+    function tierLabel(user) {
+      if (user.tier === 'master') return 'Staff';
+      if (user.tier === 'pro') return 'Pro';
+      return 'Free';
+    }
+    function formatReset(s) {
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      return `${h}h ${m}m`;
+    }
+    function maskedKey(k) {
+      if (!k) return '— no key cached on this device —';
+      if (k.length <= 14) return k;
+      return `${k.slice(0, 8)}…${k.slice(-4)}`;
+    }
+
+    async function loadAll() {
+      try {
+        const [me, usage] = await Promise.all([api('/api/me'), api('/api/me/usage')]);
+        const u = me.data.user;
+        $('username').textContent = '@' + u.username;
+        $('email').textContent = u.email;
+        $('tier').textContent = tierLabel(u) + ' tier';
+        $('avatar').textContent = (u.username[0] || u.email[0] || '?').toUpperCase();
+
+        const us = usage.data;
+        $('stat-used').textContent = us.used;
+        $('stat-remaining').textContent = us.remaining == null ? '∞' : us.remaining;
+        $('stat-reset').textContent = formatReset(us.resetInSeconds);
+
+        $('quota-used').textContent = us.used;
+        $('quota-limit').textContent = us.limit == null ? 'unlimited' : us.limit;
+        $('quota-date').textContent = us.date;
+
+        if (us.limit != null) {
+          const pct = Math.min(100, Math.round((us.used / us.limit) * 100));
+          const fill = $('quota-fill');
+          fill.style.width = pct + '%';
+          fill.classList.toggle('warn', pct >= 75 && pct < 90);
+          fill.classList.toggle('err', pct >= 90);
+        }
+
+        $('key-display').textContent = maskedKey(localStorage.getItem(LS_KEY));
+        showReady();
+      } catch (err) {
+        if (err.message !== 'redirecting') showError(err.message);
+      }
+    }
+
+    // ── Logout ──────────────────────────────────────────────────────
+    // Wipe both the JWT and the cached apiKey, mirroring auth.js's
+    // doLogout. See the comment block there for the full rationale —
+    // tl;dr the dashboard's api client opportunistically attaches the
+    // cached X-API-Key, so leaving it in localStorage means the user
+    // keeps being identified (and gets the user-tier 1000/day rather
+    // than anon 100/day) even after they hit Logout. We never want a
+    // visible "Logged out" UI to coexist with a still-credentialed
+    // request profile.
+    $('btn-logout').addEventListener('click', () => {
+      localStorage.removeItem(LS_JWT);
+      localStorage.removeItem(LS_KEY);
+      location.href = '/';
+    });
+
+    // ── Copy key ────────────────────────────────────────────────────
+    /**
+     * One-tap copy with visual feedback. Replaces the button label for
+     * ~1.6s. No popup, no native alert. Uses the copyText helper which
+     * falls back to document.execCommand('copy') when the modern
+     * Clipboard API is unavailable (http origins) or refuses
+     * (no user-activation, locked-down kiosk, etc.).
+     */
+    $('btn-copy').addEventListener('click', async () => {
+      const k = localStorage.getItem(LS_KEY);
+      const btn = $('btn-copy');
+      if (!k) {
+        toast('No key cached on this device. Regenerate to mint a fresh one.', 'err');
+        return;
+      }
+      try {
+        await copyText(k);
+        const orig = btn.textContent;
+        btn.textContent = 'Copied! ✅';
+        btn.disabled = true;
+        setTimeout(() => {
+          btn.textContent = orig;
+          btn.disabled = false;
+        }, 1600);
+      } catch {
+        toast('Copy failed. Tap-and-hold the key above to select it.', 'err', 3500);
+      }
+    });
+
+    // ── Regenerate key ──────────────────────────────────────────────
+    /**
+     * Regenerate flow:
+     *   1. Open #regen-modal → password input.
+     *   2. POST /api/me/key/regenerate with the password.
+     *   3. On success, close the password modal and open #reveal-modal
+     *      with the freshly minted plaintext (visible exactly once).
+     *   4. On error, show the message inline inside the password modal
+     *      so the user can fix it without losing context.
+     */
+    const regenModal = $('regen-modal');
+    const revealModal = $('reveal-modal');
+
+    let closeRegen = null;
+    let closeReveal = null;
+
+    $('btn-regen').addEventListener('click', () => {
+      $('regen-password').value = '';
+      $('regen-error').hidden = true;
+      $('regen-error').textContent = '';
+      closeRegen = openModal(regenModal);
+    });
+
+    $('regen-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      $('regen-confirm').click();
+    });
+
+    $('regen-confirm').addEventListener('click', async () => {
+      const pwInput = $('regen-password');
+      const password = pwInput.value;
+      const errEl = $('regen-error');
+      const confirmBtn = $('regen-confirm');
+      if (!password) {
+        errEl.textContent = 'Password is required.';
+        errEl.hidden = false;
+        pwInput.focus();
+        return;
+      }
+      errEl.hidden = true;
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Regenerating…';
+      try {
+        const r = await api('/api/me/key/regenerate', {
+          method: 'POST',
+          body: JSON.stringify({ password }),
+        });
+        const plaintext = r.data.plaintext;
+        localStorage.setItem(LS_KEY, plaintext);
+        $('key-display').textContent = maskedKey(plaintext);
+
+        // Close password modal, reveal new key in a second modal.
+        closeRegen?.();
+        $('reveal-text').textContent = plaintext;
+        closeReveal = openModal(revealModal);
+        toast('API key regenerated.', 'ok');
+      } catch (err) {
+        if (err.message === 'redirecting') return;
+        errEl.textContent = err.message;
+        errEl.hidden = false;
+      } finally {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Regenerate';
+      }
+    });
+
+    $('reveal-copy').addEventListener('click', async () => {
+      const plaintext = $('reveal-text').textContent;
+      try {
+        await copyText(plaintext);
+        toast('Copied to clipboard.', 'ok');
+      } catch {
+        toast('Copy failed. Tap-and-hold the key to select it manually.', 'err', 3500);
+      }
+      closeReveal?.();
+    });
+
+    loadAll();
+  </script>
+</body>
+</html>

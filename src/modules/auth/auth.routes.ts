@@ -18,6 +18,13 @@ const authRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       preHandler: [ipLimit],
       schema: {
+        // Hidden from the public OpenAPI spec / playground. Auth flow is
+        // driven from the dedicated /login page; exposing it on /docs
+        // and the dashboard sidebar would let untrusted callers brute
+        // force the form, and it leaks our user-management API surface
+        // to scrapers. Still reachable directly — `hide: true` is a
+        // doc-generation toggle, not a runtime guard.
+        hide: true,
         tags: ['auth'],
         summary: 'Create a new account',
         body: RegisterBody,
@@ -35,6 +42,8 @@ const authRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       preHandler: [ipLimit],
       schema: {
+        // See /register above — hidden for the same reason.
+        hide: true,
         tags: ['auth'],
         summary: 'Exchange credentials for a JWT',
         body: LoginBody,

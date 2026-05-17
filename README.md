@@ -13,7 +13,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000/ for the landing page (placeholder; PR 3b will replace it with a Vue 3 playground) and http://localhost:3000/docs for Swagger UI.
+Open http://localhost:3000/ for the public landing page (lightweight, pure HTML), http://localhost:3000/dashboard.html for the Vue 3 playground & self-service panel, or http://localhost:3000/docs for the Swagger reference.
 
 ## Docker
 

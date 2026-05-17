@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign in · Rex API</title>
+  <meta name="description" content="Sign in to your Rex API account, or create a new one." />
+  <link rel="icon" type="image/x-icon" href="/assets/image/favicon.ico" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <link rel="stylesheet" href="/css/dashboard.css" />
+  <style>
+    /*
+      Page-local layout. The login screen is a one-off — it doesn't
+      reuse the dashboard's sidebar/main grid, so an inline block is
+      cleaner than putting these in dashboard.css.
+    */
+    .auth-page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 20px;
+      background:
+        radial-gradient(1200px 600px at 50% -10%, rgba(29, 155, 240, 0.10), transparent 60%),
+        var(--bg-0);
+    }
+    .auth-box {
+      width: 100%;
+      max-width: 380px;
+      background: var(--bg-1);
+      border: 1px solid var(--b-1);
+      border-radius: var(--r-lg);
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .auth-brand {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      justify-content: center;
+      text-decoration: none;
+      color: var(--fg);
+      margin-bottom: 4px;
+    }
+    .auth-brand:hover { text-decoration: none; }
+    .auth-brand .brand-mark { font-family: var(--font-mono); color: var(--accent); font-weight: 600; font-size: 18px; }
+    .auth-brand .brand-name { font-weight: 600; font-size: 16px; }
+    .auth-h1 { font-size: 18px; font-weight: 600; text-align: center; }
+    .auth-sub { color: var(--fg-mu); font-size: 13px; text-align: center; margin-top: -10px; }
+    .auth-err {
+      color: var(--err);
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: var(--r-sm);
+      padding: 8px 12px;
+      font-size: 12.5px;
+      line-height: 1.4;
+    }
+    .auth-foot {
+      text-align: center;
+      font-size: 12px;
+      color: var(--fg-dim);
+      padding-top: 6px;
+    }
+    .auth-foot a { color: var(--fg-mu); }
+    .auth-foot a:hover { color: var(--fg); }
+
+    /* Hide whichever form isn't the active tab. */
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <main class="auth-page">
+    <div class="auth-box">
+      <a class="auth-brand" href="/">
+        <span class="brand-mark">//</span>
+        <span class="brand-name">Rex API</span>
+      </a>
+
+      <div class="auth-tabs" role="tablist">
+        <button id="tab-login" class="active" role="tab">Sign in</button>
+        <button id="tab-register" role="tab">Register</button>
+      </div>
+
+      <h1 class="auth-h1" id="auth-h1">Welcome back</h1>
+      <p class="auth-sub" id="auth-sub">Sign in to access the dashboard.</p>
+
+      <!-- Login form -->
+      <form id="form-login" autocomplete="on">
+        <div class="auth-row">
+          <label for="login-id">Email or username</label>
+          <input class="input" id="login-id" type="text" autocomplete="username" required />
+        </div>
+        <div class="auth-row" style="margin-top:10px">
+          <label for="login-pw">Password</label>
+          <input class="input" id="login-pw" type="password" autocomplete="current-password" required />
+        </div>
+        <div class="auth-err" id="login-err" hidden></div>
+        <button class="btn primary full" id="btn-login" type="submit" style="margin-top:14px">Sign in</button>
+      </form>
+
+      <!-- Register form -->
+      <form id="form-register" autocomplete="on" hidden>
+        <div class="auth-row">
+          <label for="reg-username">Username</label>
+          <input class="input" id="reg-username" type="text" autocomplete="username" minlength="3" maxlength="32" pattern="[a-zA-Z0-9_]+" required />
+        </div>
+        <div class="auth-row" style="margin-top:10px">
+          <label for="reg-email">Email</label>
+          <input class="input" id="reg-email" type="email" autocomplete="email" required />
+        </div>
+        <div class="auth-row" style="margin-top:10px">
+          <label for="reg-pw">Password (min 8 chars)</label>
+          <input class="input" id="reg-pw" type="password" autocomplete="new-password" minlength="8" required />
+        </div>
+        <div class="auth-err" id="reg-err" hidden></div>
+        <button class="btn primary full" id="btn-register" type="submit" style="margin-top:14px">Create account</button>
+      </form>
+
+      <div class="auth-foot">
+        <a href="/">← Back to home</a>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    /*
+      Vanilla auth flow. We intentionally don't import auth.js (the Vue
+      composable) here — this page is a sibling, not a child, so it
+      writes the same localStorage keys directly.
+    */
+    const LS_JWT = 'rex.jwt';
+    const LS_KEY = 'rex.apiKey';
+
+    // Where to land after a successful sign-in. Honour ?next=… if it's a
+    // same-origin path; otherwise fall back to /dashboard. We
+    // reject absolute URLs and any path that doesn't start with '/' so a
+    // forged link can't redirect through our auth screen to a phishing
+    // site.
+    //
+    // Defense-in-depth `.html` strip: every page-side caller (Sidebar,
+    // TryItModal) already produces a clean path, but stale bookmarks
+    // and externally-shared links from the pre-clean-URL era can still
+    // arrive as `?next=%2Fdashboard.html`. Normalising here means
+    // everyone — old links included — lands on /dashboard, /login,
+    // /profile in the address bar after sign-in.
+    function resolveNextHref() {
+      const raw = new URLSearchParams(location.search).get('next');
+      if (!raw) return '/dashboard';
+      try {
+        const decoded = decodeURIComponent(raw);
+        if (!decoded.startsWith('/') || decoded.startsWith('//')) return '/dashboard';
+        // Strip an `.html` suffix from the pathname portion only — never
+        // touch the query string or hash. URL.parse + a relative base
+        // makes the split safe without us reinventing query parsing.
+        const u = new URL(decoded, location.origin);
+        u.pathname = u.pathname.replace(/\.html$/i, '');
+        if (u.pathname === '/index') u.pathname = '/';
+        return u.pathname + u.search + u.hash;
+      } catch {
+        return '/dashboard';
+      }
+    }
+
+    async function postJson(path, body) {
+      const res = await fetch(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      let payload = null;
+      try { payload = await res.json(); } catch { /* empty/non-JSON */ }
+      if (!res.ok) {
+        const msg = payload?.error?.message || payload?.message || `HTTP ${res.status}`;
+        throw new Error(msg);
+      }
+      return payload;
+    }
+
+    // Tab switching.
+    const tabLogin = document.getElementById('tab-login');
+    const tabRegister = document.getElementById('tab-register');
+    const formLogin = document.getElementById('form-login');
+    const formRegister = document.getElementById('form-register');
+    const h1 = document.getElementById('auth-h1');
+    const sub = document.getElementById('auth-sub');
+
+    function showTab(name) {
+      const isLogin = name === 'login';
+      tabLogin.classList.toggle('active', isLogin);
+      tabRegister.classList.toggle('active', !isLogin);
+      formLogin.hidden = !isLogin;
+      formRegister.hidden = isLogin;
+      h1.textContent = isLogin ? 'Welcome back' : 'Create an account';
+      sub.textContent = isLogin
+        ? 'Sign in to access the dashboard.'
+        : 'Free 1,000 daily requests. Upgrade later if you need more.';
+      // Auto-focus the first field for keyboard users.
+      const target = isLogin ? document.getElementById('login-id') : document.getElementById('reg-username');
+      requestAnimationFrame(() => target.focus());
+    }
+
+    tabLogin.addEventListener('click', () => showTab('login'));
+    tabRegister.addEventListener('click', () => showTab('register'));
+
+    // ── Login submit ─────────────────────────────────────────────────
+    const loginErr = document.getElementById('login-err');
+    const btnLogin = document.getElementById('btn-login');
+    formLogin.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      loginErr.hidden = true;
+      btnLogin.disabled = true; btnLogin.textContent = 'Signing in…';
+      try {
+        const r = await postJson('/api/auth/login', {
+          identifier: document.getElementById('login-id').value.trim(),
+          password: document.getElementById('login-pw').value,
+        });
+        localStorage.setItem(LS_JWT, r.data.token);
+        location.href = resolveNextHref();
+      } catch (err) {
+        loginErr.textContent = err.message;
+        loginErr.hidden = false;
+        btnLogin.disabled = false;
+        btnLogin.textContent = 'Sign in';
+      }
+    });
+
+    // ── Register submit ──────────────────────────────────────────────
+    // Mirrors the dashboard's auth.register flow: after creating the
+    // account, immediately call /me/key/regenerate with the same
+    // password so the user has a working API key on this device. The
+    // backend's /auth/register doesn't return plaintext for user-tier
+    // keys (they're not stored encrypted), so this is the only way to
+    // give a brand-new user a usable key without a second prompt.
+    const regErr = document.getElementById('reg-err');
+    const btnRegister = document.getElementById('btn-register');
+    formRegister.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      regErr.hidden = true;
+      btnRegister.disabled = true; btnRegister.textContent = 'Creating account…';
+      const username = document.getElementById('reg-username').value.trim();
+      const email = document.getElementById('reg-email').value.trim();
+      const password = document.getElementById('reg-pw').value;
+      try {
+        const r = await postJson('/api/auth/register', { username, email, password });
+        localStorage.setItem(LS_JWT, r.data.token);
+
+        // Best-effort key seed; failure here doesn't block the redirect
+        // (user can regenerate manually from /profile).
+        try {
+          const k = await fetch('/api/me/key/regenerate', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${r.data.token}`,
+            },
+            body: JSON.stringify({ password }),
+          }).then((res) => res.ok ? res.json() : null);
+          if (k?.data?.plaintext) localStorage.setItem(LS_KEY, k.data.plaintext);
+        } catch { /* swallow */ }
+
+        location.href = resolveNextHref();
+      } catch (err) {
+        regErr.textContent = err.message;
+        regErr.hidden = false;
+        btnRegister.disabled = false;
+        btnRegister.textContent = 'Create account';
+      }
+    });
+
+    // If user is already signed in, skip the form and go straight to next=.
+    if (localStorage.getItem(LS_JWT)) {
+      // Cheap probe — if the JWT is still valid, redirect. If it's
+      // rejected (401), drop it and stay on the page so they can sign
+      // in again. Anything else (network blip), trust the local token
+      // and redirect anyway.
+      fetch('/api/me', {
+        headers: { Authorization: `Bearer ${localStorage.getItem(LS_JWT)}` },
+      }).then((r) => {
+        if (r.ok) location.href = resolveNextHref();
+        else if (r.status === 401) {
+          // Token rejected → drop both credentials together. Leaving
+          // the cached apiKey behind would let the dashboard keep
+          // identifying the now-logged-out user via the api client's
+          // opportunistic X-API-Key header (see auth.js#doLogout).
+          localStorage.removeItem(LS_JWT);
+          localStorage.removeItem(LS_KEY);
+        }
+      }).catch(() => { location.href = resolveNextHref(); });
+    }
+  </script>
+</body>
+</html>

@@ -28,8 +28,11 @@ const quoteRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (req, reply) => {
+      const ac = new AbortController();
+      req.raw.once('close', () => ac.abort());
+
       const before = quoteService.cache.hits;
-      const result = await quoteService.generate(req.query);
+      const result = await quoteService.generate(req.query, { signal: ac.signal });
       const cacheHit = quoteService.cache.hits > before;
       const ext = result.format === 'jpeg' ? 'jpg' : result.format;
       return reply

@@ -30,7 +30,13 @@ const screenshotRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (req, reply) => {
-      const result = await screenshotService.capture(req.query);
+      // Create an AbortSignal tied to client disconnect. If the user
+      // closes the modal or navigates away mid-render, this fires and
+      // the page pool abandons the Chromium work early — saving CPU.
+      const ac = new AbortController();
+      req.raw.once('close', () => ac.abort());
+
+      const result = await screenshotService.capture(req.query, { signal: ac.signal });
       const ext = result.format === 'jpeg' ? 'jpg' : result.format;
       return reply
         .header('content-type', result.mimeType)

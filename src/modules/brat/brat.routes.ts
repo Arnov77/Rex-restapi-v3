@@ -32,8 +32,11 @@ const bratRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (req, reply) => {
+      const ac = new AbortController();
+      req.raw.once('close', () => ac.abort());
+
       const before = bratService.cache.hits;
-      const result = await bratService.generate(req.query);
+      const result = await bratService.generate(req.query, { signal: ac.signal });
       const cacheHit = bratService.cache.hits > before;
       const ext = result.format === 'jpeg' ? 'jpg' : result.format;
       return reply

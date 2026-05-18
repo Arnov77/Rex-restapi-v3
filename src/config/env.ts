@@ -55,6 +55,18 @@ const schema = z.object({
   // bundled binary when omitted).
   CHROME_BIN: z.string().optional(),
 
+  // Page pool sizing. Each slot is a persistent BrowserContext that gets
+  // recycled between requests (cookies cleared, no page leaks). More slots
+  // = more concurrent renders = more RAM. 4 is a safe default for a 1-GiB
+  // container; bump to 8 on 2-GiB+.
+  PAGE_POOL_SIZE: z.coerce.number().int().min(1).max(32).default(4),
+
+  // How long a request waits for a free pool slot before 503-ing.
+  // Keep this shorter than the client's visible timeout (Fastify default
+  // body timeout is 30s) so users see a meaningful "server busy" rather
+  // than a generic gateway timeout.
+  PAGE_POOL_ACQUIRE_TIMEOUT_MS: z.coerce.number().int().min(1000).default(15_000),
+
   // Optional override for the static landing page directory. Defaults to
   // `process.cwd() + '/public'`. Set this when running the binary from a
   // path other than the project root (e.g., a packaged container that

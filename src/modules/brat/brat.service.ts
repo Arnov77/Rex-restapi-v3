@@ -17,6 +17,11 @@ export interface BratResult {
   format: 'png' | 'jpeg' | 'gif' | 'webp';
 }
 
+export interface GenerateOptions {
+  /** AbortSignal from the HTTP request — cancels the render early on client disconnect. */
+  signal?: AbortSignal;
+}
+
 const MIME = {
   png: 'image/png',
   jpeg: 'image/jpeg',
@@ -58,7 +63,7 @@ function cacheKey(opts: BratQuery): string {
   return createHash('sha1').update(JSON.stringify(sorted)).digest('hex');
 }
 
-export async function generate(opts: BratQuery): Promise<BratResult> {
+export async function generate(opts: BratQuery, { signal }: GenerateOptions = {}): Promise<BratResult> {
   // SSRF guard runs BEFORE the browser is touched. Same rule as screenshot:
   // a blocked URL must never reach Playwright.
   if (opts.bgImage) await assertPublicUrl(opts.bgImage);
@@ -72,7 +77,7 @@ export async function generate(opts: BratQuery): Promise<BratResult> {
 
   const animated = opts.format === 'gif' || opts.format === 'webp';
   const isMulti = animated && /\s/.test(opts.text.trim());
-  const promise = (isMulti ? generateAnimated(opts) : generateStill(opts))
+  const promise = (isMulti ? generateAnimated(opts, signal) : generateStill(opts, signal))
     .then((result) => {
       cache.set(key, result);
       return result;
@@ -84,7 +89,7 @@ export async function generate(opts: BratQuery): Promise<BratResult> {
   return promise;
 }
 
-async function generateStill(opts: BratQuery): Promise<BratResult> {
+async function generateStill(opts: BratQuery, signal?: AbortSignal): Promise<BratResult> {
   const html = renderBratHtml(opts);
   const buffer = await withPage(
     async (page) => {
@@ -105,7 +110,7 @@ async function generateStill(opts: BratQuery): Promise<BratResult> {
       }
       return png;
     },
-    { viewport: { width: opts.width, height: opts.height } },
+    { viewport: { width: opts.width, height: opts.height }, signal },
   );
 
   if (!buffer || buffer.length === 0) throw Internal('Brat produced an empty buffer');
@@ -116,7 +121,7 @@ async function generateStill(opts: BratQuery): Promise<BratResult> {
  * Capture progressive-word-reveal frames. Frame N shows the first N words.
  * Returns PNG buffers (used as-is for WebP join, decoded to RGBA for GIF).
  */
-async function captureFrames(opts: BratQuery): Promise<Buffer[]> {
+async function captureFrames(opts: BratQuery, signal?: AbortSignal): Promise<Buffer[]> {
   const words = opts.text.split(/\s+/).filter(Boolean);
   const frameCount = Math.max(1, Math.min(words.length, 30));
 
@@ -143,12 +148,12 @@ async function captureFrames(opts: BratQuery): Promise<Buffer[]> {
       }
       return frames;
     },
-    { viewport: { width: opts.width, height: opts.height } },
+    { viewport: { width: opts.width, height: opts.height }, signal },
   );
 }
 
-async function generateAnimated(opts: BratQuery): Promise<BratResult> {
-  const frames = await captureFrames(opts);
+async function generateAnimated(opts: BratQuery, signal?: AbortSignal): Promise<BratResult> {
+  const frames = await captureFrames(opts, signal);
   const HOLD_MS = 1200;
   const buffer =
     opts.format === 'webp'

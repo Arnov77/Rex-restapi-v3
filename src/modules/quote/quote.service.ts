@@ -13,6 +13,11 @@ export interface QuoteResult {
   format: 'png' | 'jpeg' | 'webp';
 }
 
+export interface QuoteGenerateOptions {
+  /** AbortSignal from the HTTP request — cancels the render early on client disconnect. */
+  signal?: AbortSignal;
+}
+
 const MIME = {
   png: 'image/png',
   jpeg: 'image/jpeg',
@@ -36,7 +41,7 @@ function cacheKey(opts: QuoteQuery): string {
   return createHash('sha1').update(JSON.stringify(sorted)).digest('hex');
 }
 
-export async function generate(opts: QuoteQuery): Promise<QuoteResult> {
+export async function generate(opts: QuoteQuery, { signal }: QuoteGenerateOptions = {}): Promise<QuoteResult> {
   // SSRF guard BEFORE touching Chromium — same rule as brat/screenshot.
   if (opts.avatar) await assertPublicUrl(opts.avatar);
 
@@ -47,7 +52,7 @@ export async function generate(opts: QuoteQuery): Promise<QuoteResult> {
   const existing = inflight.get(key);
   if (existing) return existing;
 
-  const promise = renderOnce(opts)
+  const promise = renderOnce(opts, signal)
     .then((result) => {
       cache.set(key, result);
       return result;
@@ -57,7 +62,7 @@ export async function generate(opts: QuoteQuery): Promise<QuoteResult> {
   return promise;
 }
 
-async function renderOnce(opts: QuoteQuery): Promise<QuoteResult> {
+async function renderOnce(opts: QuoteQuery, signal?: AbortSignal): Promise<QuoteResult> {
   const html = renderQuoteHtml(opts);
   // Width is auto on the card itself; we just need a wide-enough viewport.
   // Height grows with text, so 2000px max keeps everything in-frame.
@@ -72,7 +77,7 @@ async function renderOnce(opts: QuoteQuery): Promise<QuoteResult> {
       if (!el) throw Internal('Quote card element not found');
       return el.screenshot({ type: 'png', omitBackground: true });
     },
-    { viewport: { width: opts.width, height: 2000 } },
+    { viewport: { width: opts.width, height: 2000 }, signal },
   );
 
   if (!png || png.length === 0) throw Internal('Quote produced empty buffer');

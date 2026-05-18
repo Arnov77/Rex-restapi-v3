@@ -9,17 +9,22 @@ export interface ScreenshotResult {
   format: 'png' | 'jpeg';
 }
 
+export interface CaptureOptions {
+  /** AbortSignal from the HTTP request — cancels the render early on client disconnect. */
+  signal?: AbortSignal;
+}
+
 const MIME: Record<'png' | 'jpeg', 'image/png' | 'image/jpeg'> = {
   png: 'image/png',
   jpeg: 'image/jpeg',
 };
 
 /**
- * Capture a single screenshot through the shared Chromium singleton.
- * Each call gets a fresh isolated browser context (incognito) so cookies
- * never leak between requests.
+ * Capture a single screenshot through the shared Chromium page pool.
+ * Each call gets a pooled context (cookies cleared between uses) so
+ * state never leaks between requests.
  */
-export async function capture(opts: ScreenshotQuery): Promise<ScreenshotResult> {
+export async function capture(opts: ScreenshotQuery, { signal }: CaptureOptions = {}): Promise<ScreenshotResult> {
   // SSRF guard runs BEFORE the browser is touched. A blocked URL must never
   // reach Playwright — the headless Chromium would otherwise be a confused
   // deputy hitting internal/cloud-metadata endpoints.
@@ -46,7 +51,7 @@ export async function capture(opts: ScreenshotQuery): Promise<ScreenshotResult> 
       if (opts.format === 'jpeg') shotOpts.quality = opts.quality;
       return page.screenshot(shotOpts);
     },
-    { viewport: { width: opts.width, height: opts.height } },
+    { viewport: { width: opts.width, height: opts.height }, signal },
   );
 
   if (!buffer || buffer.length === 0) {

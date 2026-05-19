@@ -16,6 +16,7 @@ import screenshotRoutes from './modules/screenshot/screenshot.routes.js';
 import bratRoutes from './modules/brat/brat.routes.js';
 import quoteRoutes from './modules/quote/quote.routes.js';
 import meRoutes from './modules/me/me.routes.js';
+import auditLogRoutes from './modules/auditLog/auditLog.routes.js';
 import { getBrowser, shutdown as shutdownBrowser } from './shared/browser/browserManager.js';
 
 export interface BuildOpts {
@@ -102,6 +103,7 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(bratRoutes, { prefix: '/api/brat' });
   await app.register(quoteRoutes, { prefix: '/api/quote' });
   await app.register(meRoutes, { prefix: '/api/me' });
+  await app.register(auditLogRoutes, { prefix: '/api/keys/audit-log' });
 
   // Static landing page. Registered AFTER all /api/* routes so the route
   // tree is checked first — every API path is more specific than the

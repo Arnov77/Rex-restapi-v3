@@ -1,5 +1,6 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { apiKeysService } from './apiKeys.service.js';
+import { poolStats } from '../../shared/browser/browserManager.js';
 import {
   CreateKeyBody,
   CreateKeyResponse,
@@ -7,6 +8,8 @@ import {
   ListKeysQuery,
   ListKeysResponse,
   OkResponse,
+  PoolStatsResponse,
+  RegenerateKeyResponse,
   RevealKeyResponse,
   UpdateKeyBody,
   UpdateKeyResponse,
@@ -114,6 +117,49 @@ const apiKeyRoutes: FastifyPluginAsyncZod = async (app) => {
       const updated = await svc.update(req.params.id, req.body);
       return { ok: true as const, data: { key: svc.repo.publicView(updated) } };
     },
+  );
+
+  app.post(
+    '/:id/regenerate',
+    {
+      preHandler: [app.requireMaster],
+      schema: {
+        hide: true,
+        tags: ['api-keys'],
+        summary: 'Rotate the secret of an API key (master only)',
+        description:
+          "The key id is preserved so users.api_key_id pointers and today's quota counter survive the rotation. Plaintext is returned ONCE.",
+        security: [{ apiKey: [] }],
+        params: KeyIdParam,
+        response: { 200: RegenerateKeyResponse },
+      },
+    },
+    async (req) => {
+      const svc = apiKeysService(app.supabase);
+      const result = await svc.regenerate(req.params.id);
+      return {
+        ok: true as const,
+        data: { plaintext: result.plaintext, key: svc.repo.publicView(result.record) },
+      };
+    },
+  );
+
+  // Live Chromium page-pool stats. Same auth model as the rest of
+  // /api/keys/* — master-only — so we can expose internal saturation
+  // numbers to the admin UI without leaking them to bot tenants.
+  app.get(
+    '/pool-stats',
+    {
+      preHandler: [app.requireMaster],
+      schema: {
+        hide: true,
+        tags: ['api-keys'],
+        summary: 'Live Chromium page-pool stats (master only)',
+        security: [{ apiKey: [] }],
+        response: { 200: PoolStatsResponse },
+      },
+    },
+    async () => ({ ok: true as const, data: poolStats() }),
   );
 };
 

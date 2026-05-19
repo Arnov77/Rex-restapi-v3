@@ -60,3 +60,27 @@ export const UpdateKeyResponse = z.object({
   ok: z.literal(true),
   data: z.object({ key: PublicKey }),
 });
+
+export const RegenerateKeyResponse = z.object({
+  ok: z.literal(true),
+  data: z.object({ plaintext: z.string(), key: PublicKey }),
+});
+
+/**
+ * Live snapshot of the Chromium page-pool. Exposed to the admin UI so
+ * operators can see saturation at a glance (queued > 0 means callers
+ * are waiting; busy == size means the pool is fully booked).
+ */
+export const PoolStatsResponse = z.object({
+  ok: z.literal(true),
+  data: z.object({
+    size: z.number().int().nonnegative(),
+    created: z.number().int().nonnegative(),
+    busy: z.number().int().nonnegative(),
+    idle: z.number().int().nonnegative(),
+    queued: z.number().int().nonnegative(),
+    acquireCount: z.number().int().nonnegative(),
+    releaseCount: z.number().int().nonnegative(),
+    timeoutCount: z.number().int().nonnegative(),
+  }),
+});

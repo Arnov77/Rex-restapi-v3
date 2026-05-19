@@ -119,6 +119,17 @@ export function apiKeysRepo(db: SupabaseClient) {
       if (error) throw Internal(`apiKeys.revoke: ${error.message}`);
     },
 
+    async activate(id: string): Promise<ApiKeyRecord> {
+      const { data, error } = await db
+        .from(TABLE)
+        .update({ revoked: false, revoked_at: null, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .select('*')
+        .single<Row>();
+      if (error || !data) throw Internal(`apiKeys.activate: ${error?.message ?? 'no data'}`);
+      return toRecord(data)!;
+    },
+
     /**
      * Patch a key's mutable fields. Only `name` and `dailyLimit` are
      * exposed today — tier/hash/revoked are managed by dedicated paths.

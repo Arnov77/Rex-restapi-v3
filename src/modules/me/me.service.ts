@@ -103,7 +103,13 @@ export function meService(db: SupabaseClient) {
         return { date, used, limit: null, remaining: null, resetInSeconds: reset };
       }
 
-      const limit = key.dailyLimit ?? env.USER_DAILY_QUOTA;
+      // dailyLimit === null → admin granted unlimited. Same display as master.
+      if (key.dailyLimit === null) {
+        const used = await quota.peek(`key:${key.id}`, date);
+        return { date, used, limit: null, remaining: null, resetInSeconds: reset };
+      }
+
+      const limit = key.dailyLimit;
       const used = await quota.peek(`key:${key.id}`, date);
       return {
         date,

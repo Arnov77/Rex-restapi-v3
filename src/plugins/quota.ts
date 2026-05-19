@@ -13,7 +13,8 @@ declare module 'fastify' {
      *
      * Tier policy (computed per-request from req.apiKey):
      *  - master tier         → bypassed entirely (counter not touched)
-     *  - any other API key   → counter `key:<apiKeyId>`, limit = key.dailyLimit ?? env.USER_DAILY_QUOTA
+     *  - any API key with dailyLimit = null → bypassed (admin set unlimited)
+     *  - any other API key   → counter `key:<apiKeyId>`, limit = key.dailyLimit
      *  - anon (no API key)   → counter `ip:<req.ip>`,   limit = env.ANON_DAILY_QUOTA
      *
      * Fail-open: if the RPC errors, the request is allowed through with a
@@ -50,9 +51,12 @@ function counterFor(req: FastifyRequest, prefix: string): { key: string; limit: 
     // Master tier never counted — return null so plugin short-circuits.
     return null;
   }
-  // User tier: per-key dailyLimit override wins, else global default.
-  const limit = apiKey.dailyLimit ?? env.USER_DAILY_QUOTA;
-  return { key: `${ns}key:${apiKey.id}`, limit };
+  // dailyLimit === null means "admin explicitly granted unlimited" → bypass.
+  if (apiKey.dailyLimit === null) {
+    return null;
+  }
+  // User tier with an explicit numeric limit.
+  return { key: `${ns}key:${apiKey.id}`, limit: apiKey.dailyLimit };
 }
 
 /**

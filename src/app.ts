@@ -139,7 +139,7 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   // first because its `decorateReply('sendFile', …)` is what these
   // handlers rely on. The static plugin's `wildcard: false` keeps it
   // from intercepting the bare `/dashboard` path itself.
-  const HTML_PAGES = ['dashboard', 'login', 'profile'] as const;
+  const HTML_PAGES = ['dashboard', 'login', 'profile', 'admin'] as const;
   for (const page of HTML_PAGES) {
     app.get(
       `/${page}`,

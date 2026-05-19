@@ -50,6 +50,11 @@ function makeApi(getKey) {
       if (targetKeyId) params.set('targetKeyId', targetKeyId);
       return call('GET', `/api/keys/audit-log/?${params}`);
     },
+    listUsers: ({ limit = 50, offset = 0, search } = {}) => {
+      const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+      if (search) params.set('search', search);
+      return call('GET', `/api/admin/users/?${params}`);
+    },
   };
 }
 
@@ -456,14 +461,99 @@ const AuditLogTab = {
 
 
 // ─────────────────────────────────────────────────────────────────────
-// Root app — tabs: Keys | Audit Log
+// Users tab
+// ─────────────────────────────────────────────────────────────────────
+const UsersTab = {
+  name: 'UsersTab',
+  props: { api: { type: Object, required: true } },
+  emits: ['toast'],
+  setup(props, { emit }) {
+    const users = ref([]);
+    const total = ref(0);
+    const loading = ref(false);
+    const page = ref(0);
+    const search = ref('');
+    const PAGE_SIZE = 30;
+
+    async function load() {
+      loading.value = true;
+      try {
+        const opts = { limit: PAGE_SIZE, offset: page.value * PAGE_SIZE };
+        if (search.value.trim()) opts.search = search.value.trim();
+        const r = await props.api.listUsers(opts);
+        users.value = r.data.users;
+        total.value = r.data.total;
+      } catch (err) {
+        emit('toast', { kind: 'err', text: `Users load failed: ${err.message}` });
+      } finally { loading.value = false; }
+    }
+
+    onMounted(load);
+
+    let searchTimer = null;
+    function onSearch(e) {
+      search.value = e.target.value;
+      if (searchTimer) clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => { page.value = 0; load(); }, 300);
+    }
+
+    function fmtDate(s) { if (!s) return '—'; try { return new Date(s).toLocaleString(); } catch { return s; } }
+    const totalPages = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)));
+
+    return () => h('div', { style: 'display:flex;flex-direction:column;gap:12px' }, [
+      // Toolbar
+      h('div', { class: 'toolbar' }, [
+        h('input', { class: 'input grow', placeholder: 'Search by username or email…', value: search.value, onInput: onSearch }),
+        h('span', { class: 'count' }, `${total.value} users${loading.value ? ' · loading…' : ''}`),
+        h('button', { class: 'btn', onClick: load, disabled: loading.value }, 'Refresh'),
+      ]),
+
+      // Table
+      h('div', { class: 'keys-table-wrap' }, h('table', { class: 'keys' }, [
+        h('thead', null, h('tr', null, [
+          h('th', 'Username'),
+          h('th', 'Email'),
+          h('th', 'Linked Key'),
+          h('th', 'Last login'),
+          h('th', 'Registered'),
+        ])),
+        h('tbody', null, [
+          users.value.length === 0
+            ? h('tr', { class: 'empty-row' }, h('td', { colspan: 5 }, loading.value ? 'Loading…' : 'No users found.'))
+            : users.value.map((u) => h('tr', { key: u.id }, [
+                h('td', null, [h('div', { class: 'name' }, u.username), h('div', { class: 'id-mono' }, u.id)]),
+                h('td', null, u.email),
+                h('td', null, u.apiKeyId
+                  ? h('div', { class: 'id-mono' }, u.apiKeyId.slice(0, 8) + '…')
+                  : h('span', { style: 'color:var(--fg-dim)' }, 'none')),
+                h('td', null, fmtDate(u.lastLoginAt)),
+                h('td', null, fmtDate(u.createdAt)),
+              ])),
+        ]),
+      ])),
+
+      // Pagination
+      totalPages.value > 1
+        ? h('div', { style: 'display:flex;align-items:center;gap:8px;justify-content:center' }, [
+            h('button', { class: 'btn sm', disabled: page.value === 0, onClick: () => { page.value--; load(); } }, '\u2190 Prev'),
+            h('span', { style: 'font-size:12px;color:var(--fg-mu)' }, `Page ${page.value + 1} / ${totalPages.value}`),
+            h('button', { class: 'btn sm', disabled: page.value >= totalPages.value - 1, onClick: () => { page.value++; load(); } }, 'Next \u2192'),
+          ])
+        : null,
+    ]);
+  },
+};
+
+
+// ─────────────────────────────────────────────────────────────────────
+// Root app — tabs: Keys | Users | Audit Log
 // ─────────────────────────────────────────────────────────────────────
 const App = {
   name: 'AdminApp',
   setup() {
     const masterKey = ref(localStorage.getItem(LS_MASTER));
     const api = makeApi(() => masterKey.value);
-    const activeTab = ref('keys'); // 'keys' | 'audit'
+    const activeTab = ref('keys'); // 'keys' | 'users' | 'audit'
 
     const toasts = ref([]);
     let toastSeq = 0;
@@ -489,13 +579,16 @@ const App = {
         // Tab bar
         h('div', { class: 'toolbar', style: 'border-bottom:1px solid var(--b-1);padding-bottom:8px' }, [
           h('button', { class: `btn ${activeTab.value === 'keys' ? 'primary' : 'ghost'}`, onClick: () => (activeTab.value = 'keys') }, 'API Keys'),
+          h('button', { class: `btn ${activeTab.value === 'users' ? 'primary' : 'ghost'}`, onClick: () => (activeTab.value = 'users') }, 'Users'),
           h('button', { class: `btn ${activeTab.value === 'audit' ? 'primary' : 'ghost'}`, onClick: () => (activeTab.value = 'audit') }, 'Audit Log'),
         ]),
 
         // Tab content
         activeTab.value === 'keys'
           ? h(KeysTable, { api, key: masterKey.value, onToast: pushToast, onUnauth })
-          : h(AuditLogTab, { api, key: masterKey.value, onToast: pushToast }),
+          : activeTab.value === 'users'
+            ? h(UsersTab, { api, key: masterKey.value, onToast: pushToast })
+            : h(AuditLogTab, { api, key: masterKey.value, onToast: pushToast }),
 
         renderToasts(toasts.value),
       ]);

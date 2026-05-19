@@ -93,5 +93,29 @@ export function usersRepo(db: SupabaseClient) {
       const { error } = await db.from(TABLE).update({ api_key_id: apiKeyId }).eq('id', id);
       if (error) throw Internal(`users.setApiKeyId: ${error.message}`);
     },
+
+    async list(opts: { limit?: number; offset?: number; search?: string } = {}): Promise<{ users: PublicUser[]; total: number }> {
+      const limit = Math.min(opts.limit ?? 50, 200);
+      const offset = opts.offset ?? 0;
+
+      let query = db
+        .from(TABLE)
+        .select('*', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      if (opts.search) {
+        // ilike search on username or email
+        query = query.or(`username.ilike.%${opts.search}%,email.ilike.%${opts.search}%`);
+      }
+
+      const { data, error, count } = await query;
+      if (error) throw Internal(`users.list: ${error.message}`);
+      const users = (data ?? []).map((r) => {
+        const rec = toRecord(r as Row);
+        return rec ? this.publicView(rec) : null;
+      }).filter(Boolean) as PublicUser[];
+      return { users, total: count ?? 0 };
+    },
   };
 }

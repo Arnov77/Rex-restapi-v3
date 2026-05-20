@@ -1,8 +1,10 @@
 /**
  * Instagram downloader service.
  *
- * Strategy: use igram.world API (community maintained, no auth needed).
- * Fallback: direct oembed + page scrape for __additionalDataLoaded.
+ * Strategy chain (tries in order, stops on first success):
+ *   1. Instagram embed page scrape (no auth, works for public posts)
+ *   2. Instagram oEmbed API (limited but reliable for metadata)
+ *   3. Gramsnap API (community service)
  */
 
 export interface InstagramResult {
@@ -15,13 +17,16 @@ export interface InstagramResult {
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
 /**
- * Normalize Instagram URL — strip tracking params, ensure /p/ or /reel/ format.
+ * Normalize Instagram URL — strip tracking params.
  */
 function normalizeUrl(url: string): string {
-  const u = new URL(url);
-  // Remove tracking query params
-  u.search = '';
-  return u.toString();
+  try {
+    const u = new URL(url);
+    u.search = '';
+    return u.toString();
+  } catch {
+    return url;
+  }
 }
 
 /**
@@ -33,130 +38,207 @@ function extractShortcode(url: string): string | null {
 }
 
 /**
- * Primary method: use the public GraphQL embed endpoint.
- * Instagram embeds expose media data without authentication.
+ * Method 1: Instagram embed page scrape.
+ * Public posts expose media in their embed HTML.
  */
 async function fetchViaEmbed(url: string, signal?: AbortSignal): Promise<InstagramResult> {
   const shortcode = extractShortcode(url);
   if (!shortcode) throw new Error('Could not extract shortcode from URL');
 
-  // Try the public embed endpoint
   const embedUrl = `https://www.instagram.com/p/${shortcode}/embed/captioned/`;
-  const res = await fetch(embedUrl, {
-    headers: {
-      'User-Agent': UA,
-      'Accept': 'text/html,application/xhtml+xml',
-    },
-    signal,
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+  const mergedSignal = signal
+    ? AbortSignal.any([signal, controller.signal])
+    : controller.signal;
 
-  if (!res.ok) throw new Error(`Instagram embed returned ${res.status}`);
-  const html = await res.text();
+  try {
+    const res = await fetch(embedUrl, {
+      headers: {
+        'User-Agent': UA,
+        'Accept': 'text/html,application/xhtml+xml',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+      signal: mergedSignal,
+    });
 
-  const media: InstagramResult['media'] = [];
+    if (!res.ok) throw new Error(`Instagram embed returned ${res.status}`);
+    const html = await res.text();
 
-  // Extract video URLs from embed HTML
-  const videoMatches = html.matchAll(/\"video_url\":\"([^\"]+)\"/g);
-  for (const m of videoMatches) {
-    const videoUrl = m[1].replace(/\\u0026/g, '&').replace(/\\\//g, '/');
-    media.push({ type: 'video', url: videoUrl });
+    const media: InstagramResult['media'] = [];
+
+    // Extract video URLs
+    const videoMatches = html.matchAll(/"video_url":"([^"]+)"/g);
+    for (const m of videoMatches) {
+      const videoUrl = m[1].replace(/\\u0026/g, '&').replace(/\\\//g, '/');
+      if (videoUrl.startsWith('http')) media.push({ type: 'video', url: videoUrl });
+    }
+
+    // Extract image URLs (display_url)
+    const imageMatches = html.matchAll(/"display_url":"([^"]+)"/g);
+    for (const m of imageMatches) {
+      const imageUrl = m[1].replace(/\\u0026/g, '&').replace(/\\\//g, '/');
+      if (imageUrl.startsWith('http')) media.push({ type: 'image', url: imageUrl });
+    }
+
+    // Fallback: og:video / og:image meta tags
+    if (media.length === 0) {
+      const ogVideo = html.match(/property="og:video"\s+content="([^"]+)"/);
+      if (ogVideo) media.push({ type: 'video', url: ogVideo[1].replace(/&amp;/g, '&') });
+
+      const ogImage = html.match(/property="og:image"\s+content="([^"]+)"/);
+      if (ogImage && !ogVideo) media.push({ type: 'image', url: ogImage[1].replace(/&amp;/g, '&') });
+    }
+
+    // Extract username
+    const usernameMatch = html.match(/"username":"([^"]+)"/) ||
+                          html.match(/class="UsernameText"[^>]*>([^<]+)</);
+    const username = usernameMatch?.[1] || '';
+
+    // Extract caption
+    const captionMatch = html.match(/"caption":"([^"]{0,500})"/);
+    const caption = captionMatch?.[1]?.replace(/\\n/g, ' ').trim() || 'Instagram Post';
+
+    return {
+      title: caption.slice(0, 200),
+      author: { name: username, username },
+      thumbnail: media.find(m => m.type === 'image')?.url || null,
+      media,
+    };
+  } finally {
+    clearTimeout(timeout);
   }
-
-  // Extract image URLs (display_url) from embed
-  const imageMatches = html.matchAll(/\"display_url\":\"([^\"]+)\"/g);
-  for (const m of imageMatches) {
-    const imageUrl = m[1].replace(/\\u0026/g, '&').replace(/\\\//g, '/');
-    media.push({ type: 'image', url: imageUrl });
-  }
-
-  // If no structured data found, try og:video and og:image meta tags
-  if (media.length === 0) {
-    const ogVideo = html.match(/property="og:video"\s+content="([^"]+)"/);
-    if (ogVideo) media.push({ type: 'video', url: ogVideo[1] });
-
-    const ogImage = html.match(/property="og:image"\s+content="([^"]+)"/);
-    if (ogImage && !ogVideo) media.push({ type: 'image', url: ogImage[1] });
-  }
-
-  // Extract caption/title
-  const captionMatch = html.match(/<div class="Caption"[^>]*>.*?<div class="CaptionUsername"[^>]*>.*?<a[^>]*>([^<]+)<\/a>.*?<div class="CaptionComment"[^>]*>.*?<span>(.+?)<\/span>/s);
-  const username = captionMatch?.[1] || '';
-  const caption = captionMatch?.[2]?.replace(/<[^>]+>/g, '').trim() || 'Instagram Post';
-
-  // Alternative username extraction
-  const usernameAlt = html.match(/"username":"([^"]+)"/)?.[1] || username;
-
-  return {
-    title: caption.slice(0, 200),
-    author: { name: usernameAlt, username: usernameAlt },
-    thumbnail: media.find(m => m.type === 'image')?.url || null,
-    media,
-  };
 }
 
 /**
- * Fallback: use saveig-style API
+ * Method 2: Instagram oEmbed API.
+ * Returns thumbnail + basic metadata. No video direct link but
+ * gives us the thumbnail image at least.
  */
-async function fetchViaSaveig(url: string, signal?: AbortSignal): Promise<InstagramResult> {
-  const res = await fetch('https://v3.saveig.app/api/ajaxSearch', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'User-Agent': UA,
-      'Origin': 'https://saveig.app',
-      'Referer': 'https://saveig.app/',
-    },
-    body: `q=${encodeURIComponent(url)}&t=media&lang=en`,
-    signal,
-  });
+async function fetchViaOembed(url: string, signal?: AbortSignal): Promise<InstagramResult> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8_000);
+  const mergedSignal = signal
+    ? AbortSignal.any([signal, controller.signal])
+    : controller.signal;
 
-  if (!res.ok) throw new Error(`saveig returned ${res.status}`);
-  const json = await res.json();
+  try {
+    const oembedUrl = `https://www.instagram.com/oembed/?url=${encodeURIComponent(url)}`;
+    const res = await fetch(oembedUrl, {
+      headers: { 'User-Agent': UA },
+      signal: mergedSignal,
+    });
 
-  if (!json.data) throw new Error('saveig: no data');
+    if (!res.ok) throw new Error(`oEmbed returned ${res.status}`);
+    const data = await res.json();
 
-  const media: InstagramResult['media'] = [];
+    const media: InstagramResult['media'] = [];
 
-  // Parse HTML response for download links
-  const html: string = json.data;
-  const videoLinks = html.matchAll(/href="([^"]+)"[^>]*>.*?Download Video/gi);
-  for (const m of videoLinks) {
-    media.push({ type: 'video', url: m[1] });
-  }
-
-  const imageLinks = html.matchAll(/<a[^>]+href="([^"]+\.jpg[^"]*)"[^>]*>/gi);
-  for (const m of imageLinks) {
-    if (!m[1].includes('thumbnail')) {
-      media.push({ type: 'image', url: m[1] });
+    // oEmbed only gives us the thumbnail, but it's reliable
+    if (data.thumbnail_url) {
+      media.push({ type: 'image', url: data.thumbnail_url });
     }
-  }
 
-  return {
-    title: 'Instagram Post',
-    author: { name: '', username: '' },
-    thumbnail: media.find(m => m.type === 'image')?.url || null,
-    media,
-  };
+    const authorName = data.author_name || '';
+
+    return {
+      title: (data.title || 'Instagram Post').slice(0, 200),
+      author: { name: authorName, username: authorName },
+      thumbnail: data.thumbnail_url || null,
+      media,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/**
+ * Method 3: Use gramsnap.com API (community service, usually up).
+ */
+async function fetchViaGramsnap(url: string, signal?: AbortSignal): Promise<InstagramResult> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+  const mergedSignal = signal
+    ? AbortSignal.any([signal, controller.signal])
+    : controller.signal;
+
+  try {
+    const res = await fetch('https://api.gramsnap.com/media', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': UA,
+      },
+      body: JSON.stringify({ url }),
+      signal: mergedSignal,
+    });
+
+    if (!res.ok) throw new Error(`gramsnap returned ${res.status}`);
+    const json = await res.json();
+
+    const media: InstagramResult['media'] = [];
+
+    if (Array.isArray(json.media)) {
+      for (const item of json.media) {
+        if (item.url) {
+          media.push({
+            type: item.type === 'video' ? 'video' : 'image',
+            url: item.url,
+          });
+        }
+      }
+    } else if (json.url) {
+      media.push({
+        type: json.type === 'video' ? 'video' : 'image',
+        url: json.url,
+      });
+    }
+
+    return {
+      title: (json.caption || 'Instagram Post').slice(0, 200),
+      author: { name: json.username || '', username: json.username || '' },
+      thumbnail: json.thumbnail || media.find(m => m.type === 'image')?.url || null,
+      media,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 /**
  * Download Instagram post/reel media.
+ * Tries multiple methods with proper error isolation.
  */
 export async function downloadInstagram(url: string, signal?: AbortSignal): Promise<InstagramResult> {
   const normalized = normalizeUrl(url);
+  const errors: string[] = [];
 
-  // Try embed method first
+  // Method 1: Embed scrape
   try {
     const result = await fetchViaEmbed(normalized, signal);
     if (result.media.length > 0) return result;
-  } catch {
-    // fallback
+    errors.push('embed: no media found');
+  } catch (err: any) {
+    errors.push(`embed: ${err.message}`);
   }
 
-  // Fallback to saveig
+  // Method 2: Gramsnap
   try {
-    return await fetchViaSaveig(normalized, signal);
+    const result = await fetchViaGramsnap(normalized, signal);
+    if (result.media.length > 0) return result;
+    errors.push('gramsnap: no media found');
   } catch (err: any) {
-    throw new Error(`Instagram download failed: ${err.message}`);
+    errors.push(`gramsnap: ${err.message}`);
   }
+
+  // Method 3: oEmbed (at least get the image)
+  try {
+    const result = await fetchViaOembed(normalized, signal);
+    if (result.media.length > 0) return result;
+    errors.push('oembed: no media found');
+  } catch (err: any) {
+    errors.push(`oembed: ${err.message}`);
+  }
+
+  throw new Error(`Instagram download failed. Tried: ${errors.join('; ')}`);
 }

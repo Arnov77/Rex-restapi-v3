@@ -18,6 +18,9 @@ import quoteRoutes from './modules/quote/quote.routes.js';
 import meRoutes from './modules/me/me.routes.js';
 import auditLogRoutes from './modules/auditLog/auditLog.routes.js';
 import adminUsersRoutes from './modules/adminUsers/adminUsers.routes.js';
+import proxyRoutes from './modules/downloaders/_proxy/proxy.routes.js';
+import tiktokRoutes from './modules/downloaders/tiktok/tiktok.routes.js';
+import twitterRoutes from './modules/downloaders/twitter/twitter.routes.js';
 import { getBrowser, shutdown as shutdownBrowser } from './shared/browser/browserManager.js';
 
 export interface BuildOpts {
@@ -106,6 +109,9 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(meRoutes, { prefix: '/api/me' });
   await app.register(auditLogRoutes, { prefix: '/api/keys/audit-log' });
   await app.register(adminUsersRoutes, { prefix: '/api/admin/users' });
+  await app.register(proxyRoutes, { prefix: '/api/download/proxy' });
+  await app.register(tiktokRoutes, { prefix: '/api/download/tiktok' });
+  await app.register(twitterRoutes, { prefix: '/api/download/twitter' });
 
   // Static landing page. Registered AFTER all /api/* routes so the route
   // tree is checked first — every API path is more specific than the

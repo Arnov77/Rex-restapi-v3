@@ -72,6 +72,12 @@ const schema = z.object({
   // path other than the project root (e.g., a packaged container that
   // copies dist/ to `/app/dist` and public/ to `/app/public`).
   STATIC_DIR: z.string().optional(),
+
+  // Download proxy: TTL for signed proxy tokens (seconds). Default 1 hour.
+  DOWNLOAD_PROXY_TTL_SEC: z.coerce.number().int().min(60).default(3600),
+
+  // Download proxy: max bytes to stream. Default 100MB. Prevents abuse.
+  DOWNLOAD_MAX_BYTES: z.coerce.number().int().min(1024).default(104_857_600),
 });
 
 export type Env = z.infer<typeof schema>;

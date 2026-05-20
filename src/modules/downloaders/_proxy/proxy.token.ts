@@ -8,6 +8,7 @@
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { loadEnv } from '../../../config/env.js';
+import { put } from './short-store.js';
 
 export interface ProxyPayload {
   /** Source URL to stream from */
@@ -74,7 +75,7 @@ export function verifyProxyToken(token: string): ProxyPayload | null {
 }
 
 /**
- * Helper: create a proxy URL for the given source URL.
+ * Helper: create a long proxy URL for the given source URL.
  * TTL defaults to DOWNLOAD_PROXY_TTL_SEC env (default 3600 = 1 hour).
  */
 export function proxyUrl(
@@ -91,4 +92,26 @@ export function proxyUrl(
     contentType: opts?.contentType,
   });
   return `${baseUrl}/api/download/proxy?t=${token}`;
+}
+
+/**
+ * Helper: create a SHORT proxy URL for the given source URL.
+ * Returns a compact `/p/<8-char-id>` path instead of the long token query.
+ * TTL defaults to DOWNLOAD_PROXY_TTL_SEC env (default 3600 = 1 hour).
+ */
+export function shortProxyUrl(
+  baseUrl: string,
+  sourceUrl: string,
+  opts?: { filename?: string; contentType?: string; ttlSec?: number },
+): string {
+  const env = loadEnv();
+  const ttlSec = opts?.ttlSec ?? env.DOWNLOAD_PROXY_TTL_SEC;
+  const token = createProxyToken({
+    url: sourceUrl,
+    exp: Math.floor(Date.now() / 1000) + ttlSec,
+    filename: opts?.filename,
+    contentType: opts?.contentType,
+  });
+  const id = put(token, ttlSec * 1000);
+  return `${baseUrl}/p/${id}`;
 }

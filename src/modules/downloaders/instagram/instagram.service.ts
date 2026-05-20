@@ -40,8 +40,9 @@ function extractShortcode(url: string): string | null {
 }
 
 /**
- * Method 1: cobalt.tools API.
- * Works from any IP — cobalt handles Instagram's anti-bot internally.
+ * Method 1: cobalt.tools API (v10+).
+ * The public instance requires Accept: application/json and POST to /
+ * See: https://github.com/imputnet/cobalt/blob/main/docs/api.md
  */
 async function fetchViaCobalt(url: string, signal?: AbortSignal): Promise<InstagramResult> {
   const controller = new AbortController();
@@ -51,7 +52,7 @@ async function fetchViaCobalt(url: string, signal?: AbortSignal): Promise<Instag
     : controller.signal;
 
   try {
-    const res = await fetch('https://api.cobalt.tools/api/json', {
+    const res = await fetch('https://api.cobalt.tools/', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -59,7 +60,8 @@ async function fetchViaCobalt(url: string, signal?: AbortSignal): Promise<Instag
       },
       body: JSON.stringify({
         url,
-        filenamePattern: 'basic',
+        videoQuality: '720',
+        filenameStyle: 'basic',
       }),
       signal: mergedSignal,
     });

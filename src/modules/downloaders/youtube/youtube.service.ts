@@ -49,7 +49,7 @@ function extractVideoId(url: string): string | null {
  * Returns direct download links for video + audio.
  */
 async function fetchViaCobalt(url: string, signal?: AbortSignal): Promise<YoutubeResult> {
-  const res = await fetch('https://api.cobalt.tools/api/json', {
+  const res = await fetch('https://api.cobalt.tools/', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -57,8 +57,8 @@ async function fetchViaCobalt(url: string, signal?: AbortSignal): Promise<Youtub
     },
     body: JSON.stringify({
       url,
-      vQuality: '720',
-      filenamePattern: 'basic',
+      videoQuality: '720',
+      filenameStyle: 'basic',
       isAudioOnly: false,
     }),
     signal,
@@ -93,7 +93,7 @@ async function fetchViaCobalt(url: string, signal?: AbortSignal): Promise<Youtub
 
   // Also try to get audio-only
   try {
-    const audioRes = await fetch('https://api.cobalt.tools/api/json', {
+    const audioRes = await fetch('https://api.cobalt.tools/', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -102,7 +102,7 @@ async function fetchViaCobalt(url: string, signal?: AbortSignal): Promise<Youtub
       body: JSON.stringify({
         url,
         isAudioOnly: true,
-        aFormat: 'mp3',
+        audioFormat: 'mp3',
       }),
       signal,
     });

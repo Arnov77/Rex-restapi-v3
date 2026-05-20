@@ -9,7 +9,9 @@
  *   1. If env `MASTER_API_KEY_BOOTSTRAP` is unset → nothing to do (idempotent).
  *   2. If at least one non-revoked master key already exists → nothing to do
  *      (don't accidentally mint a second one on every restart).
- *   3. Otherwise create one master key whose plaintext IS the env value, so
+ *   3. Check if the hash for this specific plaintext already exists (even if
+ *      revoked) — prevents unique constraint crash on restart after revoke.
+ *   4. Otherwise create one master key whose plaintext IS the env value, so
  *      operators know exactly what to put in their `X-API-Key` header.
  *
  * Called from server.ts (NOT buildApp) — keeping it out of buildApp() means
@@ -19,6 +21,7 @@
 
 import type { FastifyInstance } from 'fastify';
 import { apiKeysService } from './modules/apiKeys/apiKeys.service.js';
+import { hashApiKey } from './modules/apiKeys/apiKeys.crypto.js';
 import type { Env } from './config/env.js';
 
 export interface BootstrapResult {
@@ -35,6 +38,8 @@ export async function ensureMasterKeyBootstrap(
   }
 
   const svc = apiKeysService(app.supabase);
+
+  // 1. If at least one active (non-revoked) master key exists, nothing to do.
   const existing = await svc.repo.listMasters();
   if (existing.length > 0) {
     app.log.info(
@@ -42,6 +47,28 @@ export async function ensureMasterKeyBootstrap(
       'master API key already exists — bootstrap skipped (safe to remove MASTER_API_KEY_BOOTSTRAP)',
     );
     return { status: 'already-exists', keyId: existing[0]!.id };
+  }
+
+  // 2. Even if all master keys are revoked, check whether the hash for this
+  //    specific bootstrap plaintext already lives in the DB. This handles the
+  //    scenario where an operator revokes a bootstrap-master via /admin and
+  //    then restarts the server — without this guard we'd hit a unique
+  //    constraint violation on `key_hash`.
+  const hash = hashApiKey(env.MASTER_API_KEY_BOOTSTRAP);
+  const byHash = await svc.repo.findByHash(hash);
+  if (byHash) {
+    if (byHash.revoked) {
+      app.log.warn(
+        { keyId: byHash.id },
+        'BOOTSTRAP: the bootstrap master key exists but is revoked — remove MASTER_API_KEY_BOOTSTRAP and set a new one to provision a fresh master key',
+      );
+    } else {
+      app.log.info(
+        { keyId: byHash.id },
+        'master API key already exists — bootstrap skipped',
+      );
+    }
+    return { status: 'already-exists', keyId: byHash.id };
   }
 
   const created = await svc.create({

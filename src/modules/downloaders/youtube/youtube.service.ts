@@ -59,45 +59,59 @@ function parseCobaltFilename(filename?: string): { title: string; author: string
 
 /**
  * Primary method: cobalt API.
- * Makes separate requests for video and audio to give users both options.
+ * Makes parallel requests for multiple video qualities + audio.
  */
 async function fetchViaCobalt(url: string, signal?: AbortSignal): Promise<YoutubeResult> {
   const env = loadEnv();
   const media: YoutubeResult['media'] = [];
   let filename: string | undefined;
 
-  // Request video (720p)
-  try {
-    const res = await fetch(env.COBALT_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ url, videoQuality: '720' }),
-      signal,
-    });
-    if (res.ok) {
-      const json = await res.json();
-      if ((json.status === 'tunnel' || json.status === 'redirect' || json.status === 'stream') && json.url) {
-        media.push({ type: 'video', url: json.url, quality: '720p' });
-        filename = json.filename;
-      }
-    }
-  } catch { /* best-effort */ }
+  const qualities = ['1080', '720', '480', '360'];
 
-  // Request audio (mp3)
-  try {
-    const res = await fetch(env.COBALT_API_URL, {
+  // Request all video qualities + audio in parallel
+  const requests = [
+    ...qualities.map(q =>
+      fetch(env.COBALT_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ url, videoQuality: q }),
+        signal,
+      }).then(async res => {
+        if (!res.ok) return null;
+        const json = await res.json();
+        if ((json.status === 'tunnel' || json.status === 'redirect' || json.status === 'stream') && json.url) {
+          if (!filename) filename = json.filename;
+          return { type: 'video' as const, url: json.url, quality: `${q}p` };
+        }
+        return null;
+      }).catch(() => null)
+    ),
+    // Audio request
+    fetch(env.COBALT_API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ url, downloadMode: 'audio', audioFormat: 'mp3' }),
       signal,
-    });
-    if (res.ok) {
+    }).then(async res => {
+      if (!res.ok) return null;
       const json = await res.json();
       if ((json.status === 'tunnel' || json.status === 'redirect' || json.status === 'stream') && json.url) {
-        media.push({ type: 'audio', url: json.url, quality: 'mp3' });
+        return { type: 'audio' as const, url: json.url, quality: 'mp3' };
       }
+      return null;
+    }).catch(() => null),
+  ];
+
+  const results = await Promise.all(requests);
+
+  // Deduplicate — cobalt may return same URL for different quality requests
+  const seen = new Set<string>();
+  for (const r of results) {
+    if (r && !seen.has(r.url)) {
+      seen.add(r.url);
+      media.push(r);
     }
-  } catch { /* best-effort */ }
+  }
 
   const { title, author } = parseCobaltFilename(filename);
 

@@ -1,13 +1,16 @@
 /**
  * YouTube downloader service.
  *
- * Strategy: use cobalt.tools API (community maintained, open source,
- * very reliable as of 2025). No auth needed, supports video + audio.
+ * Strategy: use cobalt API (self-hosted or public instance).
+ * Supports video + audio extraction.
  *
  * Fallback: invidious instances (public YouTube API proxies).
  *
- * cobalt API docs: https://github.com/imputnet/cobalt
+ * Self-host cobalt: docker run -d -p 9000:9000 ghcr.io/imputnet/cobalt:latest
+ * Then set COBALT_API_URL=http://localhost:9000/
  */
+
+import { loadEnv } from '../../../config/env.js';
 
 export interface YoutubeResult {
   title: string;
@@ -49,7 +52,8 @@ function extractVideoId(url: string): string | null {
  * Returns direct download links for video + audio.
  */
 async function fetchViaCobalt(url: string, signal?: AbortSignal): Promise<YoutubeResult> {
-  const res = await fetch('https://api.cobalt.tools/', {
+  const env = loadEnv();
+  const res = await fetch(env.COBALT_API_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -93,7 +97,7 @@ async function fetchViaCobalt(url: string, signal?: AbortSignal): Promise<Youtub
 
   // Also try to get audio-only
   try {
-    const audioRes = await fetch('https://api.cobalt.tools/', {
+    const audioRes = await fetch(env.COBALT_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

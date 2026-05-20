@@ -3,10 +3,12 @@
  *
  * Instagram aggressively blocks datacenter IPs from their API/embeds.
  * Strategy chain:
- *   1. cobalt.tools API — proxied service that handles IG's anti-bot
+ *   1. cobalt API (self-hosted or public) — handles IG's anti-bot
  *   2. Instagram embed page scrape (works if IP isn't blocked)
  *   3. Instagram GraphQL (rarely works from VPS IPs)
  */
+
+import { loadEnv } from '../../../config/env.js';
 
 export interface InstagramResult {
   title: string;
@@ -52,7 +54,8 @@ async function fetchViaCobalt(url: string, signal?: AbortSignal): Promise<Instag
     : controller.signal;
 
   try {
-    const res = await fetch('https://api.cobalt.tools/', {
+    const env = loadEnv();
+    const res = await fetch(env.COBALT_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

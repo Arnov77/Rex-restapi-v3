@@ -84,8 +84,8 @@ async function fetchViaCobalt(url: string, signal?: AbortSignal): Promise<Instag
 
     const media: InstagramResult['media'] = [];
 
-    if (json.status === 'stream' || json.status === 'redirect') {
-      // Single media item
+    if (json.status === 'stream' || json.status === 'redirect' || json.status === 'tunnel') {
+      // Single media item (stream/redirect = direct URL, tunnel = cobalt proxy URL)
       if (json.url) {
         // Detect type from URL or default to video for reels
         const isVideo = /\.mp4|video/i.test(json.url) || url.includes('/reel');

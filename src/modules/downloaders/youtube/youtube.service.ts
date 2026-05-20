@@ -77,8 +77,8 @@ async function fetchViaCobalt(url: string, signal?: AbortSignal): Promise<Youtub
 
   const media: YoutubeResult['media'] = [];
 
-  if (json.status === 'stream' || json.status === 'redirect') {
-    // Single URL returned (video with audio muxed)
+  if (json.status === 'stream' || json.status === 'redirect' || json.status === 'tunnel') {
+    // Single URL returned (video with audio muxed, or tunnel URL)
     if (json.url) {
       media.push({ type: 'video', url: json.url, quality: '720p' });
     }
@@ -113,7 +113,7 @@ async function fetchViaCobalt(url: string, signal?: AbortSignal): Promise<Youtub
 
     if (audioRes.ok) {
       const audioJson = await audioRes.json();
-      if ((audioJson.status === 'stream' || audioJson.status === 'redirect') && audioJson.url) {
+      if ((audioJson.status === 'stream' || audioJson.status === 'redirect' || audioJson.status === 'tunnel') && audioJson.url) {
         media.push({ type: 'audio', url: audioJson.url, quality: 'mp3' });
       }
     }

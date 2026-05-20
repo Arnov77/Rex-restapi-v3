@@ -1,15 +1,13 @@
 /**
  * Facebook downloader service.
  *
- * Strategy: use fdown.net / fbdownloader pattern — POST the URL to a
- * scraping service that returns direct video links. These services work
- * by emulating a mobile user-agent fetch of the Facebook page which
- * exposes video source URLs in the HTML.
- *
- * Fallback chain:
- *   1. Direct page scrape (mobile UA) — parse video_url from page HTML
- *   2. fbvid.watch API
+ * Strategy chain:
+ *   1. cobalt API (self-hosted) — most reliable, handles FB's anti-bot
+ *   2. Direct page scrape (mobile UA) — parse video_url from page HTML
+ *   3. Desktop page scrape fallback
  */
+
+import { loadEnv } from '../../../config/env.js';
 
 export interface FacebookResult {
   title: string;
@@ -188,22 +186,71 @@ async function fetchViaDesktopScrape(url: string, signal?: AbortSignal): Promise
  */
 export async function downloadFacebook(url: string, signal?: AbortSignal): Promise<FacebookResult> {
   const normalized = await normalizeUrl(url, signal);
+  const errors: string[] = [];
 
-  // Try mobile scrape first (most reliable)
+  // Method 1: Cobalt (most reliable)
+  try {
+    const env = loadEnv();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15_000);
+    const mergedSignal = signal
+      ? AbortSignal.any([signal, controller.signal])
+      : controller.signal;
+
+    try {
+      const res = await fetch(env.COBALT_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ url: normalized, videoQuality: '720', filenameStyle: 'basic' }),
+        signal: mergedSignal,
+      });
+
+      if (!res.ok) throw new Error(`cobalt returned ${res.status}`);
+      const json = await res.json();
+      if (json.status === 'error') throw new Error(json.text || 'cobalt failed');
+
+      const media: FacebookResult['media'] = [];
+      if (json.status === 'stream' || json.status === 'redirect' || json.status === 'tunnel') {
+        if (json.url) media.push({ type: 'video', url: json.url, quality: 'hd' });
+      } else if (json.status === 'picker') {
+        for (const item of json.picker || []) {
+          if (item.url) {
+            const isVideo = item.type === 'video' || /\.mp4|video/i.test(item.url);
+            media.push({ type: isVideo ? 'video' : 'image', url: item.url });
+          }
+        }
+      }
+      if (media.length > 0) {
+        return { title: json.filename || 'Facebook Post', author: { name: '', username: '' }, thumbnail: null, duration: null, media };
+      }
+      errors.push('cobalt: no media returned');
+    } finally {
+      clearTimeout(timeout);
+    }
+  } catch (err: any) {
+    errors.push(`cobalt: ${err.message}`);
+  }
+
+  // Method 2: Mobile scrape
   try {
     const result = await fetchViaMobileScrape(normalized, signal);
     if (result.media.length > 0) return result;
-  } catch {
-    // fallback
+    errors.push('mobile: no media found');
+  } catch (err: any) {
+    errors.push(`mobile: ${err.message}`);
   }
 
-  // Fallback to desktop scrape
+  // Method 3: Desktop scrape
   try {
     const result = await fetchViaDesktopScrape(normalized, signal);
     if (result.media.length > 0) return result;
+    errors.push('desktop: no media found');
   } catch (err: any) {
-    throw new Error(`Facebook download failed: ${err.message}`);
+    errors.push(`desktop: ${err.message}`);
   }
 
-  throw new Error('Facebook download failed: no media found');
+  throw new Error(`Facebook download failed. Tried: ${errors.join('; ')}`);
 }

@@ -1,7 +1,7 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { TiktokQuery, TiktokResponse } from './tiktok.schemas.js';
 import { downloadTiktok } from './tiktok.service.js';
-import { proxyUrl } from '../_proxy/proxy.token.js';
+import { shortProxyUrl } from '../_proxy/proxy.token.js';
 
 const tiktokRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get(
@@ -21,7 +21,7 @@ const tiktokRoutes: FastifyPluginAsyncZod = async (app) => {
       // Proxy all media through our domain.
       // tikwm blocks /video/music/ server-side, so audio uses
       // d.music_info.play (CDN direct URL) which IS proxyable.
-      const base = `${req.protocol}://${req.hostname}`;
+      const base = `${req.protocol}://${req.host}`;
       const media = result.media.map((m) => {
         // Skip proxy ONLY for tikwm /video/music/ paths (they 403)
         if (m.url.includes('tikwm.com/video/music/')) {
@@ -31,7 +31,7 @@ const tiktokRoutes: FastifyPluginAsyncZod = async (app) => {
         const ct = m.type === 'video' ? 'video/mp4' : m.type === 'audio' ? 'audio/mpeg' : 'image/jpeg';
         return {
           ...m,
-          url: proxyUrl(base, m.url, {
+          url: shortProxyUrl(base, m.url, {
             filename: `tiktok.${ext}`,
             contentType: ct,
           }),

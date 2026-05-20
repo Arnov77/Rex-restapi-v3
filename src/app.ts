@@ -25,6 +25,9 @@ import twitterRoutes from './modules/downloaders/twitter/twitter.routes.js';
 import instagramRoutes from './modules/downloaders/instagram/instagram.routes.js';
 import facebookRoutes from './modules/downloaders/facebook/facebook.routes.js';
 import youtubeRoutes from './modules/downloaders/youtube/youtube.routes.js';
+import ytmp3Routes from './modules/downloaders/youtube/ytmp3.routes.js';
+import ttmp3Routes from './modules/downloaders/tiktok/ttmp3.routes.js';
+import igmp3Routes from './modules/downloaders/instagram/igmp3.routes.js';
 import { getBrowser, shutdown as shutdownBrowser } from './shared/browser/browserManager.js';
 
 export interface BuildOpts {
@@ -120,6 +123,9 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(instagramRoutes, { prefix: '/api/download/instagram' });
   await app.register(facebookRoutes, { prefix: '/api/download/facebook' });
   await app.register(youtubeRoutes, { prefix: '/api/download/youtube' });
+  await app.register(ytmp3Routes, { prefix: '/api/download/ytmp3' });
+  await app.register(ttmp3Routes, { prefix: '/api/download/ttmp3' });
+  await app.register(igmp3Routes, { prefix: '/api/download/igmp3' });
 
   // Static landing page. Registered AFTER all /api/* routes so the route
   // tree is checked first — every API path is more specific than the

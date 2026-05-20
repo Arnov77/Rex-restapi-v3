@@ -24,23 +24,18 @@ export interface YoutubeResult {
  * Extract video ID from various YouTube URL formats.
  */
 function extractVideoId(url: string): string | null {
-  // Standard: youtube.com/watch?v=ID
   const watchMatch = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
   if (watchMatch) return watchMatch[1];
 
-  // Shortened: youtu.be/ID
   const shortMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
   if (shortMatch) return shortMatch[1];
 
-  // Embed: youtube.com/embed/ID
   const embedMatch = url.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/);
   if (embedMatch) return embedMatch[1];
 
-  // Shorts: youtube.com/shorts/ID
   const shortsMatch = url.match(/youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/);
   if (shortsMatch) return shortsMatch[1];
 
-  // Live: youtube.com/live/ID
   const liveMatch = url.match(/youtube\.com\/live\/([a-zA-Z0-9_-]{11})/);
   if (liveMatch) return liveMatch[1];
 
@@ -48,73 +43,67 @@ function extractVideoId(url: string): string | null {
 }
 
 /**
- * Primary method: cobalt.tools API.
- * Returns direct download links for video + audio.
+ * Extract title from cobalt's filename response.
+ * Format: "Title - Author (quality, codec).ext"
+ */
+function parseCobaltFilename(filename?: string): { title: string; author: string } {
+  if (!filename) return { title: 'YouTube Video', author: '' };
+  // Remove extension and quality suffix
+  const base = filename.replace(/\.\w+$/, '').replace(/\s*\([^)]+\)\s*$/, '');
+  const parts = base.split(' - ');
+  if (parts.length >= 2) {
+    return { title: parts.slice(0, -1).join(' - '), author: parts[parts.length - 1] };
+  }
+  return { title: base, author: '' };
+}
+
+/**
+ * Primary method: cobalt API.
+ * Makes separate requests for video and audio to give users both options.
  */
 async function fetchViaCobalt(url: string, signal?: AbortSignal): Promise<YoutubeResult> {
   const env = loadEnv();
-  const res = await fetch(env.COBALT_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
-    body: JSON.stringify({ url }),
-    signal,
-  });
-
-  if (!res.ok) throw new Error(`cobalt returned ${res.status}`);
-  const json = await res.json();
-
-  if (json.status === 'error') {
-    throw new Error(json.text || 'cobalt: download failed');
-  }
-
   const media: YoutubeResult['media'] = [];
+  let filename: string | undefined;
 
-  if (json.status === 'stream' || json.status === 'redirect' || json.status === 'tunnel') {
-    // Single URL returned (video with audio muxed, or tunnel URL)
-    if (json.url) {
-      media.push({ type: 'video', url: json.url, quality: '720p' });
-    }
-  } else if (json.status === 'picker') {
-    // Multiple options
-    for (const item of json.picker || []) {
-      if (item.url) {
-        media.push({
-          type: item.type === 'audio' ? 'audio' : 'video',
-          url: item.url,
-          quality: item.quality || undefined,
-        });
-      }
-    }
-  }
-
-  // Also try to get audio-only
+  // Request video (720p)
   try {
-    const audioRes = await fetch(env.COBALT_API_URL, {
+    const res = await fetch(env.COBALT_API_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: JSON.stringify({ url, isAudioOnly: true }),
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ url, videoQuality: '720' }),
       signal,
     });
-
-    if (audioRes.ok) {
-      const audioJson = await audioRes.json();
-      if ((audioJson.status === 'stream' || audioJson.status === 'redirect' || audioJson.status === 'tunnel') && audioJson.url) {
-        media.push({ type: 'audio', url: audioJson.url, quality: 'mp3' });
+    if (res.ok) {
+      const json = await res.json();
+      if ((json.status === 'tunnel' || json.status === 'redirect' || json.status === 'stream') && json.url) {
+        media.push({ type: 'video', url: json.url, quality: '720p' });
+        filename = json.filename;
       }
     }
-  } catch {
-    // audio extraction is best-effort
-  }
+  } catch { /* best-effort */ }
+
+  // Request audio (mp3)
+  try {
+    const res = await fetch(env.COBALT_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ url, downloadMode: 'audio', audioFormat: 'mp3' }),
+      signal,
+    });
+    if (res.ok) {
+      const json = await res.json();
+      if ((json.status === 'tunnel' || json.status === 'redirect' || json.status === 'stream') && json.url) {
+        media.push({ type: 'audio', url: json.url, quality: 'mp3' });
+      }
+    }
+  } catch { /* best-effort */ }
+
+  const { title, author } = parseCobaltFilename(filename);
 
   return {
-    title: 'YouTube Video',
-    author: { name: '', username: '' },
+    title,
+    author: { name: author, username: '' },
     thumbnail: null,
     duration: null,
     media,
@@ -123,7 +112,6 @@ async function fetchViaCobalt(url: string, signal?: AbortSignal): Promise<Youtub
 
 /**
  * Fallback: use Invidious API to get video info + stream URLs.
- * Multiple public instances available.
  */
 async function fetchViaInvidious(videoId: string, signal?: AbortSignal): Promise<YoutubeResult> {
   const instances = [
@@ -147,9 +135,7 @@ async function fetchViaInvidious(videoId: string, signal?: AbortSignal): Promise
 
       const media: YoutubeResult['media'] = [];
 
-      // Get adaptive formats (separate video/audio streams)
       if (data.adaptiveFormats?.length) {
-        // Best video (prefer 720p or below to keep size reasonable)
         const videos = data.adaptiveFormats
           .filter((f: any) => f.type?.startsWith('video/') && f.url)
           .sort((a: any, b: any) => {
@@ -158,7 +144,6 @@ async function fetchViaInvidious(videoId: string, signal?: AbortSignal): Promise
             return bH - aH;
           });
 
-        // Pick best ≤720p, or fallback to lowest available
         const target = videos.find((v: any) => {
           const h = parseInt(v.resolution?.replace('p', '') || '9999');
           return h <= 720;
@@ -168,14 +153,12 @@ async function fetchViaInvidious(videoId: string, signal?: AbortSignal): Promise
           media.push({ type: 'video', url: target.url, quality: target.resolution || target.qualityLabel });
         }
 
-        // Best audio
         const audio = data.adaptiveFormats.find((f: any) => f.type?.startsWith('audio/') && f.url);
         if (audio) {
           media.push({ type: 'audio', url: audio.url, quality: audio.bitrate ? `${Math.round(audio.bitrate / 1000)}kbps` : undefined });
         }
       }
 
-      // Fallback to formatStreams (muxed video+audio)
       if (media.length === 0 && data.formatStreams?.length) {
         const best = data.formatStreams[data.formatStreams.length - 1];
         if (best?.url) {
@@ -209,29 +192,15 @@ async function fetchViaInvidious(videoId: string, signal?: AbortSignal): Promise
 export async function downloadYoutube(url: string, signal?: AbortSignal): Promise<YoutubeResult> {
   const videoId = extractVideoId(url);
 
-  // Try cobalt first (best quality, most reliable)
+  // Try cobalt first
   try {
     const result = await fetchViaCobalt(url, signal);
-    if (result.media.length > 0) {
-      // Enrich with metadata from Invidious if cobalt returned empty metadata
-      if (videoId && result.title === 'YouTube Video') {
-        try {
-          const meta = await fetchViaInvidious(videoId, signal);
-          result.title = meta.title;
-          result.author = meta.author;
-          result.thumbnail = meta.thumbnail;
-          result.duration = meta.duration;
-        } catch {
-          // metadata enrichment is best-effort
-        }
-      }
-      return result;
-    }
+    if (result.media.length > 0) return result;
   } catch {
     // fallback
   }
 
-  // Fallback to Invidious (has both metadata and stream URLs)
+  // Fallback to Invidious
   if (!videoId) throw new Error('Could not extract video ID from URL');
 
   try {

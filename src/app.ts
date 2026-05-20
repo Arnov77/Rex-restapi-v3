@@ -22,6 +22,9 @@ import proxyRoutes from './modules/downloaders/_proxy/proxy.routes.js';
 import shortRoutes from './modules/downloaders/_proxy/short.routes.js';
 import tiktokRoutes from './modules/downloaders/tiktok/tiktok.routes.js';
 import twitterRoutes from './modules/downloaders/twitter/twitter.routes.js';
+import instagramRoutes from './modules/downloaders/instagram/instagram.routes.js';
+import facebookRoutes from './modules/downloaders/facebook/facebook.routes.js';
+import youtubeRoutes from './modules/downloaders/youtube/youtube.routes.js';
 import { getBrowser, shutdown as shutdownBrowser } from './shared/browser/browserManager.js';
 
 export interface BuildOpts {
@@ -114,6 +117,9 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(shortRoutes, { prefix: '/p' });
   await app.register(tiktokRoutes, { prefix: '/api/download/tiktok' });
   await app.register(twitterRoutes, { prefix: '/api/download/twitter' });
+  await app.register(instagramRoutes, { prefix: '/api/download/instagram' });
+  await app.register(facebookRoutes, { prefix: '/api/download/facebook' });
+  await app.register(youtubeRoutes, { prefix: '/api/download/youtube' });
 
   // Static landing page. Registered AFTER all /api/* routes so the route
   // tree is checked first — every API path is more specific than the

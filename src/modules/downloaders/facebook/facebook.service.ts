@@ -204,7 +204,7 @@ export async function downloadFacebook(url: string, signal?: AbortSignal): Promi
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: JSON.stringify({ url: normalized, videoQuality: '720', filenameStyle: 'basic' }),
+        body: JSON.stringify({ url: normalized }),
         signal: mergedSignal,
       });
 

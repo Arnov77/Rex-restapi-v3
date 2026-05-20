@@ -59,12 +59,7 @@ async function fetchViaCobalt(url: string, signal?: AbortSignal): Promise<Youtub
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     },
-    body: JSON.stringify({
-      url,
-      videoQuality: '720',
-      filenameStyle: 'basic',
-      isAudioOnly: false,
-    }),
+    body: JSON.stringify({ url }),
     signal,
   });
 
@@ -103,11 +98,7 @@ async function fetchViaCobalt(url: string, signal?: AbortSignal): Promise<Youtub
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      body: JSON.stringify({
-        url,
-        isAudioOnly: true,
-        audioFormat: 'mp3',
-      }),
+      body: JSON.stringify({ url, isAudioOnly: true }),
       signal,
     });
 

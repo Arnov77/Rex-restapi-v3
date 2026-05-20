@@ -61,11 +61,7 @@ async function fetchViaCobalt(url: string, signal?: AbortSignal): Promise<Instag
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      body: JSON.stringify({
-        url,
-        videoQuality: '720',
-        filenameStyle: 'basic',
-      }),
+      body: JSON.stringify({ url }),
       signal: mergedSignal,
     });
 

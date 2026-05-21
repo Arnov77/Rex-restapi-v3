@@ -72,7 +72,7 @@ async function fetchViaCobalt(url: string, signal?: AbortSignal): Promise<Instag
       throw new Error('cobalt returned non-JSON response');
     }
 
-    const json = await res.json();
+    const json = (await res.json()) as any;
 
     if (json.status === 'error') {
       throw new Error(json.text || 'cobalt: download failed');
@@ -140,24 +140,24 @@ async function fetchViaEmbed(shortcode: string, signal?: AbortSignal): Promise<I
     // Extract video URLs
     const videoMatches = html.matchAll(/"video_url":"([^"]+)"/g);
     for (const m of videoMatches) {
-      const videoUrl = m[1].replace(/\\u0026/g, '&').replace(/\\\//g, '/');
+      const videoUrl = m[1]!.replace(/\\u0026/g, '&').replace(/\\\//g, '/');
       if (videoUrl.startsWith('http')) media.push({ type: 'video', url: videoUrl });
     }
 
     // Extract image URLs
     const imageMatches = html.matchAll(/"display_url":"([^"]+)"/g);
     for (const m of imageMatches) {
-      const imageUrl = m[1].replace(/\\u0026/g, '&').replace(/\\\//g, '/');
+      const imageUrl = m[1]!.replace(/\\u0026/g, '&').replace(/\\\//g, '/');
       if (imageUrl.startsWith('http')) media.push({ type: 'image', url: imageUrl });
     }
 
     // Fallback: og tags
     if (media.length === 0) {
       const ogVideo = html.match(/property="og:video"\s+content="([^"]+)"/);
-      if (ogVideo) media.push({ type: 'video', url: ogVideo[1].replace(/&amp;/g, '&') });
+      if (ogVideo) media.push({ type: 'video', url: ogVideo[1]!.replace(/&amp;/g, '&') });
 
       const ogImage = html.match(/property="og:image"\s+content="([^"]+)"/);
-      if (ogImage && !ogVideo) media.push({ type: 'image', url: ogImage[1].replace(/&amp;/g, '&') });
+      if (ogImage && !ogVideo) media.push({ type: 'image', url: ogImage[1]!.replace(/&amp;/g, '&') });
     }
 
     const usernameMatch = html.match(/"username":"([^"]+)"/);
@@ -205,7 +205,7 @@ async function fetchViaGraphQL(shortcode: string, signal?: AbortSignal): Promise
       throw new Error('GraphQL returned HTML (login wall)');
     }
 
-    const json = await res.json();
+    const json = (await res.json()) as any;
     const item = json?.data?.shortcode_media;
     if (!item) throw new Error('no shortcode_media in response');
 

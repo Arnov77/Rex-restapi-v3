@@ -38,7 +38,7 @@ async function fetchViaFxtwitter(tweetId: string, signal?: AbortSignal): Promise
   });
 
   if (!res.ok) throw new Error(`fxtwitter returned ${res.status}`);
-  const json = await res.json();
+  const json = (await res.json()) as any;
 
   if (!json.tweet) throw new Error('fxtwitter: no tweet data');
   const tweet = json.tweet;
@@ -104,7 +104,7 @@ async function fetchViaVxtwitter(tweetId: string, signal?: AbortSignal): Promise
   });
 
   if (!res.ok) throw new Error(`vxtwitter returned ${res.status}`);
-  const json = await res.json();
+  const json = (await res.json()) as any;
 
   const media: TwitterResult['media'] = [];
 

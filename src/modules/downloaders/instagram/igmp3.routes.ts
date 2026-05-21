@@ -37,7 +37,7 @@ const igmp3Routes: FastifyPluginAsyncZod = async (app) => {
       const res = await fetch(env.COBALT_API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ url: req.query.url, downloadMode: 'audio', audioFormat: 'mp3' }),
+        body: JSON.stringify({ url: req.query.url }),
       });
 
       if (!res.ok) throw new Error(`cobalt returned ${res.status}`);

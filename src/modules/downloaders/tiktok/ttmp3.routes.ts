@@ -56,7 +56,7 @@ const ttmp3Routes: FastifyPluginAsyncZod = async (app) => {
         req.log.warn({ status: res.status, body: body.slice(0, 500) }, 'cobalt non-2xx');
         throw new Error(`cobalt returned ${res.status}${body ? `: ${body.slice(0, 200)}` : ''}`);
       }
-      const json = await res.json();
+      const json = (await res.json()) as { status?: string; error?: { code?: string }; url?: string; filename?: string };
 
       if (json.status === 'error') {
         throw new Error(json.error?.code || 'Audio extraction failed');

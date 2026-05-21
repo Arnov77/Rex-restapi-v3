@@ -1,7 +1,5 @@
-// gifenc has no `exports` map and ships CJS as `main`; named ESM imports
-// from the bare specifier fail under Node 20. Point at the ESM build directly.
 import { createHash } from 'node:crypto';
-import { GIFEncoder, quantize, applyPalette } from 'gifenc/dist/gifenc.esm.js';
+import { GIFEncoder, quantize, applyPalette } from 'gifenc';
 import { PNG } from 'pngjs';
 import sharp from 'sharp';
 import { withPage } from '../../shared/browser/browserManager.js';

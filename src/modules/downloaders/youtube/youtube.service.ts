@@ -69,23 +69,22 @@ async function fetchViaCobalt(url: string, signal?: AbortSignal): Promise<Youtub
   const qualities = ['1080', '720', '480', '360'];
 
   // Request all video qualities in parallel (audio is separate endpoint /api/download/ytmp3)
-  const requests = [
-    ...qualities.map(q =>
-      fetch(env.COBALT_API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ url, videoQuality: q }),
-        signal,
-      }).then(async res => {
-        if (!res.ok) return null;
-        const json = await res.json();
-        if ((json.status === 'tunnel' || json.status === 'redirect' || json.status === 'stream') && json.url) {
-          if (!filename) filename = json.filename;
-          return { type: 'video' as const, url: json.url, quality: `${q}p` };
-        }
-        return null;
-    }).catch(() => null),
-  ];
+  const requests = qualities.map(q =>
+    fetch(env.COBALT_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ url, videoQuality: q }),
+      signal,
+    }).then(async res => {
+      if (!res.ok) return null;
+      const json = await res.json();
+      if ((json.status === 'tunnel' || json.status === 'redirect' || json.status === 'stream') && json.url) {
+        if (!filename) filename = json.filename;
+        return { type: 'video' as const, url: json.url, quality: `${q}p` };
+      }
+      return null;
+    }).catch(() => null)
+  );
 
   const results = await Promise.all(requests);
 

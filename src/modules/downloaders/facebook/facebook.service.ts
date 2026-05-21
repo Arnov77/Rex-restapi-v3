@@ -157,7 +157,7 @@ async function fetchViaDesktopScrape(url: string, signal?: AbortSignal): Promise
   for (const pattern of patterns) {
     const match = html.match(pattern);
     if (match) {
-      const videoUrl = match[1].replace(/\\\//g, '/').replace(/\\u0026/g, '&');
+      const videoUrl = match[1]!.replace(/\\\//g, '/').replace(/\\u0026/g, '&');
       const quality = pattern.source.includes('hd') ? 'hd' : 'sd';
       // Avoid duplicates
       if (!media.some(m => m.quality === quality)) {

@@ -68,7 +68,7 @@ async function fetchViaCobalt(url: string, signal?: AbortSignal): Promise<Youtub
 
   const qualities = ['1080', '720', '480', '360'];
 
-  // Request all video qualities + audio in parallel
+  // Request all video qualities in parallel (audio is separate endpoint /api/download/ytmp3)
   const requests = [
     ...qualities.map(q =>
       fetch(env.COBALT_API_URL, {
@@ -84,21 +84,6 @@ async function fetchViaCobalt(url: string, signal?: AbortSignal): Promise<Youtub
           return { type: 'video' as const, url: json.url, quality: `${q}p` };
         }
         return null;
-      }).catch(() => null)
-    ),
-    // Audio request
-    fetch(env.COBALT_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ url, downloadMode: 'audio', audioFormat: 'mp3' }),
-      signal,
-    }).then(async res => {
-      if (!res.ok) return null;
-      const json = await res.json();
-      if ((json.status === 'tunnel' || json.status === 'redirect' || json.status === 'stream') && json.url) {
-        return { type: 'audio' as const, url: json.url, quality: 'mp3' };
-      }
-      return null;
     }).catch(() => null),
   ];
 

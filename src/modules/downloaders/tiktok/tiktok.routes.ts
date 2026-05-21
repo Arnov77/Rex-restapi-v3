@@ -22,13 +22,15 @@ const tiktokRoutes: FastifyPluginAsyncZod = async (app) => {
       // tikwm blocks /video/music/ server-side, so audio uses
       // d.music_info.play (CDN direct URL) which IS proxyable.
       const base = `${req.protocol}://${req.host}`;
-      const media = result.media.map((m) => {
+      const media = result.media
+        .filter((m) => m.type !== 'audio') // audio is separate endpoint /api/download/ttmp3
+        .map((m) => {
         // Skip proxy ONLY for tikwm /video/music/ paths (they 403)
         if (m.url.includes('tikwm.com/video/music/')) {
           return m; // fallback: direct URL (shouldn't happen with music_info.play fix)
         }
-        const ext = m.type === 'video' ? 'mp4' : m.type === 'audio' ? 'mp3' : 'jpg';
-        const ct = m.type === 'video' ? 'video/mp4' : m.type === 'audio' ? 'audio/mpeg' : 'image/jpeg';
+        const ext = m.type === 'video' ? 'mp4' : 'jpg';
+        const ct = m.type === 'video' ? 'video/mp4' : 'image/jpeg';
         return {
           ...m,
           url: shortProxyUrl(base, m.url, {

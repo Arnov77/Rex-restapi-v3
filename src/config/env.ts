@@ -78,6 +78,16 @@ const schema = z.object({
 
   // Download proxy: max bytes to stream. Default 100MB. Prevents abuse.
   DOWNLOAD_MAX_BYTES: z.coerce.number().int().min(1024).default(104_857_600),
+
+  // Cobalt API URL for Instagram/YouTube downloads. Default uses the public
+  // instance (rate-limited + bot-protected). Self-host for reliability:
+  //   docker run -d -p 9000:9000 ghcr.io/imputnet/cobalt:latest
+  // Then set COBALT_API_URL=http://localhost:9000/
+  COBALT_API_URL: z.string().url().default('https://api.cobalt.tools/'),
+
+  // Path to yt-dlp cookies file (Netscape format). Used as fallback for
+  // YouTube downloads when cobalt fails. Relative to cwd or absolute path.
+  YTDLP_COOKIES_PATH: z.string().default('./cookies.txt'),
 });
 
 export type Env = z.infer<typeof schema>;

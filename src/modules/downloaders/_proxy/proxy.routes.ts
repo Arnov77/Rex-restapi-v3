@@ -102,7 +102,7 @@ const proxyRoutes: FastifyPluginAsyncZod = async (app) => {
         reply.header('content-type', ct);
         if (contentLength) reply.header('content-length', String(contentLength));
         if (payload.filename) {
-          reply.header('content-disposition', `attachment; filename="${payload.filename}"`);
+          reply.header('content-disposition', `inline; filename="${payload.filename}"`);
         }
         reply.header('cache-control', 'private, max-age=3600');
 

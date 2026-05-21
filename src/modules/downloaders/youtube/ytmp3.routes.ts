@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { statSync, createReadStream } from 'node:fs';
 import { basename } from 'node:path';
 import { ytdlpDownloadAudio, getTempDir } from './ytdlp.js';
+import { shortProxyUrl } from '../_proxy/proxy.token.js';
 
 const Ytmp3Query = z.object({
   url: z.string().url().refine(
@@ -12,14 +13,14 @@ const Ytmp3Query = z.object({
 });
 
 const ytmp3Routes: FastifyPluginAsyncZod = async (app) => {
-  // Main endpoint — returns JSON with streamable URL
+  // Main endpoint — returns JSON with short proxy URL
   app.get(
     '/',
     {
       schema: {
         tags: ['download'],
         summary: 'YouTube to MP3',
-        description: 'Extract and convert audio from YouTube video to MP3. Returns metadata + stream URL.',
+        description: 'Extract and convert audio from YouTube video to MP3. Returns metadata + short proxy URL.',
         querystring: Ytmp3Query,
       },
     },
@@ -28,21 +29,25 @@ const ytmp3Routes: FastifyPluginAsyncZod = async (app) => {
 
       const base = `${req.protocol}://${req.host}`;
       const fileId = basename(result.filePath);
-      const streamUrl = `${base}/api/download/ytmp3/file/${fileId}`;
+      const internalUrl = `${base}/api/download/ytmp3/file/${fileId}`;
+      const proxyUrl = shortProxyUrl(base, internalUrl, {
+        filename: `${result.title.replace(/[^a-zA-Z0-9 _-]/g, '')}.mp3`,
+        contentType: 'audio/mpeg',
+      });
 
       return {
         ok: true,
         data: {
           title: result.title,
           author: result.author,
-          url: streamUrl,
+          url: proxyUrl,
           format: 'mp3',
         },
       };
     },
   );
 
-  // File serving endpoint — streams the temp mp3
+  // File serving endpoint — streams the temp mp3 (used internally by proxy)
   app.get(
     '/file/:id',
     { schema: { hide: true } },

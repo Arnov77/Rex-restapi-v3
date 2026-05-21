@@ -63,14 +63,14 @@ async function fetchViaMobileScrape(url: string, signal?: AbortSignal): Promise<
   // Look for HD video URL
   const hdMatch = html.match(/browser_native_hd_url":"([^"]+)"/);
   if (hdMatch) {
-    const hdUrl = hdMatch[1].replace(/\\u0025/g, '%').replace(/\\\//g, '/').replace(/\\u0026/g, '&');
+    const hdUrl = hdMatch[1]!.replace(/\\u0025/g, '%').replace(/\\\//g, '/').replace(/\\u0026/g, '&');
     media.push({ type: 'video', url: decodeURIComponent(hdUrl), quality: 'hd' });
   }
 
   // Look for SD video URL
   const sdMatch = html.match(/browser_native_sd_url":"([^"]+)"/);
   if (sdMatch) {
-    const sdUrl = sdMatch[1].replace(/\\u0025/g, '%').replace(/\\\//g, '/').replace(/\\u0026/g, '&');
+    const sdUrl = sdMatch[1]!.replace(/\\u0025/g, '%').replace(/\\\//g, '/').replace(/\\u0026/g, '&');
     media.push({ type: 'video', url: decodeURIComponent(sdUrl), quality: 'sd' });
   }
 
@@ -81,7 +81,7 @@ async function fetchViaMobileScrape(url: string, signal?: AbortSignal): Promise<
       for (const m of playableMatch) {
         const urlMatch = m.match(/:"([^"]+)"/);
         if (urlMatch) {
-          const videoUrl = urlMatch[1].replace(/\\u0025/g, '%').replace(/\\\//g, '/').replace(/\\u0026/g, '&');
+          const videoUrl = urlMatch[1]!.replace(/\\u0025/g, '%').replace(/\\\//g, '/').replace(/\\u0026/g, '&');
           const quality = m.includes('hd') ? 'hd' : 'sd';
           media.push({ type: 'video', url: decodeURIComponent(videoUrl), quality });
         }
@@ -93,7 +93,7 @@ async function fetchViaMobileScrape(url: string, signal?: AbortSignal): Promise<
   if (media.length === 0) {
     const imgMatches = html.matchAll(/data-src="(https:\/\/[^"]*?scontent[^"]+)"/g);
     for (const m of imgMatches) {
-      const imgUrl = m[1].replace(/&amp;/g, '&');
+      const imgUrl = m[1]!.replace(/&amp;/g, '&');
       media.push({ type: 'image', url: imgUrl });
     }
   }

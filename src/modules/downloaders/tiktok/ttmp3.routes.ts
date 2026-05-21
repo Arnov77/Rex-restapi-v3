@@ -34,10 +34,8 @@ const ttmp3Routes: FastifyPluginAsyncZod = async (app) => {
     async (req) => {
       const env = loadEnv();
 
-      // Cobalt API v10+ requires explicit downloadMode for audio extraction.
-      // Without these fields the server returns 400 ("error.body.missing" or
-      // "error.body.audio.invalid"). isAudioOnly is the legacy field kept for
-      // older self-hosted cobalt instances.
+      // Cobalt API v10+ validates the body strictly: legacy fields like
+      // isAudioOnly/aFormat make it return 400 error.api.invalid_body.
       const res = await fetch(env.COBALT_API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
@@ -47,7 +45,6 @@ const ttmp3Routes: FastifyPluginAsyncZod = async (app) => {
           audioFormat: 'mp3',
           audioBitrate: '128',
           filenameStyle: 'basic',
-          isAudioOnly: true, // legacy compat
         }),
       });
 

@@ -128,7 +128,7 @@ export async function withPage<T>(
   if (!p.stats.created && browser) p.attach(browser);
 
   // Acquire a slot (may queue with timeout + abort support).
-  const slot = await p.acquire({ signal, viewport });
+  const slot = await p.acquire({ signal, viewport: viewport ?? undefined });
 
   // Set viewport if the caller needs something specific.
   const vp = viewport ?? DEFAULT_VIEWPORT;

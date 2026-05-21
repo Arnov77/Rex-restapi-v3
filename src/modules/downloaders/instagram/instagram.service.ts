@@ -72,7 +72,7 @@ async function fetchViaCobalt(url: string, signal?: AbortSignal): Promise<Instag
       throw new Error('cobalt returned non-JSON response');
     }
 
-    const json = await res.json();
+    const json = (await res.json()) as any;
 
     if (json.status === 'error') {
       throw new Error(json.text || 'cobalt: download failed');
@@ -205,7 +205,7 @@ async function fetchViaGraphQL(shortcode: string, signal?: AbortSignal): Promise
       throw new Error('GraphQL returned HTML (login wall)');
     }
 
-    const json = await res.json();
+    const json = (await res.json()) as any;
     const item = json?.data?.shortcode_media;
     if (!item) throw new Error('no shortcode_media in response');
 

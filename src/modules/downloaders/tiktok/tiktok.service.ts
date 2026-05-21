@@ -33,7 +33,7 @@ async function fetchViaTikwm(url: string, signal?: AbortSignal): Promise<TiktokR
   });
 
   if (!res.ok) throw new Error(`tikwm returned ${res.status}`);
-  const json = await res.json();
+  const json = (await res.json()) as any;
 
   if (json.code !== 0 || !json.data) {
     throw new Error(json.msg || 'tikwm: no data returned');

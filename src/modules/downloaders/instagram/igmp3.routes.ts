@@ -37,11 +37,22 @@ const igmp3Routes: FastifyPluginAsyncZod = async (app) => {
       const res = await fetch(env.COBALT_API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ url: req.query.url }),
+        body: JSON.stringify({
+          url: req.query.url,
+          downloadMode: 'audio',
+          audioFormat: 'mp3',
+          audioBitrate: '128',
+          filenameStyle: 'basic',
+          isAudioOnly: true,
+        }),
       });
 
-      if (!res.ok) throw new Error(`cobalt returned ${res.status}`);
-      const json = await res.json();
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        req.log.warn({ status: res.status, body: body.slice(0, 500) }, 'cobalt non-2xx');
+        throw new Error(`cobalt returned ${res.status}${body ? `: ${body.slice(0, 200)}` : ''}`);
+      }
+      const json = (await res.json()) as { status?: string; error?: { code?: string }; url?: string; filename?: string };
 
       if (json.status === 'error') {
         throw new Error(json.error?.code || 'Audio extraction failed');

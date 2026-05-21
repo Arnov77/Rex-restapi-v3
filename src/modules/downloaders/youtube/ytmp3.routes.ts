@@ -1,6 +1,7 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { createReadStream, statSync } from 'node:fs';
+import { pipeline } from 'node:stream/promises';
 import { ytdlpDownloadAudio } from './ytdlp.js';
 
 const Ytmp3Query = z.object({
@@ -27,13 +28,15 @@ const ytmp3Routes: FastifyPluginAsyncZod = async (app) => {
       const stat = statSync(result.filePath);
       const filename = `${result.title.replace(/[^a-zA-Z0-9 _-]/g, '')}.mp3`;
 
-      reply.header('content-type', 'audio/mpeg');
-      reply.header('content-length', String(stat.size));
-      reply.header('content-disposition', `inline; filename="${filename}"`);
-      reply.header('cache-control', 'private, max-age=3600');
+      reply.raw.writeHead(200, {
+        'Content-Type': 'audio/mpeg',
+        'Content-Length': String(stat.size),
+        'Content-Disposition': `inline; filename="${filename}"`,
+        'Cache-Control': 'private, max-age=3600',
+      });
 
-      const stream = createReadStream(result.filePath);
-      return reply.send(stream);
+      await pipeline(createReadStream(result.filePath), reply.raw);
+      reply.hijack();
     },
   );
 };

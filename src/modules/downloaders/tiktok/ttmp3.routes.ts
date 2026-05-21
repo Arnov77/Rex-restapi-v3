@@ -34,13 +34,28 @@ const ttmp3Routes: FastifyPluginAsyncZod = async (app) => {
     async (req) => {
       const env = loadEnv();
 
+      // Cobalt API v10+ requires explicit downloadMode for audio extraction.
+      // Without these fields the server returns 400 ("error.body.missing" or
+      // "error.body.audio.invalid"). isAudioOnly is the legacy field kept for
+      // older self-hosted cobalt instances.
       const res = await fetch(env.COBALT_API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ url: req.query.url }),
+        body: JSON.stringify({
+          url: req.query.url,
+          downloadMode: 'audio',
+          audioFormat: 'mp3',
+          audioBitrate: '128',
+          filenameStyle: 'basic',
+          isAudioOnly: true, // legacy compat
+        }),
       });
 
-      if (!res.ok) throw new Error(`cobalt returned ${res.status}`);
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        req.log.warn({ status: res.status, body: body.slice(0, 500) }, 'cobalt non-2xx');
+        throw new Error(`cobalt returned ${res.status}${body ? `: ${body.slice(0, 200)}` : ''}`);
+      }
       const json = await res.json();
 
       if (json.status === 'error') {

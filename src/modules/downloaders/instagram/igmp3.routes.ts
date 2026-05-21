@@ -43,7 +43,6 @@ const igmp3Routes: FastifyPluginAsyncZod = async (app) => {
           audioFormat: 'mp3',
           audioBitrate: '128',
           filenameStyle: 'basic',
-          isAudioOnly: true,
         }),
       });
 

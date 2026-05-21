@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { GIFEncoder, quantize, applyPalette } from 'gifenc';
+import gifenc from 'gifenc';
+const { GIFEncoder, quantize, applyPalette } = gifenc;
 import { PNG } from 'pngjs';
 import sharp from 'sharp';
 import { withPage } from '../../shared/browser/browserManager.js';

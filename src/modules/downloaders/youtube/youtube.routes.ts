@@ -1,7 +1,6 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { createReadStream, statSync } from 'node:fs';
-import { pipeline } from 'node:stream/promises';
+import { readFileSync } from 'node:fs';
 import { downloadYoutube } from './youtube.service.js';
 
 const YoutubeQuery = z.object({
@@ -28,18 +27,14 @@ const youtubeRoutes: FastifyPluginAsyncZod = async (app) => {
       const result = await downloadYoutube(req.query.url, quality);
       const media = result.media[0]!;
 
-      const stat = statSync(media.filePath);
+      const buffer = readFileSync(media.filePath);
       const filename = `${result.title.replace(/[^a-zA-Z0-9 _-]/g, '')} (${media.quality}).mp4`;
 
-      reply.raw.writeHead(200, {
-        'Content-Type': 'video/mp4',
-        'Content-Length': String(stat.size),
-        'Content-Disposition': `inline; filename="${filename}"`,
-        'Cache-Control': 'private, max-age=3600',
-      });
-
-      await pipeline(createReadStream(media.filePath), reply.raw);
-      reply.hijack();
+      return reply
+        .type('video/mp4')
+        .header('content-disposition', `inline; filename="${filename}"`)
+        .header('cache-control', 'private, max-age=3600')
+        .send(buffer);
     },
   );
 };

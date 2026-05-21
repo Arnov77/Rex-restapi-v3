@@ -209,7 +209,7 @@ export async function downloadFacebook(url: string, signal?: AbortSignal): Promi
       });
 
       if (!res.ok) throw new Error(`cobalt returned ${res.status}`);
-      const json = await res.json();
+      const json = (await res.json()) as any;
       if (json.status === 'error') throw new Error(json.text || 'cobalt failed');
 
       const media: FacebookResult['media'] = [];

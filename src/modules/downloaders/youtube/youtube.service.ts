@@ -185,12 +185,53 @@ async function fetchViaInvidious(videoId: string, signal?: AbortSignal): Promise
 }
 
 /**
+ * Fallback: yt-dlp (most compatible, handles YouTube login/restrictions).
+ */
+async function fetchViaYtdlp(url: string): Promise<YoutubeResult> {
+  const { ytdlpGetVideo } = await import('./ytdlp.js');
+  const qualities = ['1080', '720', '480', '360'];
+  const media: YoutubeResult['media'] = [];
+  let meta: { title: string; author: string; thumbnail: string | null; duration: number | null } | null = null;
+
+  // Try each quality
+  for (const q of qualities) {
+    try {
+      const result = await ytdlpGetVideo(url, q);
+      if (result.url) {
+        if (!meta) meta = { title: result.title, author: result.author, thumbnail: result.thumbnail, duration: result.duration };
+        media.push({ type: 'video', url: result.url, quality: `${q}p` });
+      }
+    } catch {
+      // skip this quality
+    }
+  }
+
+  if (!meta || media.length === 0) throw new Error('yt-dlp: no streams found');
+
+  // Deduplicate (different quality requests may return same URL)
+  const seen = new Set<string>();
+  const dedupedMedia = media.filter(m => {
+    if (seen.has(m.url)) return false;
+    seen.add(m.url);
+    return true;
+  });
+
+  return {
+    title: meta.title,
+    author: { name: meta.author, username: '' },
+    thumbnail: meta.thumbnail,
+    duration: meta.duration,
+    media: dedupedMedia,
+  };
+}
+
+/**
  * Download YouTube video metadata + stream URLs.
  */
 export async function downloadYoutube(url: string, signal?: AbortSignal): Promise<YoutubeResult> {
   const videoId = extractVideoId(url);
 
-  // Try cobalt first
+  // Try cobalt first (fastest)
   try {
     const result = await fetchViaCobalt(url, signal);
     if (result.media.length > 0) return result;
@@ -198,7 +239,14 @@ export async function downloadYoutube(url: string, signal?: AbortSignal): Promis
     // fallback
   }
 
-  // Fallback to Invidious
+  // Fallback to yt-dlp (most compatible)
+  try {
+    return await fetchViaYtdlp(url);
+  } catch {
+    // fallback
+  }
+
+  // Last resort: Invidious
   if (!videoId) throw new Error('Could not extract video ID from URL');
 
   try {

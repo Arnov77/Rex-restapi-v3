@@ -34,40 +34,52 @@ const ytmp3Routes: FastifyPluginAsyncZod = async (app) => {
     },
     async (req) => {
       const env = loadEnv();
+      const base = `${req.protocol}://${req.host}`;
 
-      const res = await fetch(env.COBALT_API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ url: req.query.url, downloadMode: 'audio', audioFormat: 'mp3' }),
-      });
+      // Try cobalt first
+      try {
+        const res = await fetch(env.COBALT_API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({ url: req.query.url, downloadMode: 'audio', audioFormat: 'mp3' }),
+        });
 
-      if (!res.ok) throw new Error(`cobalt returned ${res.status}`);
-      const json = await res.json();
+        if (res.ok) {
+          const json = await res.json();
+          if (json.status !== 'error' && json.url) {
+            const filename = json.filename || 'audio.mp3';
+            const title = filename.replace(/\.\w+$/, '').replace(/\s*\([^)]+\)\s*$/, '');
+            const parts = title.split(' - ');
+            const author = parts.length >= 2 ? parts[parts.length - 1] : '';
+            const songTitle = parts.length >= 2 ? parts.slice(0, -1).join(' - ') : title;
 
-      if (json.status === 'error') {
-        throw new Error(json.error?.code || 'Audio extraction failed');
+            const proxyedUrl = shortProxyUrl(base, json.url, {
+              filename,
+              contentType: 'audio/mpeg',
+            });
+
+            return { ok: true as const, data: { title: songTitle, author, url: proxyedUrl, format: 'mp3' } };
+          }
+        }
+      } catch {
+        // fallback to yt-dlp
       }
 
-      if (!json.url) throw new Error('No audio URL returned');
+      // Fallback: yt-dlp
+      const { ytdlpGetAudio } = await import('./ytdlp.js');
+      const result = await ytdlpGetAudio(req.query.url);
+      if (!result.url) throw new Error('Failed to extract audio');
 
-      // Parse title from filename
-      const filename = json.filename || 'audio.mp3';
-      const title = filename.replace(/\.\w+$/, '').replace(/\s*\([^)]+\)\s*$/, '');
-      const parts = title.split(' - ');
-      const author = parts.length >= 2 ? parts[parts.length - 1] : '';
-      const songTitle = parts.length >= 2 ? parts.slice(0, -1).join(' - ') : title;
-
-      const base = `${req.protocol}://${req.host}`;
-      const proxyedUrl = shortProxyUrl(base, json.url, {
-        filename: filename,
+      const proxyedUrl = shortProxyUrl(base, result.url, {
+        filename: `${result.title}.mp3`,
         contentType: 'audio/mpeg',
       });
 
       return {
         ok: true as const,
         data: {
-          title: songTitle,
-          author,
+          title: result.title,
+          author: result.author,
           url: proxyedUrl,
           format: 'mp3',
         },

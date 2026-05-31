@@ -11,3 +11,6 @@ data/
 
 # Test coverage output
 coverage/
+cookies.txt
+.ytdlp-temp/
+cookies.txt

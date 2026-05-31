@@ -1,6 +1,6 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { apiKeysService } from './apiKeys.service.js';
-import { poolStats } from '../../shared/browser/browserManager.js';
+import { poolStats } from '@shared/browser/browserManager.js';
 import { auditLogRepo } from '../auditLog/auditLog.repo.js';
 import {
   CreateKeyBody,

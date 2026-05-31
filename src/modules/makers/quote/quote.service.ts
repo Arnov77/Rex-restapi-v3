@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
 import sharp from 'sharp';
-import { withPage } from '../../shared/browser/browserManager.js';
-import { assertPublicUrl } from '../../shared/utils/ssrfGuard.js';
-import { Internal } from '../../shared/errors.js';
-import { LruCache } from '../../shared/utils/lruCache.js';
+import { withPage } from '@shared/browser/browserManager.js';
+import { assertPublicUrl } from '@shared/utils/ssrfGuard.js';
+import { Internal } from '@shared/errors.js';
+import { LruCache } from '@shared/utils/lruCache.js';
 import { renderQuoteHtml } from './quote.template.js';
 import type { QuoteQuery } from './quote.schemas.js';
 
@@ -77,7 +77,7 @@ async function renderOnce(opts: QuoteQuery, signal?: AbortSignal): Promise<Quote
       if (!el) throw Internal('Quote card element not found');
       return el.screenshot({ type: 'png', omitBackground: true });
     },
-    { viewport: { width: opts.width, height: 2000 }, signal },
+    { viewport: { width: opts.width, height: 2000, deviceScaleFactor: 2 }, signal },
   );
 
   if (!png || png.length === 0) throw Internal('Quote produced empty buffer');

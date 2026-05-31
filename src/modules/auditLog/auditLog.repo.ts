@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { Internal } from '../../shared/errors.js';
+import { Internal } from '@shared/errors.js';
 
 const TABLE = 'audit_log';
 

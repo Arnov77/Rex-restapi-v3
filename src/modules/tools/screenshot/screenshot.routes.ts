@@ -12,7 +12,7 @@ const screenshotRoutes: FastifyPluginAsyncZod = async (app) => {
   const limit = app.rateLimit({
     prefix: 'screenshot',
     windowSec: 60,
-    max: 30,
+    max: 5,
     keyGenerator: (req) => req.apiKey?.id ?? req.ip,
     message: 'Too many screenshot requests',
   });

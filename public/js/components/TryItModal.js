@@ -92,6 +92,9 @@ export default {
     const bodyMode = ref('fields');
     const bodyFields = ref({});
     const bodyJsonText = ref('');
+    
+    const multipartFiles = ref({});
+    const multipartFields = ref({});
 
     const result = ref(null);
     const fetchError = ref(null);
@@ -108,6 +111,8 @@ export default {
       bodyMode.value = 'fields';
       bodyFields.value = {};
       bodyJsonText.value = '';
+      multipartFiles.value = {};
+      multipartFields.value = {};
 
       for (const p of props.op.parameters || []) {
         const init = p.schema?.default;
@@ -149,23 +154,67 @@ export default {
     function buildBody() {
       const json = jsonBodySchema(props.op.requestBody);
       const multipart = multipartBodySchema(props.op.requestBody);
+    
       if (multipart && !json) {
-        return { error: 'multipart/form-data is not yet supported in the playground' };
+        const schema = multipart.schema || {};
+        const propsMap = schema.properties || {};
+        const required = new Set(schema.required || []);
+    
+        const formData = new FormData();
+    
+        for (const [name, sch] of Object.entries(propsMap)) {
+          const isFile = sch?.type === 'string' && sch?.format === 'binary';
+    
+          if (isFile) {
+            const file = multipartFiles.value[name];
+    
+            if (!file && required.has(name)) {
+              return { error: `File field "${name}" is required` };
+            }
+    
+            if (file) {
+              formData.append(name, file);
+            }
+    
+            continue;
+          }
+    
+          const value = multipartFields.value[name];
+    
+          if ((value === '' || value === undefined || value === null) && !required.has(name)) {
+            continue;
+          }
+    
+          if ((value === '' || value === undefined || value === null) && required.has(name)) {
+            return { error: `Field "${name}" is required` };
+          }
+    
+          formData.append(name, value);
+        }
+    
+        return { formData };
       }
+    
       if (!json) return { jsonBody: undefined };
-
+    
       if (bodyMode.value === 'fields') {
-        // Strip empty optional strings so the server's defaults apply.
         const required = new Set(json.schema.required || []);
         const out = {};
+    
         for (const [k, v] of Object.entries(bodyFields.value)) {
           if ((v === '' || v === undefined) && !required.has(k)) continue;
           out[k] = v;
         }
+    
         return { jsonBody: out };
       }
+    
       try {
-        return { jsonBody: bodyJsonText.value.trim() ? JSON.parse(bodyJsonText.value) : undefined };
+        return {
+          jsonBody: bodyJsonText.value.trim()
+            ? JSON.parse(bodyJsonText.value)
+            : undefined,
+        };
       } catch (err) {
         return { error: 'JSON body is invalid: ' + err.message };
       }
@@ -194,6 +243,7 @@ export default {
           path: resolvedPath.value,
           query: queryClean,
           jsonBody: built.jsonBody,
+          formData: built.formData,
           security: props.op.security,
           securitySchemes: props.securitySchemes,
         });
@@ -269,11 +319,43 @@ export default {
       if (!json && !multipart) return null;
 
       if (multipart && !json) {
+        const schema = multipart.schema || {};
+        const propsMap = schema.properties || {};
+        const required = new Set(schema.required || []);
+      
         return h('div', { class: 'form-section' }, [
           h('h4', {}, 'Request body'),
-          h('div', {
-            style: 'background:var(--bg-3);border:1px solid var(--b-1);border-radius:var(--r-sm);padding:10px;color:var(--fg-mu);font-size:12.5px;line-height:1.5',
-          }, 'This endpoint requires a multipart/form-data body, which is not yet supported in the playground. Use cURL or any HTTP client to test it.'),
+      
+          ...Object.entries(propsMap).map(([name, sch]) => {
+            const isFile = sch?.type === 'string' && sch?.format === 'binary';
+      
+            if (isFile) {
+              return h('label', { class: 'field' }, [
+                h('span', { class: 'field-label' }, [
+                  name,
+                  required.has(name) && h('b', { style: 'color:var(--danger);margin-left:4px' }, '*'),
+                ]),
+                sch.description && h('span', { class: 'field-desc' }, sch.description),
+                h('input', {
+                  type: 'file',
+                  class: 'input',
+                  accept: 'image/jpeg,image/png,image/webp,image/tiff,image/heic,image/heif',
+                  onChange: (e) => {
+                    multipartFiles.value[name] = e.target.files?.[0] ?? null;
+                  },
+                }),
+              ]);
+            }
+      
+            return h(FormField, {
+              schema: sch || {},
+              name,
+              required: required.has(name),
+              description: sch.description || '',
+              modelValue: multipartFields.value[name] ?? '',
+              'onUpdate:modelValue': (v) => (multipartFields.value[name] = v),
+            });
+          }),
         ]);
       }
 

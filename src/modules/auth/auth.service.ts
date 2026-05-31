@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
 import { loadEnv } from '../../config/env.js';
-import { Conflict, Unauthorized } from '../../shared/errors.js';
+import { Conflict, Unauthorized } from '@shared/errors.js';
 import { usersRepo, type PublicUser } from './users.repo.js';
 import { apiKeysService } from '../apiKeys/apiKeys.service.js';
 import type { LoginBody, RegisterBody } from './auth.schemas.js';

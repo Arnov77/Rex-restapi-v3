@@ -3,10 +3,10 @@ import gifenc from 'gifenc';
 const { GIFEncoder, quantize, applyPalette } = gifenc;
 import { PNG } from 'pngjs';
 import sharp from 'sharp';
-import { withPage } from '../../shared/browser/browserManager.js';
-import { assertPublicUrl } from '../../shared/utils/ssrfGuard.js';
-import { Internal } from '../../shared/errors.js';
-import { LruCache } from '../../shared/utils/lruCache.js';
+import { withPage } from '@shared/browser/browserManager.js';
+import { assertPublicUrl } from '@shared/utils/ssrfGuard.js';
+import { Internal } from '@shared/errors.js';
+import { LruCache } from '@shared/utils/lruCache.js';
 import { renderBratHtml } from './brat.template.js';
 import type { BratQuery } from './brat.schemas.js';
 

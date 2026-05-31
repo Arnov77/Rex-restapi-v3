@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { loadEnv } from '../../config/env.js';
-import { Internal } from '../../shared/errors.js';
+import { Internal } from '@shared/errors.js';
 
 export const KEY_PREFIX = 'rex_';
 

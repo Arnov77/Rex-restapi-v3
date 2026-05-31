@@ -2,10 +2,10 @@ import fp from 'fastify-plugin';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { loadEnv } from '../config/env.js';
-import { Unauthorized, Forbidden, AppError } from '../shared/errors.js';
-import { apiKeysRepo, type ApiKeyRecord } from '../modules/apiKeys/apiKeys.repo.js';
-import { hashApiKey, KEY_PREFIX } from '../modules/apiKeys/apiKeys.crypto.js';
-import { usersRepo, type PublicUser } from '../modules/auth/users.repo.js';
+import { Unauthorized, Forbidden, AppError } from '@shared/errors.js';
+import { apiKeysRepo, type ApiKeyRecord } from '@modules/apiKeys/apiKeys.repo.js';
+import { hashApiKey, KEY_PREFIX } from '@modules/apiKeys/apiKeys.crypto.js';
+import { usersRepo, type PublicUser } from '@modules/auth/users.repo.js';
 
 declare module 'fastify' {
   interface FastifyInstance {

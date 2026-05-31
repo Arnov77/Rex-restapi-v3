@@ -1,8 +1,8 @@
 import fp from 'fastify-plugin';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { quotaRepo, todayUtc } from '../modules/quota/quota.repo.js';
+import { quotaRepo, todayUtc } from '@modules/quota/quota.repo.js';
 import { loadEnv } from '../config/env.js';
-import { TooManyRequests } from '../shared/errors.js';
+import { TooManyRequests } from '@shared/errors.js';
 
 declare module 'fastify' {
   interface FastifyInstance {

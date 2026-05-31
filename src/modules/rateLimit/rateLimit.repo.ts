@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { Internal } from '../../shared/errors.js';
+import { Internal } from '@shared/errors.js';
 
 const RPC_HIT = 'rate_limit_hit';
 const RPC_GC = 'rate_limit_gc';

@@ -1,6 +1,6 @@
 import fp from 'fastify-plugin';
 import { ZodError } from 'zod';
-import { AppError } from '../shared/errors.js';
+import { AppError } from '@shared/errors.js';
 
 /**
  * Centralized error handler. Maps:

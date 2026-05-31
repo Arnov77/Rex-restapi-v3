@@ -19,8 +19,11 @@
     "allowImportingTsExtensions": false,
     "declaration": false,
     "sourceMap": true,
+    "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@shared/*": ["src/shared/*"],
+      "@modules/*": ["src/modules/*"]
     },
     "types": ["node"]
   },

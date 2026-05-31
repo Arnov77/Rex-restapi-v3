@@ -1,6 +1,6 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { getBrowser } from '../../shared/browser/browserManager.js';
+import { getBrowser } from '@shared/browser/browserManager.js';
 
 /**
  * Health probes.

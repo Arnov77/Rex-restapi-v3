@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { apiKeysRepo, type ApiKeyRecord, type Tier } from './apiKeys.repo.js';
 import { decryptApiKey, encryptApiKey, generatePlaintextKey, hashApiKey } from './apiKeys.crypto.js';
-import { NotFound } from '../../shared/errors.js';
+import { NotFound } from '@shared/errors.js';
 
 export interface CreateInput {
   name: string;

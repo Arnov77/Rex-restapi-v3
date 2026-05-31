@@ -13,7 +13,7 @@ const bratRoutes: FastifyPluginAsyncZod = async (app) => {
   const limit = app.rateLimit({
     prefix: 'brat',
     windowSec: 60,
-    max: 30,
+    max: 5,
     keyGenerator: (req) => req.apiKey?.id ?? req.ip,
     message: 'Too many brat requests',
   });

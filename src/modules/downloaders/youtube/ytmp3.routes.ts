@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { statSync, createReadStream } from 'node:fs';
 import { basename } from 'node:path';
 import { ytdlpDownloadAudio, getTempDir } from './ytdlp.js';
-import { shortProxyUrl } from '../_proxy/proxy.token.js';
+import { shortProxyUrl } from '@modules/downloaders/_proxy/proxy.token.js';
 
 const Ytmp3Query = z.object({
   url: z.string().url().refine(

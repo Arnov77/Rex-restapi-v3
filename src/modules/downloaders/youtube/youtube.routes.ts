@@ -4,7 +4,7 @@ import { statSync, createReadStream } from 'node:fs';
 import { basename } from 'node:path';
 import { downloadYoutube } from './youtube.service.js';
 import { getTempDir } from './ytdlp.js';
-import { shortProxyUrl } from '../_proxy/proxy.token.js';
+import { shortProxyUrl } from '@modules/downloaders/_proxy/proxy.token.js';
 
 const YoutubeQuery = z.object({
   url: z.string().url().refine(

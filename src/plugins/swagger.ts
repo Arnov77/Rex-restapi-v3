@@ -25,22 +25,59 @@ export default fp(
           },
         },
         tags: [
-          // Public, developer-facing taxonomy. Auth/me/api-keys routes
-          // are still mounted but flagged `hide: true` so they don't
-          // surface in /docs or /docs/json — see auth.routes.ts and
-          // friends. The dashboard groups its sidebar by these tags
-          // verbatim, so any rename here is observable in the UI.
           { name: 'health', description: 'Liveness & readiness' },
           { name: 'maker', description: 'Image generators (brat, quote)' },
           { name: 'tool', description: 'Web utilities (screenshot)' },
         ],
       },
-      transform: jsonSchemaTransform,
+
+      transform: (args) => {
+        const transformed = jsonSchemaTransform(args);
+
+        const isExifRoute =
+          args.url === '/api/exif/' ||
+          args.url === '/api/exif' ||
+          args.url.endsWith('/exif/') ||
+          args.url.endsWith('/exif');
+
+        if (isExifRoute) {
+          transformed.schema = {
+            ...transformed.schema,
+
+            /**
+             * Ini penting supaya @fastify/swagger bikin requestBody
+             * sebagai multipart/form-data, bukan application/json.
+             */
+            consumes: ['multipart/form-data'],
+
+            /**
+             * Ini raw JSON Schema AMAN karena dipasang setelah
+             * jsonSchemaTransform, bukan langsung di route Zod.
+             */
+            body: {
+              type: 'object',
+              properties: {
+                file: {
+                  type: 'string',
+                  format: 'binary',
+                  description: 'Image file (jpeg, png, webp, tiff, heic)',
+                },
+              },
+              required: ['file'],
+            },
+          };
+        }
+
+        return transformed;
+      },
     });
 
     await app.register(swaggerUi, {
       routePrefix: '/docs',
-      uiConfig: { docExpansion: 'list', deepLinking: true },
+      uiConfig: {
+        docExpansion: 'list',
+        deepLinking: true,
+      },
     });
   },
   { name: 'swagger', dependencies: [] },

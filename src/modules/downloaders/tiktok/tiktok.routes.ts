@@ -1,7 +1,7 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { TiktokQuery, TiktokResponse } from './tiktok.schemas.js';
 import { downloadTiktok } from './tiktok.service.js';
-import { shortProxyUrl } from '../_proxy/proxy.token.js';
+import { shortProxyUrl } from '@modules/downloaders/_proxy/proxy.token.js';
 
 const tiktokRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get(

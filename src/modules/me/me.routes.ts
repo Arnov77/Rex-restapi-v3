@@ -9,7 +9,7 @@ import {
   RevealKeyResponse,
   UsageResponse,
 } from './me.schemas.js';
-import { Unauthorized } from '../../shared/errors.js';
+import { Unauthorized } from '@shared/errors.js';
 
 /**
  * Self-service routes for the authenticated user. All require a valid JWT
@@ -27,7 +27,7 @@ const meRoutes: FastifyPluginAsyncZod = async (app) => {
   const ipLimit = app.rateLimit({
     prefix: 'me-ip',
     windowSec: 60,
-    max: 30,
+    max: 5,
     keyGenerator: (req) => req.ip,
     message: 'Too many requests',
   });

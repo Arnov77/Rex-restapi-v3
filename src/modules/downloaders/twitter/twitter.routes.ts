@@ -1,7 +1,7 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { TwitterQuery, TwitterResponse } from './twitter.schemas.js';
 import { downloadTwitter } from './twitter.service.js';
-import { shortProxyUrl } from '../_proxy/proxy.token.js';
+import { shortProxyUrl } from '@modules/downloaders/_proxy/proxy.token.js';
 
 const twitterRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get(

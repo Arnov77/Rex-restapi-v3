@@ -1,6 +1,6 @@
 import fp from 'fastify-plugin';
-import { rateLimitRepo } from '../modules/rateLimit/rateLimit.repo.js';
-import { TooManyRequests } from '../shared/errors.js';
+import { rateLimitRepo } from '@modules/rateLimit/rateLimit.repo.js';
+import { TooManyRequests } from '@shared/errors.js';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 declare module 'fastify' {

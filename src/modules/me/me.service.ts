@@ -12,7 +12,7 @@ import { apiKeysService } from '../apiKeys/apiKeys.service.js';
 import type { ApiKeyRecord } from '../apiKeys/apiKeys.repo.js';
 import { quotaRepo, todayUtc } from '../quota/quota.repo.js';
 import { loadEnv } from '../../config/env.js';
-import { Forbidden, NotFound, Unauthorized } from '../../shared/errors.js';
+import { Forbidden, NotFound, Unauthorized } from '@shared/errors.js';
 
 export interface UsageView {
   date: string;

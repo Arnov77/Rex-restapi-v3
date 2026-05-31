@@ -78,15 +78,15 @@ export default {
     function renderActions() {
       return h('div', { class: 'sidebar-actions' }, [
         h('a', { class: 'btn sm', href: '/', title: 'Back to home' }, [
-          h('span', { class: 'icon' }, '←'),
+          h('i', { class: 'bi bi-arrow-left' }),
           h('span', { class: 'lbl' }, 'Home'),
         ]),
         h('a', { class: 'btn sm', href: '/docs', target: '_blank', rel: 'noopener', title: 'Swagger reference' }, [
-          h('span', { class: 'icon' }, '⇗'),
+          h('i', { class: 'bi bi-arrow-up-right' }),
           h('span', { class: 'lbl' }, 'Docs'),
         ]),
-        h('a', { class: 'btn sm', href: 'https://github.com/Arnov77/rex-api-access', target: '_blank', rel: 'noopener', title: 'Source on GitHub' }, [
-          h('span', { class: 'icon' }, '★'),
+        h('a', { class: 'btn sm', href: 'https://github.com/Arnov77/', target: '_blank', rel: 'noopener', title: 'Source on GitHub' }, [
+          h('i', { class: 'bi bi-github' }),
           h('span', { class: 'lbl' }, 'GitHub'),
         ]),
       ]);
@@ -114,7 +114,9 @@ export default {
           class: 'me-logout',
           title: 'Sign out',
           onClick: (e) => { e.preventDefault(); e.stopPropagation(); onLogout(); },
-        }, '⏻'),
+        }, [
+          h('i', { class: 'bi bi-box-arrow-right' }),
+          ]),
       ]);
     }
 
@@ -156,6 +158,19 @@ export default {
                 h('span', { class: 'count' }, g.ops.length),
               ]),
             ),
+          ]),
+
+          h('div', { class: 'section-label', style: 'margin-top:16px' }, 'Tools'),
+          h('div', { class: 'nav' }, [
+            h('button', {
+              class: ['nav-item', props.activeTag === '__shortlinks__' && 'active'],
+              onClick: () => emit('selectTag', '__shortlinks__'),
+            }, [
+              h('span', {}, [
+                h('i', { class: 'bi bi-link-45deg'}),
+                ' Shortlinks',
+              ]),
+            ]),
           ]),
         ]),
 

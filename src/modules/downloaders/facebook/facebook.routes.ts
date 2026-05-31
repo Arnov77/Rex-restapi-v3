@@ -1,7 +1,7 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { FacebookQuery, FacebookResponse } from './facebook.schemas.js';
 import { downloadFacebook } from './facebook.service.js';
-import { shortProxyUrl } from '../_proxy/proxy.token.js';
+import { shortProxyUrl } from '@modules/downloaders/_proxy/proxy.token.js';
 
 const facebookRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get(

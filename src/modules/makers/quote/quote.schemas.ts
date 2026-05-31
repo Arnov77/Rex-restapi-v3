@@ -22,7 +22,10 @@ export const QuoteQuery = z.object({
     .regex(/^[A-Za-z0-9_]+$/, 'handle must be alphanumeric/underscore')
     .default('anon'),
   avatar: z.string().url().max(2048).optional(),
-  verified: z.coerce.boolean().default(false),
+  verified: z
+  .enum(['true', 'false'])
+  .transform((v) => v === 'true')
+  .default('false'),
   width: z.coerce.number().int().min(400).max(1600).default(600),
   theme: z.enum(['light', 'dim', 'dark']).default('light'),
   font: z.enum(['sans', 'serif', 'mono']).default('sans'),

@@ -1,4 +1,8 @@
+import { setDefaultResultOrder } from 'node:dns';
+setDefaultResultOrder('ipv4first');
+
 import Fastify, { type FastifyInstance } from 'fastify';
+import multipart from '@fastify/multipart';
 import { serializerCompiler, validatorCompiler, type ZodTypeProvider } from 'fastify-type-provider-zod';
 import { resolve } from 'node:path';
 
@@ -12,9 +16,18 @@ import quotaPlugin from './plugins/quota.js';
 import healthRoutes from './modules/health/health.routes.js';
 import authRoutes from './modules/auth/auth.routes.js';
 import apiKeyRoutes from './modules/apiKeys/apiKeys.routes.js';
-import screenshotRoutes from './modules/screenshot/screenshot.routes.js';
-import bratRoutes from './modules/brat/brat.routes.js';
-import quoteRoutes from './modules/quote/quote.routes.js';
+import screenshotRoutes from './modules/tools/screenshot/screenshot.routes.js';
+import tgstickerRoutes from './modules/tools/tgsticker/sticker.routes.js';
+import bratRoutes from './modules/makers/brat/brat.routes.js';
+import quoteRoutes from './modules/makers/quote/quote.routes.js';
+import iqcRoutes from './modules/makers/iqc/iqc.routes.js';
+import qcRoutes from './modules/makers/qc/qc.routes.js';
+import miqRoutes from './modules/makers/miq/miq.routes.js';
+import smemeRoutes from './modules/makers/smeme/smeme.routes.js';
+import lqRoutes from './modules/makers/lq/lq.routes.js';
+import vcRoutes from './modules/makers/vc/vc.routes.js';
+import exifRoutes from './modules/tools/exif/exif.routes.js';
+import shortlinkRoutes from './modules/tools/shortlinks/shortlinks.routes.js';
 import meRoutes from './modules/me/me.routes.js';
 import auditLogRoutes from './modules/auditLog/auditLog.routes.js';
 import adminUsersRoutes from './modules/adminUsers/adminUsers.routes.js';
@@ -29,6 +42,7 @@ import ytmp3Routes from './modules/downloaders/youtube/ytmp3.routes.js';
 import ttmp3Routes from './modules/downloaders/tiktok/ttmp3.routes.js';
 import igmp3Routes from './modules/downloaders/instagram/igmp3.routes.js';
 import { getBrowser, shutdown as shutdownBrowser } from './shared/browser/browserManager.js';
+import { shortlinksService } from './modules/tools/shortlinks/shortlinks.service.js';
 
 export interface BuildOpts {
   logger?: boolean;
@@ -37,11 +51,6 @@ export interface BuildOpts {
 export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   const env = loadEnv();
 
-  // Parse TRUSTED_PROXIES into the shape Fastify expects:
-  //  - "*"   → boolean true (trust every hop)
-  //  - CSV   → string passed straight to proxy-addr
-  // Named tokens like "loopback,linklocal,uniquelocal" are understood by
-  // proxy-addr natively, so we don't need to expand them ourselves.
   const trustProxy: boolean | string =
     env.TRUSTED_PROXIES.trim() === '*' ? true : env.TRUSTED_PROXIES;
 
@@ -77,25 +86,16 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   });
   await app.register(import('@fastify/helmet'), { contentSecurityPolicy: false });
 
-  // Backpressure guard. When event-loop is saturated or memory is high we
-  // start returning 503 so upstream (e.g. WhatsApp bot) can back off
-  // instead of piling on more work. Health endpoints are exempt by virtue
-  // of `exposeStatusRoute: false` + our own /api/health doing nothing
-  // CPU/IO heavy.
   await app.register(import('@fastify/under-pressure'), {
-    maxEventLoopDelay: 1000, // 1s loop block → unhealthy
-    maxHeapUsedBytes: 0, // disabled (sharp/playwright are RSS-heavy, heap is misleading)
-    maxRssBytes: 1024 * 1024 * 1024, // 1 GiB; production container limits will be tighter
+    maxEventLoopDelay: 1000,
+    maxHeapUsedBytes: 0,
+    maxRssBytes: 1024 * 1024 * 1024,
     maxEventLoopUtilization: 0.95,
     retryAfter: 30,
-    exposeStatusRoute: false, // /api/health and /api/ready already serve liveness/readiness
+    exposeStatusRoute: false,
     healthCheckInterval: 5000,
   });
 
-  // Echo request id back to clients on every reply. Fastify auto-generates
-  // req.id (UUID-ish counter). Surfacing it lets bot operators report
-  // "request abc123 failed at 10:42" → grep server log → root cause.
-  // Registered BEFORE routes so 4xx/5xx error responses also carry the id.
   app.addHook('onSend', async (req, reply) => {
     reply.header('x-request-id', String(req.id));
   });
@@ -106,13 +106,29 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(rateLimitPlugin);
   await app.register(quotaPlugin);
 
+  await app.register(multipart, {
+    limits: {
+      fileSize: 20 * 1024 * 1024, // 20MB
+      files: 1,
+    },
+  });
+
   // Routes — namespaced for clean Swagger grouping.
   await app.register(healthRoutes, { prefix: '/api' });
   await app.register(authRoutes, { prefix: '/api/auth' });
   await app.register(apiKeyRoutes, { prefix: '/api/keys' });
   await app.register(screenshotRoutes, { prefix: '/api/screenshot' });
+  await app.register(tgstickerRoutes, { prefix: '/api/tgsticker' });
   await app.register(bratRoutes, { prefix: '/api/brat' });
   await app.register(quoteRoutes, { prefix: '/api/quote' });
+  await app.register(iqcRoutes, { prefix: '/api/iqc' });
+  await app.register(qcRoutes, { prefix: '/api/qc' });
+  await app.register(miqRoutes, { prefix: '/api/miq' });
+  await app.register(smemeRoutes, { prefix: '/api/smeme' });
+  await app.register(lqRoutes, { prefix: '/api/lq' });
+  await app.register(vcRoutes, { prefix: '/api/vc' });
+  await app.register(exifRoutes, { prefix: '/api/exif' });
+  await app.register(shortlinkRoutes, { prefix: '/api/shortlink' });
   await app.register(meRoutes, { prefix: '/api/me' });
   await app.register(auditLogRoutes, { prefix: '/api/keys/audit-log' });
   await app.register(adminUsersRoutes, { prefix: '/api/admin/users' });
@@ -127,64 +143,35 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(ttmp3Routes, { prefix: '/api/download/ttmp3' });
   await app.register(igmp3Routes, { prefix: '/api/download/igmp3' });
 
-  // Static landing page. Registered AFTER all /api/* routes so the route
-  // tree is checked first — every API path is more specific than the
-  // static plugin's catch-all and therefore wins. The `public/` directory
-  // ships index.html + css + favicon assets; PR 3b will replace the
-  // placeholder with a Vue 3 playground.
-  //
-  // Path resolution: STATIC_DIR env override → `<cwd>/public` default.
-  // Using process.cwd() works in both `tsx` (dev) and `node dist/server.js`
-  // (prod) as long as the server is launched from the project root, which
-  // our `npm run dev` and `npm start` scripts do. STATIC_DIR exists so a
-  // packaged container with a non-standard layout can override.
+  // Shortlink redirect — inline handler, hidden from Swagger
+  app.get('/s/:id', { schema: { hide: true } }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const svc = shortlinksService(app.supabase);
+    try {
+      const link = await svc.resolve(id);
+      return reply.header('cache-control', 'no-store').redirect(link.url, 301);
+    } catch {
+      return reply.code(404).send('Shortlink not found or expired');
+    }
+  });
+
   const staticRoot = env.STATIC_DIR ?? resolve(process.cwd(), 'public');
   await app.register(import('@fastify/static'), {
     root: staticRoot,
-    // No prefix → serves at `/`. wildcard: false means a request for an
-    // unknown path returns 404 instead of falling through to index.html;
-    // we don't want a missing-asset request to silently render HTML.
     wildcard: false,
-    // index.html for `/` is automatic. dotfiles ignored by default.
   });
 
-  // Clean URLs for the SPA-ish HTML pages. We want the address bar to
-  // read `/dashboard` rather than `/dashboard.html` — looks more like
-  // a product, easier to share, and decouples public URLs from the
-  // file extension if we ever migrate to SSR.
-  //
-  // Implementation: explicit GET handlers, one per page, that delegate
-  // to `reply.sendFile(...)` (provided by @fastify/static's decorator).
-  // We keep the .html files reachable too — direct asset URLs still
-  // resolve via the static plugin above — so existing bookmarks and
-  // hard-coded references don't 404 during a rollout.
-  //
-  // Registration order matters: the static plugin must be registered
-  // first because its `decorateReply('sendFile', …)` is what these
-  // handlers rely on. The static plugin's `wildcard: false` keeps it
-  // from intercepting the bare `/dashboard` path itself.
   const HTML_PAGES = ['dashboard', 'login', 'profile', 'admin'] as const;
   for (const page of HTML_PAGES) {
     app.get(
       `/${page}`,
-      {
-        // Hidden from /docs — these aren't API endpoints, just routes
-        // that serve pre-built HTML, and listing them in OpenAPI would
-        // pollute the playground sidebar.
-        schema: { hide: true },
-      },
+      { schema: { hide: true } },
       (_req, reply) => reply.sendFile(`${page}.html`),
     );
   }
 
-  // Pre-warm Chromium so the first screenshot/brat request doesn't pay the
-  // ~1-2s cold-launch tax. Fire-and-forget — failure here just means the
-  // first request launches normally.
   void getBrowser().catch((err) => app.log.warn({ err }, 'browser pre-warm failed'));
 
-  // Tear down the shared Chromium when Fastify closes. Without this, every
-  // SIGTERM (or dev hot-reload) leaks a chromium process — they accumulate
-  // fast and exhaust container memory in production.
   app.addHook('onClose', async () => {
     await shutdownBrowser();
   });

@@ -22,6 +22,7 @@ import Sidebar from './components/Sidebar.js';
 import EndpointList from './components/EndpointList.js';
 import TryItModal from './components/TryItModal.js';
 import { useAuth } from './auth.js';
+import ShortlinkManager from './components/ShortlinkManager.js';
 import { useOpenApi } from './openapi.js';
 import { ApiClient } from './api.js';
 
@@ -117,7 +118,11 @@ const App = {
             ? h('div', { class: 'empty' }, 'Loading API spec…')
             : openapi.state.error
               ? h('div', { class: 'empty' }, 'Failed to load /docs/json: ' + openapi.state.error)
-              : h(EndpointList, {
+              : activeTag.value === '__shortlinks__'
+                ? h(ShortlinkManager, {
+                    onToast: ({ kind, text }) => toast(kind, text),
+                  })
+                : h(EndpointList, {
                   groups: openapi.groups.value,
                   activeTag: activeTag.value,
                   onSelect: (op) => (openOp.value = op),

@@ -122,7 +122,7 @@ export class ApiClient {
    *     elapsedMs: number,
    *   }
    */
-  async execute({ method, path, query, jsonBody, security, securitySchemes }) {
+  async execute({ method, path, query, jsonBody, formData, security, securitySchemes }) {
     const url = new URL(path, window.location.origin);
     if (query) {
       for (const [k, v] of Object.entries(query)) {
@@ -130,23 +130,32 @@ export class ApiClient {
         url.searchParams.set(k, String(v));
       }
     }
-
+  
     const headers = {
       Accept: 'application/json, image/*;q=0.9, */*;q=0.5',
       ...this.buildAuthHeaders(security, securitySchemes),
     };
-
+  
     /** @type {RequestInit} */
     const init = { method, headers, credentials: 'same-origin' };
-    if (jsonBody !== undefined) {
+  
+    if (formData) {
+      /**
+       * Penting:
+       * Jangan set Content-Type manual untuk FormData.
+       * Browser akan otomatis set:
+       * multipart/form-data; boundary=....
+       */
+      init.body = formData;
+    } else if (jsonBody !== undefined) {
       headers['Content-Type'] = 'application/json';
       init.body = JSON.stringify(jsonBody);
     }
-
+  
     const start = performance.now();
     const res = await fetch(url.toString(), init);
     const elapsedMs = Math.round(performance.now() - start);
-
+  
     const out = {
       ok: res.ok,
       status: res.status,
@@ -159,14 +168,12 @@ export class ApiClient {
       retryAfter: parseInt(res.headers.get('retry-after') ?? '', 10) || null,
       elapsedMs,
     };
-
-    // Branch on content-type so the result pane can do the right thing.
+  
     const ct = out.contentType.toLowerCase();
     if (ct.includes('application/json')) {
       try {
         out.json = await res.json();
       } catch (err) {
-        // Server claimed JSON but body was malformed — still useful to show.
         out.text = '<malformed JSON: ' + (err && err.message) + '>';
       }
     } else if (ct.startsWith('image/') || ct.includes('octet-stream')) {
@@ -178,10 +185,8 @@ export class ApiClient {
       out.text = text.length > ENVELOPE_PREVIEW_BYTES
         ? text.slice(0, ENVELOPE_PREVIEW_BYTES) + '\n…(truncated)'
         : text;
-    } else {
-      // Empty bodies (204) or unknown types — leave body fields unset.
     }
-
+  
     return out;
   }
 

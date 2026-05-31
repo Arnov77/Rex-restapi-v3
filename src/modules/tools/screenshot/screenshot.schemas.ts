@@ -7,7 +7,14 @@ import { z } from 'zod';
  *  - waitFor capped at 10s to avoid pinning the shared browser on one request
  */
 export const ScreenshotQuery = z.object({
-  url: z.string().url().max(2048),
+  url: z.string()
+  .trim()
+  .max(2048)
+  .transform((v) => {
+    if (!/^https?:\/\//i.test(v)) return `https://${v}`;
+    return v;
+  })
+  .pipe(z.string().url()),
   width: z.coerce.number().int().min(320).max(3840).default(1280),
   height: z.coerce.number().int().min(240).max(4320).default(720),
   fullPage: z.coerce.boolean().default(false),

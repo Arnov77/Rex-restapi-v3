@@ -3,28 +3,89 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Rex API — REST API for utility tools and bots</title>
-  <meta name="description" content="A WhatsApp-bot oriented REST API. Image rendering, screenshots, web utilities, and more — backed by Fastify + Supabase with JWT auth, tiered quotas, and rate-limit." />
+
+  <!-- Primary SEO -->
+  <title>Rex API — REST API for Apps, Bots & Image Tools</title>
+  <meta
+    name="description"
+    content="Rex API is a developer-friendly REST API for apps, bots, and automation tools. Generate images, capture website screenshots, create quote cards, and access useful web utilities through one simple API."
+  />
+  <meta
+    name="keywords"
+    content="REST API, bot API, app API, screenshot API, image tools API, quote card API, brat generator API, developer tools API, web utilities API"
+  />
+  <meta name="robots" content="index, follow" />
+  <meta name="theme-color" content="#0a0a0a" />
+  <link rel="canonical" href="/" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Rex API" />
+  <meta property="og:title" content="Rex API — REST API for Apps, Bots & Image Tools" />
+  <meta
+    property="og:description"
+    content="Build faster with one simple API for screenshots, image tools, quote cards, bot utilities, and developer tools."
+  />
+  <meta property="og:url" content="/" />
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Rex API — REST API for Apps, Bots & Image Tools" />
+  <meta
+    name="twitter:description"
+    content="Screenshots, image tools, quote cards, and bot utilities — available through one fast and documented REST API."
+  />
+
+  <!-- Favicons / manifest -->
   <link rel="icon" type="image/x-icon" href="/assets/image/favicon.ico" />
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/image/favicon-32x32.png" />
   <link rel="icon" type="image/png" sizes="16x16" href="/assets/image/favicon-16x16.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/image/apple-touch-icon.png" />
   <link rel="manifest" href="/site.webmanifest" />
-  <link rel="stylesheet" href="/css/style.css" />
-</head>
-<body>
 
-  <!-- Top bar — sticky for easy nav back to dashboard from any scroll depth. -->
+  <link rel="stylesheet" href="/css/style.css" />
+
+  <!-- Structured data: helps search engines understand the product -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Rex API",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "Any",
+    "description": "A REST API for apps, bots, screenshots, image tools, quote cards, and developer utilities.",
+    "url": "/",
+    "offers": [
+      {
+        "@type": "Offer",
+        "name": "Anonymous",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      {
+        "@type": "Offer",
+        "name": "Registered",
+        "price": "0",
+        "priceCurrency": "USD"
+      }
+    ]
+  }
+  </script>
+</head>
+
+<body>
+  <!-- Top bar -->
   <header class="topbar">
     <div class="topbar-inner">
-      <a class="brand" href="/">
-        <span class="brand-mark">//</span>
+      <a class="brand" href="/" aria-label="Rex API home">
+        <span class="brand-mark" aria-hidden="true">//</span>
         <span class="brand-name">Rex API</span>
         <span class="brand-ver">v3</span>
       </a>
-      <nav class="top-nav">
+
+      <nav class="top-nav" aria-label="Main navigation">
         <a href="#features">Features</a>
-        <a href="#tiers">Tiers</a>
+        <a href="#tiers">Pricing</a>
         <a href="/docs">Docs</a>
         <a href="/login">Sign in</a>
         <a class="btn primary" href="/dashboard">Open dashboard &rarr;</a>
@@ -32,176 +93,194 @@
     </div>
   </header>
 
-  <!-- Hero — primary message + dual CTA. The status pill is fed by a tiny
-       inline script that pings /api/health; if it fails, it just stays
-       hidden (no scary red badge on a marketing page). -->
-  <section class="hero">
-    <div class="section-inner">
-      <div class="hero-pill" id="statusPill" hidden>
-        <span class="dot"></span>
-        <span id="statusPillText">All systems operational</span>
-      </div>
-
-      <h1>
-        REST API for <span class="accent">utility tools</span><br />
-        and developer bots
-      </h1>
-      <p class="sub">
-        WhatsApp-bot first, but flexible enough for any client. Render images,
-        capture screenshots, and ship utilities through one consistent API —
-        with JWT-backed self-service, tiered quotas, and rate-limits built in.
-      </p>
-
-      <div class="hero-ctas">
-        <a class="btn primary lg" href="/dashboard">Open dashboard &rarr;</a>
-        <a class="btn lg" href="/docs">View Swagger docs</a>
-      </div>
-    </div>
-  </section>
-
-  <!-- Feature grid — focus on the public utility endpoints. Auth, /me,
-       and /keys management exist as plumbing for the dashboard but are
-       intentionally not promoted as product features (and are hidden
-       from /docs/json on the backend) — exposing them on the marketing
-       page invites credential-stuffing and key scraping. New public
-       endpoints (downloader, sticker, image manipulation, etc.) get
-       added here as we ship them so the surface tracks reality. -->
-  <section id="features" class="features">
-    <div class="section-inner">
-      <div class="section-label">What's inside</div>
-      <h2>Endpoints, ready to use</h2>
-      <p class="lede">
-        Every endpoint is documented in OpenAPI, validated with Zod schemas, and
-        protected by tier-aware rate-limit and daily-quota guards.
-      </p>
-
-      <div class="feat-grid">
-        <div class="feat">
-          <div class="feat-icon">SS</div>
-          <h3>Screenshot</h3>
-          <p>Capture any public URL as PNG/JPEG. Light or dark mode, configurable viewport, full-page support.</p>
-          <div class="endpoints">
-            <code>GET /api/screenshot</code>
-          </div>
+  <main>
+    <!-- Hero -->
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="section-inner">
+        <div class="hero-pill" id="statusPill" hidden>
+          <span class="dot" aria-hidden="true"></span>
+          <span id="statusPillText">All systems operational</span>
         </div>
 
-        <div class="feat">
-          <div class="feat-icon">BR</div>
-          <h3>Brat caption</h3>
-          <p>Charli XCX-inspired green captions. PNG, JPEG, animated GIF, or animated WebP — your choice.</p>
-          <div class="endpoints">
-            <code>GET /api/brat</code>
-          </div>
-        </div>
+        <h1 id="hero-title">
+          REST API for <span class="accent">apps, bots</span><br />
+          and creative tools
+        </h1>
 
-        <div class="feat">
-          <div class="feat-icon">QT</div>
-          <h3>Quote card</h3>
-          <p>Twitter-style quote cards with custom theme, font, accent colour, and verified badge.</p>
-          <div class="endpoints">
-            <code>GET /api/quote</code>
-          </div>
-        </div>
+        <p class="sub">
+          Build features faster with one simple API for screenshots, image tools,
+          quote cards, captions, and bot utilities — documented, secured with JWT,
+          and ready to use from your dashboard.
+        </p>
 
-        <div class="feat">
-          <div class="feat-icon">+</div>
-          <h3>More coming</h3>
-          <p>Downloader (TikTok, YouTube, Instagram), sticker tools, image manipulation, and other utilities are on the roadmap.</p>
-          <div class="endpoints">
-            <code>roadmap</code>
-          </div>
+        <div class="hero-ctas">
+          <a class="btn primary lg" href="/dashboard">Get your free API key &rarr;</a>
+          <a class="btn lg" href="/docs">Explore the docs</a>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- Tier info — set realistic expectations before users register. -->
-  <section id="tiers" class="tiers">
-    <div class="section-inner">
-      <div class="section-label" style="text-align:center">Quotas</div>
-      <h2>Free for individuals, scalable for teams</h2>
-      <p class="lede">
-        Anonymous traffic is metered by IP. Sign in to lift your daily quota and
-        get a personal API key for use in bots. Master keys (issued by ops) are
-        unlimited.
-      </p>
+    <!-- Features -->
+    <section id="features" class="features" aria-labelledby="features-title">
+      <div class="section-inner">
+        <div class="section-label">What's included</div>
 
-      <div class="tier-grid">
-        <div class="tier">
-          <h3>Anonymous</h3>
-          <div class="quota">
-            <span class="num">100</span>
-            <span class="unit">/ day per IP</span>
-          </div>
-          <p class="desc">No sign-up required. Try anything from the dashboard, no key needed.</p>
-          <ul>
-            <li>All public endpoints</li>
-            <li>30 requests / minute</li>
-            <li>Per-IP daily counter</li>
-          </ul>
-          <a class="btn" href="/dashboard">Try without signing in</a>
-        </div>
+        <h2 id="features-title">Useful endpoints for real projects</h2>
 
-        <div class="tier recommended">
-          <span class="tier-badge">Recommended</span>
-          <h3>User</h3>
-          <div class="quota">
-            <span class="num">1,000</span>
-            <span class="unit">/ day</span>
-          </div>
-          <p class="desc">Sign up to get a personal API key for your bot. Quota tracks the key, not the IP.</p>
-          <ul>
-            <li>Personal <code style="font-size:11.5px">rex_…</code> API key</li>
-            <li>60 requests / minute (2× anon)</li>
-            <li>Self-service rotation</li>
-            <li>Usage dashboard</li>
-          </ul>
-          <!--
-            Sign-up CTA: route through /login first so the user actually
-            *creates* an account (or signs into an existing one), then
-            land on /dashboard automatically via the next= param. The
-            sibling "Try without signing in" button on the Anonymous
-            tier still goes straight to /dashboard — that's the soft-
-            gate path. Keep these two paths visually similar but
-            functionally distinct: "Try" = anon, "Sign up" = auth.
+        <p class="lede">
+          Rex API gives you ready-to-use endpoints for apps, bots, dashboards,
+          automation workflows, and creative tools — all documented and protected
+          with fair usage limits.
+        </p>
 
-            next=/dashboard is hard-coded here rather than computed
-            because we know the destination at template time and there's
-            no path information to preserve from a static landing page.
-          -->
-          <a class="btn primary" href="/login?next=%2Fdashboard">Sign up free</a>
+        <div class="feat-grid">
+          <article class="feat">
+            <div class="feat-icon" aria-hidden="true">SS</div>
+            <h3>Screenshot API</h3>
+            <p>
+              Capture public web pages as clean PNG or JPEG images with custom
+              viewport, full-page capture, and light or dark mode support.
+            </p>
+            <div class="endpoints">
+              <code>GET /api/screenshot</code>
+            </div>
+          </article>
+
+          <article class="feat">
+            <div class="feat-icon" aria-hidden="true">BR</div>
+            <h3>Caption Generator</h3>
+            <p>
+              Create brat-style captions in PNG, JPEG, animated GIF, or WebP
+              format for bots, stickers, social posts, and image-based tools.
+            </p>
+            <div class="endpoints">
+              <code>GET /api/brat</code>
+            </div>
+          </article>
+
+          <article class="feat">
+            <div class="feat-icon" aria-hidden="true">QT</div>
+            <h3>Quote Card API</h3>
+            <p>
+              Generate clean quote cards with custom themes, fonts, accent colors,
+              profile details, and verified badges.
+            </p>
+            <div class="endpoints">
+              <code>GET /api/quote</code>
+            </div>
+          </article>
+
+          <article class="feat">
+            <div class="feat-icon" aria-hidden="true">+</div>
+            <h3>And Much More</h3>
+            <p>
+              Explore more utilities for media, stickers, image processing, and
+              bot automation — all available through one simple REST API.
+            </p>
+            <div class="endpoints">
+              <code>more tools</code>
+            </div>
+          </article>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
+
+    <!-- Tiers -->
+    <section id="tiers" class="tiers" aria-labelledby="tiers-title">
+      <div class="section-inner">
+        <div class="section-label" style="text-align:center">Pricing</div>
+
+        <h2 id="tiers-title">Start free. Scale when you need more.</h2>
+
+        <p class="lede">
+          Try Rex API without an account, or sign in to get a personal API key,
+          higher daily quota, and a usage dashboard for your apps and bots.
+        </p>
+
+        <div class="tier-grid">
+          <article class="tier">
+            <h3>Anonymous</h3>
+
+            <div class="quota">
+              <span class="num">15</span>
+              <span class="unit">requests / day per IP</span>
+            </div>
+
+            <p class="desc">
+              No sign-up required. Test public endpoints directly from the dashboard.
+            </p>
+
+            <ul>
+              <li>Access to public endpoints</li>
+              <li>15 requests per day</li>
+              <li>Limit applies per IP address</li>
+            </ul>
+
+            <a class="btn" href="/dashboard">Try without signing in</a>
+          </article>
+
+          <article class="tier recommended">
+            <span class="tier-badge">Recommended</span>
+
+            <h3>Registered</h3>
+
+            <div class="quota">
+              <span class="num">150</span>
+              <span class="unit">requests / day</span>
+            </div>
+
+            <p class="desc">
+              Create a free account to get your own API key for production apps,
+              bots, and tools.
+            </p>
+
+            <ul>
+              <li>Personal <code style="font-size:11.5px">rex_…</code> API key</li>
+              <li>150 requests per day</li>
+              <li>Rotate or revoke keys anytime</li>
+              <li>Live usage dashboard</li>
+            </ul>
+
+            <a class="btn primary" href="/login?next=%2Fdashboard">Create free account</a>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
 
   <footer>
     <div class="foot-inner">
-      <div class="foot-links">
+      <nav class="foot-links" aria-label="Footer navigation">
         <a href="/dashboard">Dashboard</a>
-        <a href="/docs">API docs</a>
+        <a href="/docs">API Docs</a>
         <a href="/api/health">Status</a>
         <a href="https://github.com/Arnov77/rex-api-access" target="_blank" rel="noopener">GitHub</a>
+      </nav>
+
+      <div class="foot-meta">
+        Rex API v3 — Built with Fastify + TypeScript · MIT licensed
       </div>
-      <div class="foot-meta">Rex API v3 — Fastify + TypeScript · MIT-licensed code</div>
     </div>
   </footer>
 
   <script>
-    // Lightweight liveness check. Hides the pill on failure so the
-    // landing page never looks broken because of a transient 5xx.
+    // Lightweight liveness check.
+    // If /api/health fails, the status pill stays hidden.
     (function () {
       var pill = document.getElementById('statusPill');
       var text = document.getElementById('statusPillText');
+
       fetch('/api/health', { headers: { Accept: 'application/json' } })
-        .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+        .then(function (r) {
+          return r.ok ? r.json() : Promise.reject();
+        })
         .then(function (j) {
           if (j && j.ok) {
             text.textContent = 'All systems operational · v' + (j.version || '?');
             pill.hidden = false;
           }
         })
-        .catch(function () { /* keep pill hidden */ });
+        .catch(function () {});
     })();
   </script>
 </body>

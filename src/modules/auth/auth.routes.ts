@@ -8,7 +8,7 @@ const authRoutes: FastifyPluginAsyncZod = async (app) => {
   const ipLimit = app.rateLimit({
     prefix: 'auth-ip',
     windowSec: 60,
-    max: 20,
+    max: 5,
     keyGenerator: (req) => req.ip,
     message: 'Too many auth attempts from this IP',
   });

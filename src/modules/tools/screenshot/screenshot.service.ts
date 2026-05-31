@@ -1,6 +1,6 @@
-import { withPage } from '../../shared/browser/browserManager.js';
-import { assertPublicUrl } from '../../shared/utils/ssrfGuard.js';
-import { Internal } from '../../shared/errors.js';
+import { withPage } from '@shared/browser/browserManager.js';
+import { assertPublicUrl } from '@shared/utils/ssrfGuard.js';
+import { Internal } from '@shared/errors.js';
 import type { ScreenshotQuery } from './screenshot.schemas.js';
 
 export interface ScreenshotResult {

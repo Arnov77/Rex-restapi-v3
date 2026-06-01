@@ -150,16 +150,21 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(igmp3Routes, { prefix: '/api/download/igmp3' });
 
   // Shortlink redirect — inline handler, hidden from Swagger
-  app.get('/s/:id', { schema: { hide: true } }, async (req, reply) => {
+  const resolveAndRedirect = async (
+    req: { params: unknown },
+    reply: { header: (k: string, v: string) => any; code: (n: number) => any },
+  ) => {
     const { id } = req.params as { id: string };
     const svc = shortlinksService(app.supabase);
     try {
       const link = await svc.resolve(id);
-      return reply.header('cache-control', 'no-store').redirect(link.url, 301);
+      return (reply as any).header('cache-control', 'no-store').redirect(link.url, 301);
     } catch {
-      return reply.code(404).send('Shortlink not found or expired');
+      return (reply as any).code(404).send('Shortlink not found or expired');
     }
-  });
+  };
+
+  app.get('/s/:id', { schema: { hide: true } }, resolveAndRedirect as any);
 
   const staticRoot = env.STATIC_DIR ?? resolve(process.cwd(), 'public');
   await app.register(import('@fastify/static'), {
@@ -174,6 +179,16 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
       { schema: { hide: true } },
       (_req, reply) => reply.sendFile(`${page}.html`),
     );
+  }
+
+  if (env.SHORTLINK_BASE_URL) {
+    app.get('/:id', { schema: { hide: true } }, async (req, reply) => {
+      const { id } = req.params as { id: string };
+      if (!/^[A-Za-z0-9_-]{3,32}$/.test(id)) {
+        return reply.code(404).send('Not found');
+      }
+      return resolveAndRedirect(req as any, reply as any);
+    });
   }
 
   void getBrowser().catch((err) => app.log.warn({ err }, 'browser pre-warm failed'));

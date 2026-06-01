@@ -69,7 +69,7 @@ async function renderOnce(opts: SmemeQuery, signal?: AbortSignal): Promise<Smeme
 
       return el.screenshot({ type: 'png' });
     },
-    { viewport: { width: 900, height: 900, deviceScaleFactor: 2 }, signal },
+    { viewport: { width: 900, height: 900 }, deviceScaleFactor: 2, signal },
   );
 
   if (!png || png.length === 0) throw Internal('SMEME produced empty buffer');

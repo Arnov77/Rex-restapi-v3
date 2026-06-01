@@ -1,5 +1,8 @@
 // Shared deterministic env for tests that load `loadEnv()`.
 process.env.NODE_ENV = 'test';
+// Hard-set so an ambient LOG_LEVEL (e.g. "INFO") from the host shell can't
+// break the strict lowercase enum in the env schema. Keeps test output quiet.
+process.env.LOG_LEVEL = 'silent';
 process.env.JWT_SECRET ??= 'test-secret-test-secret-test-secret-1234';
 process.env.JWT_EXPIRES_IN ??= '1h';
 process.env.API_KEY_ENC_KEY ??= '0'.repeat(64);

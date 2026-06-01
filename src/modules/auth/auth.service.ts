@@ -41,6 +41,7 @@ export function authService(db: SupabaseClient) {
         name: `${username}-key`,
         tier: 'user',
         dailyLimit: env.USER_DAILY_QUOTA,
+        storeEncrypted: env.API_KEY_REVEALABLE,
       });
 
       const userRow = await users.insert({

@@ -51,6 +51,25 @@ const schema = z.object({
   // Default daily quota for normal user keys (override per-key in DB).
   USER_DAILY_QUOTA: z.coerce.number().int().nonnegative().default(1000),
 
+  // ── Auth hot-path cache (in-process) ─────────────────────────────────────
+  // How long (seconds) a validated API-key record is memoised so repeat
+  // requests from the same key skip the per-request DB lookup. Short by
+  // design: revocations/updates apply immediately on the issuing instance
+  // (cache is invalidated there) and converge within this window elsewhere.
+  // Set 0 to disable record caching.
+  API_KEY_CACHE_TTL_SEC: z.coerce.number().int().min(0).default(30),
+  // Max distinct API-key records held in the in-process auth cache.
+  API_KEY_CACHE_MAX: z.coerce.number().int().min(1).default(5000),
+  // Throttle window (seconds) for `last_used_at` writes per key — collapses
+  // the per-request UPDATE into at most one write per key per window. Set 0
+  // to write on every request (legacy behaviour).
+  API_KEY_TOUCH_THROTTLE_SEC: z.coerce.number().int().min(0).default(60),
+  
+    API_KEY_REVEALABLE: z
+    .string()
+    .default('true')
+    .transform((v) => !['false', '0', 'no', 'off'].includes(v.trim().toLowerCase())),
+
   // Optional override for Chromium executable path (Playwright will use its
   // bundled binary when omitted).
   CHROME_BIN: z.string().optional(),
@@ -84,10 +103,17 @@ const schema = z.object({
   //   docker run -d -p 9000:9000 ghcr.io/imputnet/cobalt:latest
   // Then set COBALT_API_URL=http://localhost:9000/
   COBALT_API_URL: z.string().url().default('https://api.cobalt.tools/'),
+  
+  // Extra hostnames the signed download proxy may stream from even if they
+  // resolve to private/loopback IPs (self-hosted media helpers). The
+  // COBALT_API_URL host is allowed automatically. Comma-separated.
+  DOWNLOAD_PROXY_ALLOW_HOSTS: z.string().optional().default(''),
 
   // Path to yt-dlp cookies file (Netscape format). Used as fallback for
   // YouTube downloads when cobalt fails. Relative to cwd or absolute path.
   YTDLP_COOKIES_PATH: z.string().default('./cookies.txt'),
+  
+    AUDIO_LOUDNESS_FILTER: z.string().default(''),
 });
 
 export type Env = z.infer<typeof schema>;

@@ -1,6 +1,10 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
+import { statSync, createReadStream } from 'node:fs';
+import { basename } from 'node:path';
 import { shortProxyUrl } from '@modules/downloaders/_proxy/proxy.token.js';
+import { downloadAndNormalizeAudio, getTempDir } from '../youtube/ytdlp.js';
+import { AppError } from '@shared/errors.js';
 import { loadEnv } from '../../../config/env.js';
 
 const Ttmp3Query = z.object({
@@ -21,10 +25,7 @@ const Ttmp3Response = z.object({
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
-/**
- * Resolve a short TikTok URL (vt.tiktok.com, vm.tiktok.com) to its canonical URL.
- * Cobalt & tikwm work better with the full URL.
- */
+/** Resolve a short TikTok URL (vt./vm.tiktok.com) to its canonical URL. */
 async function resolveShortUrl(url: string): Promise<string> {
   if (!/vm\.tiktok\.com|vt\.tiktok\.com/i.test(url)) return url;
   try {
@@ -40,31 +41,64 @@ async function resolveShortUrl(url: string): Promise<string> {
   }
 }
 
-/**
- * Fallback: fetch audio URL directly from tikwm API.
- */
-async function fetchAudioViaTikwm(url: string): Promise<{ audioUrl: string; title: string }> {
-  const res = await fetch('https://www.tikwm.com/api/', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': UA },
-    body: `url=${encodeURIComponent(url)}&count=12&cursor=0&web=1&hd=1`,
-    signal: AbortSignal.timeout(15_000),
-  });
+/** Resolve a raw audio source URL + title from cobalt, then tikwm. */
+async function resolveAudioSource(
+  resolvedUrl: string,
+  env: ReturnType<typeof loadEnv>,
+  errors: string[],
+): Promise<{ audioUrl: string; title: string } | null> {
+  // Method 1: cobalt (audio mode → direct CDN mp3 URL)
+  try {
+    const res = await fetch(env.COBALT_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        url: resolvedUrl,
+        downloadMode: 'audio',
+        audioFormat: 'mp3',
+        audioBitrate: '128',
+        filenameStyle: 'basic',
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    const raw = await res.text().catch(() => '');
+    let json: any = {};
+    try { json = raw ? JSON.parse(raw) : {}; } catch { /* non-JSON */ }
 
-  if (!res.ok) throw new Error(`tikwm returned ${res.status}`);
-  const json = (await res.json()) as any;
-
-  if (json.code !== 0 || !json.data) {
-    throw new Error(json.msg || 'tikwm: no data returned');
+    if (!res.ok || json.status === 'error') {
+      errors.push(`cobalt ${res.status}: ${json?.error?.code || raw.slice(0, 120)}`);
+    } else if (json.url) {
+      const title = (json.filename || 'tiktok_audio').replace(/\.\w+$/, '');
+      return { audioUrl: json.url, title };
+    } else {
+      errors.push('cobalt: no audio URL returned');
+    }
+  } catch (err: any) {
+    errors.push(`cobalt: ${err.message}`);
   }
 
-  const d = json.data;
-  // music_info.play is a direct CDN audio URL (not watermarked, not rate-limited)
-  const audioUrl = d.music_info?.play || d.music;
-  if (!audioUrl) throw new Error('tikwm: no audio URL in response');
+  // Method 2: tikwm fallback (music_info.play / music)
+  try {
+    const res = await fetch('https://www.tikwm.com/api/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': UA },
+      body: `url=${encodeURIComponent(resolvedUrl)}&count=12&cursor=0&web=1&hd=1`,
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) throw new Error(`tikwm returned ${res.status}`);
+    const json = (await res.json()) as any;
+    if (json.code !== 0 || !json.data) throw new Error(json.msg || 'no data returned');
 
-  const title = (d.title || 'TikTok Audio').replace(/[\r\n]+/g, ' ').trim();
-  return { audioUrl, title };
+    const d = json.data;
+    const audioUrl = d.music_info?.play || d.music;
+    if (!audioUrl) throw new Error('no audio URL in response');
+    const title = (d.title || 'TikTok Audio').replace(/[\r]+/g, ' ').trim();
+    return { audioUrl, title };
+  } catch (err: any) {
+    errors.push(`tikwm: ${err.message}`);
+  }
+
+  return null;
 }
 
 const ttmp3Routes: FastifyPluginAsyncZod = async (app) => {
@@ -74,75 +108,73 @@ const ttmp3Routes: FastifyPluginAsyncZod = async (app) => {
       schema: {
         tags: ['download'],
         summary: 'TikTok to MP3',
-        description: 'Extract audio from TikTok video as MP3. Returns a streamable proxy URL.',
+        description: 'Extract audio from TikTok video as MP3 (loudness-normalized). Returns a streamable proxy URL.',
         querystring: Ttmp3Query,
         response: { 200: Ttmp3Response },
       },
     },
     async (req) => {
       const env = loadEnv();
-
-      // Resolve short URLs first — cobalt and tikwm both work better with canonical URLs
       const resolvedUrl = await resolveShortUrl(req.query.url);
-
-      const base = `${req.protocol}://${req.host}`;
       const errors: string[] = [];
 
-      // ── Method 1: cobalt ──────────────────────────────────────────
-      try {
-        const res = await fetch(env.COBALT_API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-          body: JSON.stringify({
-            url: resolvedUrl,
-            downloadMode: 'audio',
-            audioFormat: 'mp3',
-            audioBitrate: '128',
-            filenameStyle: 'basic',
-          }),
-          signal: AbortSignal.timeout(15_000),
-        });
-
-        if (!res.ok) {
-          const body = await res.text().catch(() => '');
-          errors.push(`cobalt ${res.status}: ${body.slice(0, 200)}`);
-        } else {
-          const json = (await res.json()) as { status?: string; error?: { code?: string }; url?: string; filename?: string };
-
-          if (json.status === 'error') {
-            errors.push(`cobalt error: ${json.error?.code || 'unknown'}`);
-          } else if (json.url) {
-            const filename = json.filename || 'tiktok_audio.mp3';
-            const title = filename.replace(/\.\w+$/, '');
-            const proxyedUrl = shortProxyUrl(base, json.url, {
-              filename,
-              contentType: 'audio/mpeg',
-            });
-            return { ok: true as const, data: { title, url: proxyedUrl, format: 'mp3' } };
-          } else {
-            errors.push('cobalt: no audio URL returned');
-          }
-        }
-      } catch (err: any) {
-        errors.push(`cobalt: ${err.message}`);
+      const source = await resolveAudioSource(resolvedUrl, env, errors);
+      if (!source) {
+        throw new AppError(
+          502,
+          'TIKTOK_AUDIO_FAILED',
+          `TikTok audio extraction failed. Tried: ${errors.join('; ')}`,
+        );
       }
 
-      // ── Method 2: tikwm direct audio URL ─────────────────────────
+      // TikTok audio is often mastered very quietly (~-26 dB). Download and
+      // run it through ffmpeg loudnorm so the MP3 plays at a normal volume.
+      let filePath: string;
       try {
-        req.log.info({ resolvedUrl }, 'cobalt failed, trying tikwm fallback');
-        const { audioUrl, title } = await fetchAudioViaTikwm(resolvedUrl);
-        const filename = `${title.replace(/[^a-zA-Z0-9 _-]/g, '').trim().slice(0, 80) || 'tiktok_audio'}.mp3`;
-        const proxyedUrl = shortProxyUrl(base, audioUrl, {
-          filename,
-          contentType: 'audio/mpeg',
+        const normalized = await downloadAndNormalizeAudio(source.audioUrl, {
+          headers: { 'User-Agent': UA, Referer: 'https://www.tiktok.com/' },
         });
-        return { ok: true as const, data: { title, url: proxyedUrl, format: 'mp3' } };
+        filePath = normalized.filePath;
       } catch (err: any) {
-        errors.push(`tikwm: ${err.message}`);
+        req.log.warn({ err }, 'ttmp3 normalize failed');
+        throw new AppError(502, 'TIKTOK_AUDIO_FAILED', `Could not process TikTok audio: ${err.message}`);
       }
 
-      // Both methods failed
-      throw new Error(`TikTok audio extraction failed. Tried: ${errors.join('; ')}`);
+      const cleanTitle = source.title.replace(/[^a-zA-Z0-9 _-]/g, '').trim().slice(0, 80) || 'tiktok_audio';
+      const base = `${req.protocol}://${req.host}`;
+      const fileId = basename(filePath);
+      const internalUrl = `${base}/api/download/ttmp3/file/${fileId}`;
+      const proxyedUrl = shortProxyUrl(base, internalUrl, {
+        filename: `${cleanTitle}.mp3`,
+        contentType: 'audio/mpeg',
+      });
+
+      return { ok: true as const, data: { title: source.title, url: proxyedUrl, format: 'mp3' } };
+    },
+  );
+
+  // File serving endpoint — streams the normalized temp mp3 (used by proxy).
+  app.get(
+    '/file/:id',
+    { schema: { hide: true } },
+    async (req, reply) => {
+      const { id } = req.params as { id: string };
+      if (!/^[a-f0-9]+\.mp3$/.test(id)) {
+        return reply.code(400).send({ ok: false, error: { message: 'Invalid file ID' } });
+      }
+
+      const filePath = `${getTempDir()}/${id}`;
+      try {
+        const stat = statSync(filePath);
+        reply
+          .type('audio/mpeg')
+          .header('content-length', String(stat.size))
+          .header('content-disposition', `inline; filename="${id}"`)
+          .header('cache-control', 'private, max-age=3600');
+        return reply.send(createReadStream(filePath));
+      } catch {
+        return reply.code(404).send({ ok: false, error: { message: 'File expired or not found' } });
+      }
     },
   );
 };

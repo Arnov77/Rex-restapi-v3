@@ -105,6 +105,8 @@ const apiKeyRoutes: FastifyPluginAsyncZod = async (app) => {
       const svc = apiKeysService(app.supabase);
       const record = await svc.repo.findById(req.params.id);
       await svc.revoke(req.params.id);
+      // Drop from the auth cache so the revoke takes effect immediately here.
+      app.apiKeyCache?.invalidateById(req.params.id);
 
       // Audit: key revoked
       await auditLogRepo(app.supabase).insert({
@@ -137,6 +139,8 @@ const apiKeyRoutes: FastifyPluginAsyncZod = async (app) => {
     async (req) => {
       const svc = apiKeysService(app.supabase);
       const updated = await svc.update(req.params.id, req.body);
+      // Invalidate the cached record so the new dailyLimit/name applies now.
+      app.apiKeyCache?.invalidateById(updated.id);
 
       // Audit: key updated
       await auditLogRepo(app.supabase).insert({
@@ -169,6 +173,9 @@ const apiKeyRoutes: FastifyPluginAsyncZod = async (app) => {
     async (req) => {
       const svc = apiKeysService(app.supabase);
       const result = await svc.regenerate(req.params.id);
+      // The old hash is now dead — drop the cached record so it can't keep
+      // authenticating from cache until TTL expiry.
+      app.apiKeyCache?.invalidateById(result.record.id);
 
       // Audit: key regenerated
       await auditLogRepo(app.supabase).insert({
@@ -206,6 +213,8 @@ const apiKeyRoutes: FastifyPluginAsyncZod = async (app) => {
       if (!record) throw app.httpErrors.notFound('API key not found');
       if (!record.revoked) throw app.httpErrors.badRequest('Key is already active');
       const updated = await svc.repo.activate(req.params.id);
+      // Refresh the cache so the reactivated key authenticates immediately.
+      app.apiKeyCache?.invalidateById(updated.id);
 
       // Audit: key activated
       await auditLogRepo(app.supabase).insert({

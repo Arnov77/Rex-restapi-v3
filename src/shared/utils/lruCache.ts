@@ -53,6 +53,11 @@ export class LruCache<K, V> {
     }
   }
 
+  /** Remove a single entry. No-op when the key is absent. */
+  delete(key: K): void {
+    this.map.delete(key);
+  }
+
   get size(): number {
     return this.map.size;
   }

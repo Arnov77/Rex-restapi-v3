@@ -76,15 +76,16 @@ export function apiKeysService(db: SupabaseClient) {
      * with storeEncrypted), the new plaintext is also stored encrypted so
      * the owner can re-reveal later.
      */
-    async regenerate(id: string): Promise<CreateResult> {
+    async regenerate(id: string, opts: { storeEncrypted?: boolean } = {}): Promise<CreateResult> {
       const record = await repo.findById(id);
       if (!record) throw NotFound('API key not found');
       const plaintext = generatePlaintextKey();
       const wasStored = record.keyEncrypted !== null;
+      const store = opts.storeEncrypted || wasStored || record.tier === 'master';
       const updated = await repo.rotateHash(
         id,
         hashApiKey(plaintext),
-        wasStored || record.tier === 'master' ? encryptApiKey(plaintext) : null,
+        store ? encryptApiKey(plaintext) : null,
       );
       return { plaintext, record: updated };
     },

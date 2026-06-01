@@ -3,6 +3,26 @@ import { Internal } from '@shared/errors.js';
 
 const TABLE = 'users';
 
+/**
+ * Escape a user-supplied search term for safe use inside a PostgREST
+ * `ilike` filter value. PostgREST parses `,` `(` `)` as filter-grammar
+ * separators, so an unescaped term lets an attacker inject extra filters
+ * (e.g. against other columns) — especially dangerous here because the
+ * service-role client bypasses RLS.
+ *
+ * The caller wraps the value in double quotes so `,` `(` `)` are treated
+ * literally; this helper (a) drops LIKE/PostgREST wildcards so input matches
+ * literally and (b) escapes the quoting characters so the term cannot break
+ * out of the quoted value.
+ */
+function escapeSearchTerm(input: string): string {
+  return input
+    .slice(0, 100) // cap length
+    .replace(/[%_*]/g, '') // neutralise LIKE / PostgREST wildcards
+    .replace(/\\/g, '\\\\') // escape backslashes
+    .replace(/"/g, '\\"'); // escape double quotes
+}
+
 export interface UserRecord {
   id: string;
   username: string;
@@ -105,8 +125,11 @@ export function usersRepo(db: SupabaseClient) {
         .range(offset, offset + limit - 1);
 
       if (opts.search) {
-        // ilike search on username or email
-        query = query.or(`username.ilike.%${opts.search}%,email.ilike.%${opts.search}%`);
+        // ilike search on username or email. The term is escaped and the
+        // value double-quoted so PostgREST filter metacharacters (, ( ) ")
+        // cannot break out and inject additional filters.
+        const term = escapeSearchTerm(opts.search);
+        query = query.or(`username.ilike."%${term}%",email.ilike."%${term}%"`);
       }
 
       const { data, error, count } = await query;

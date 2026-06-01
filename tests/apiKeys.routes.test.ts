@@ -33,6 +33,13 @@ vi.mock('../src/modules/apiKeys/apiKeys.repo.js', () => ({
   apiKeysRepo: () => apiKeysRepoMock,
 }));
 
+// The mutating routes (create/revoke/update/regenerate/activate) write an
+// audit-log entry via auditLogRepo(app.supabase). Supabase is stubbed as {},
+// so stub the repo too — otherwise `app.supabase.from` is undefined → 500.
+vi.mock('../src/modules/auditLog/auditLog.repo.js', () => ({
+  auditLogRepo: () => ({ insert: vi.fn().mockResolvedValue(undefined) }),
+}));
+
 const supabasePlugin = (await import('../src/plugins/supabase.js')).default;
 const authPlugin = (await import('../src/plugins/auth.js')).default;
 const errorHandler = (await import('../src/plugins/errorHandler.js')).default;

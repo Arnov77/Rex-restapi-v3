@@ -1,4 +1,5 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
+import type { FastifyRequest } from 'fastify';
 import { statSync, createReadStream } from 'node:fs';
 import { basename } from 'node:path';
 import { stickerService } from './sticker.service.js';
@@ -12,7 +13,7 @@ const MIME_EXT: Record<string, string> = {
   webp: 'image/webp',
 };
 
-async function resolveAuthor(req: Parameters<Parameters<ReturnType<typeof import('fastify')['default']>['get']>[2]>[0]): Promise<string> {
+async function resolveAuthor(req: FastifyRequest): Promise<string> {
   const domain = process.env.APP_DOMAIN ?? 'rex-api.xyz';
 
   // Kalau ada user dari JWT → pakai username

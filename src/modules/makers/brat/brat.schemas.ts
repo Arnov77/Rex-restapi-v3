@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /**
- * Brat caption generator (Charli XCX-style green card).
+ * Brat caption generator (Charli XCX-style caption card).
  *
  * Bounds:
  *  - text 1–200 chars: anything longer overflows the canvas regardless of
@@ -10,9 +10,12 @@ import { z } from 'zod';
  *    practical canvas budget; 2048² is already ~16 MB raw RGBA.
  *  - frames 2–30 / delay 40–200ms: animated GIFs are capped to ~6s total so
  *    a single request can't pin the shared browser.
- *  - blur 0–20px: visual taste; >20 turns into a green blob.
+ *  - blur 0–20px: visual taste; >20 turns into a blob.
  *  - bgImage is OPTIONAL. When provided we fetch it through Chromium with
  *    SSRF protection upstream — never trust this URL without the guard.
+ *
+ * Defaults to a white card (#FFFFFF) with black text (#000000); callers can
+ * override `background`/`color` per request.
  */
 export const BratQuery = z.object({
   text: z.string().trim().min(1).max(200),
@@ -23,7 +26,7 @@ export const BratQuery = z.object({
   blur: z.coerce.number().min(0).max(20).default(3.5),
   background: z
     .string()
-    .regex(/^#[0-9a-fA-F]{6}$/, 'background must be a 6-digit hex like #8ACE00')
+    .regex(/^#[0-9a-fA-F]{6}$/, 'background must be a 6-digit hex like #FFFFFF')
     .default('#FFFFFF'),
   color: z
     .string()

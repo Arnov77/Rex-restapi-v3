@@ -77,7 +77,7 @@ async function renderOnce(opts: QuoteQuery, signal?: AbortSignal): Promise<Quote
       if (!el) throw Internal('Quote card element not found');
       return el.screenshot({ type: 'png', omitBackground: true });
     },
-    { viewport: { width: opts.width, height: 2000, deviceScaleFactor: 2 }, signal },
+    { viewport: { width: opts.width, height: 2000 }, deviceScaleFactor: 2, signal },
   );
 
   if (!png || png.length === 0) throw Internal('Quote produced empty buffer');

@@ -1,12 +1,14 @@
 /**
- * Facebook downloader service.
+ * Facebook downloader service — VIDEO/REEL ONLY by design.
  *
- * Strategy chain:
- *   1. cobalt API (self-hosted) — most reliable, handles FB's anti-bot
- *   2. Direct page scrape (mobile UA) — parse video_url from page HTML
- *   3. Desktop page scrape fallback
+ * Photos can be saved directly from Facebook, and login-gated scraping is
+ * unreliable from a datacenter IP, so we don't chase them. Media comes from
+ * cobalt (muxed video+audio); yt-dlp (-J, metadata only) enriches
+ * title/author/thumbnail/duration.
  */
 
+import { ytdlpGetInfo } from '../youtube/ytdlp.js';
+import { AppError } from '@shared/errors.js';
 import { loadEnv } from '../../../config/env.js';
 
 export interface FacebookResult {
@@ -17,240 +19,163 @@ export interface FacebookResult {
   media: Array<{ type: 'video' | 'image'; url: string; quality?: string }>;
 }
 
-const MOBILE_UA = 'Mozilla/5.0 (Linux; Android 12; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36';
 const DESKTOP_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
-/**
- * Normalize Facebook URL — resolve fb.watch shortlinks.
- */
+/** cobalt error carrying its error code + HTTP status for the caller to map. */
+class CobaltError extends Error {
+  code?: string;
+  httpStatus?: number;
+  constructor(message: string, opts: { code?: string; httpStatus?: number } = {}) {
+    super(message);
+    this.code = opts.code;
+    this.httpStatus = opts.httpStatus;
+  }
+}
+
+/** Resolve fb.watch / /share/ links to the canonical URL, then strip query noise. */
 async function normalizeUrl(url: string, signal?: AbortSignal): Promise<string> {
-  // fb.watch shortlinks redirect to the full URL
-  if (/fb\.watch/i.test(url)) {
-    const res = await fetch(url, {
-      method: 'HEAD',
-      redirect: 'follow',
-      headers: { 'User-Agent': DESKTOP_UA },
-      signal,
-    });
-    return res.url;
-  }
-  return url;
-}
-
-/**
- * Primary method: scrape the mobile version of the Facebook page.
- * Mobile pages expose video URLs more readily than desktop.
- */
-async function fetchViaMobileScrape(url: string, signal?: AbortSignal): Promise<FacebookResult> {
-  // Convert to mobile URL
-  const mobileUrl = url.replace('www.facebook.com', 'm.facebook.com');
-
-  const res = await fetch(mobileUrl, {
-    headers: {
-      'User-Agent': MOBILE_UA,
-      'Accept': 'text/html,application/xhtml+xml',
-      'Accept-Language': 'en-US,en;q=0.9',
-    },
-    redirect: 'follow',
-    signal,
-  });
-
-  if (!res.ok) throw new Error(`Facebook returned ${res.status}`);
-  const html = await res.text();
-
-  const media: FacebookResult['media'] = [];
-
-  // Look for HD video URL
-  const hdMatch = html.match(/browser_native_hd_url":"([^"]+)"/);
-  if (hdMatch) {
-    const hdUrl = hdMatch[1]!.replace(/\\u0025/g, '%').replace(/\\\//g, '/').replace(/\\u0026/g, '&');
-    media.push({ type: 'video', url: decodeURIComponent(hdUrl), quality: 'hd' });
-  }
-
-  // Look for SD video URL
-  const sdMatch = html.match(/browser_native_sd_url":"([^"]+)"/);
-  if (sdMatch) {
-    const sdUrl = sdMatch[1]!.replace(/\\u0025/g, '%').replace(/\\\//g, '/').replace(/\\u0026/g, '&');
-    media.push({ type: 'video', url: decodeURIComponent(sdUrl), quality: 'sd' });
-  }
-
-  // Alternative patterns
-  if (media.length === 0) {
-    const playableMatch = html.match(/playable_url(?:_quality_hd)?":"([^"]+)"/g);
-    if (playableMatch) {
-      for (const m of playableMatch) {
-        const urlMatch = m.match(/:"([^"]+)"/);
-        if (urlMatch) {
-          const videoUrl = urlMatch[1]!.replace(/\\u0025/g, '%').replace(/\\\//g, '/').replace(/\\u0026/g, '&');
-          const quality = m.includes('hd') ? 'hd' : 'sd';
-          media.push({ type: 'video', url: decodeURIComponent(videoUrl), quality });
-        }
+  let resolved = url;
+  if (/fb\.watch|facebook\.com\/share\//i.test(url)) {
+    try {
+      const res = await fetch(url, {
+        method: 'GET',
+        redirect: 'follow',
+        headers: { 'User-Agent': DESKTOP_UA, Accept: 'text/html,application/xhtml+xml' },
+        signal,
+      });
+      resolved = res.url || url;
+      const u = new URL(resolved);
+      if (/login|checkpoint/i.test(u.pathname)) {
+        const next = u.searchParams.get('next') || u.searchParams.get('u');
+        if (next) resolved = decodeURIComponent(next);
       }
+    } catch {
+      resolved = url;
     }
   }
-
-  // Look for images in non-video posts
-  if (media.length === 0) {
-    const imgMatches = html.matchAll(/data-src="(https:\/\/[^"]*?scontent[^"]+)"/g);
-    for (const m of imgMatches) {
-      const imgUrl = m[1]!.replace(/&amp;/g, '&');
-      media.push({ type: 'image', url: imgUrl });
-    }
-  }
-
-  // Extract title
-  const titleMatch = html.match(/<title>([^<]+)<\/title>/);
-  const title = titleMatch?.[1]?.replace(/ \| Facebook$/, '').trim() || 'Facebook Post';
-
-  // Extract author
-  const authorMatch = html.match(/"ownerName":"([^"]+)"/);
-  const authorName = authorMatch?.[1] || '';
-
-  // Extract duration if available
-  const durationMatch = html.match(/"playable_duration_in_ms":(\d+)/);
-  const duration = durationMatch ? Math.round(Number(durationMatch[1]) / 1000) : null;
-
-  // Thumbnail
-  const thumbMatch = html.match(/property="og:image"\s+content="([^"]+)"/);
-  const thumbnail = thumbMatch?.[1]?.replace(/&amp;/g, '&') || null;
-
-  return {
-    title: title.slice(0, 200),
-    author: { name: authorName, username: '' },
-    thumbnail,
-    duration,
-    media,
-  };
-}
-
-/**
- * Fallback: use an alternative scraping pattern with the desktop page
- * looking for video data in embedded JSON.
- */
-async function fetchViaDesktopScrape(url: string, signal?: AbortSignal): Promise<FacebookResult> {
-  const res = await fetch(url, {
-    headers: {
-      'User-Agent': DESKTOP_UA,
-      'Accept': 'text/html,application/xhtml+xml',
-      'Accept-Language': 'en-US,en;q=0.9',
-      'Sec-Fetch-Mode': 'navigate',
-    },
-    redirect: 'follow',
-    signal,
-  });
-
-  if (!res.ok) throw new Error(`Facebook desktop returned ${res.status}`);
-  const html = await res.text();
-
-  const media: FacebookResult['media'] = [];
-
-  // Try to find video URLs in the page scripts
-  const patterns = [
-    /hd_src:"([^"]+)"/,
-    /sd_src:"([^"]+)"/,
-    /"hd_src":"([^"]+)"/,
-    /"sd_src":"([^"]+)"/,
-    /hd_src_no_ratelimit:"([^"]+)"/,
-    /sd_src_no_ratelimit:"([^"]+)"/,
-  ];
-
-  for (const pattern of patterns) {
-    const match = html.match(pattern);
-    if (match) {
-      const videoUrl = match[1]!.replace(/\\\//g, '/').replace(/\\u0026/g, '&');
-      const quality = pattern.source.includes('hd') ? 'hd' : 'sd';
-      // Avoid duplicates
-      if (!media.some(m => m.quality === quality)) {
-        media.push({ type: 'video', url: videoUrl, quality });
+  try {
+    const u = new URL(resolved);
+    if (/(^|\.)facebook\.com$/i.test(u.hostname)) {
+      const keep = new URLSearchParams();
+      for (const k of ['fbid', 'set', 'v', 'id', 'story_fbid']) {
+        const val = u.searchParams.get(k);
+        if (val) keep.set(k, val);
       }
+      u.search = keep.toString();
+      resolved = u.toString();
     }
+  } catch {
+    /* ignore */
   }
-
-  const titleMatch = html.match(/<title>([^<]+)<\/title>/);
-  const title = titleMatch?.[1]?.replace(/ \| Facebook$/, '').trim() || 'Facebook Post';
-
-  const thumbMatch = html.match(/property="og:image"\s+content="([^"]+)"/);
-  const thumbnail = thumbMatch?.[1]?.replace(/&amp;/g, '&') || null;
-
-  return {
-    title: title.slice(0, 200),
-    author: { name: '', username: '' },
-    thumbnail,
-    duration: null,
-    media,
-  };
+  return resolved;
 }
 
-/**
- * Download Facebook video/image post.
- */
-export async function downloadFacebook(url: string, signal?: AbortSignal): Promise<FacebookResult> {
-  const normalized = await normalizeUrl(url, signal);
-  const errors: string[] = [];
+/** Decide video vs image from cobalt's filename ext (fallback: source URL). */
+function cobaltIsVideo(filename: string | undefined, sourceUrl: string): boolean {
+  const f = (filename || '').toLowerCase();
+  if (/\.(mp4|mov|mkv|webm|m4v)$/.test(f)) return true;
+  if (/\.(jpe?g|png|webp|gif|heic)$/.test(f)) return false;
+  return /\/(watch|videos|reel|reels)\b/i.test(sourceUrl);
+}
 
-  // Method 1: Cobalt (most reliable)
+/** Media source: cobalt — muxed video+audio tunnel / picker. */
+async function fetchViaCobalt(url: string, signal?: AbortSignal): Promise<FacebookResult> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20_000);
+  const mergedSignal = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
+
   try {
     const env = loadEnv();
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15_000);
-    const mergedSignal = signal
-      ? AbortSignal.any([signal, controller.signal])
-      : controller.signal;
+    const res = await fetch(env.COBALT_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ url }),
+      signal: mergedSignal,
+    });
 
+    // Read the body even on non-2xx — cobalt returns its error code in a JSON
+    // body on 400 (e.g. {"status":"error","error":{"code":"error.api.fetch.empty"}}).
+    const rawBody = await res.text().catch(() => '');
+    let json: any = {};
     try {
-      const res = await fetch(env.COBALT_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({ url: normalized }),
-        signal: mergedSignal,
-      });
-
-      if (!res.ok) throw new Error(`cobalt returned ${res.status}`);
-      const json = (await res.json()) as any;
-      if (json.status === 'error') throw new Error(json.text || 'cobalt failed');
-
-      const media: FacebookResult['media'] = [];
-      if (json.status === 'stream' || json.status === 'redirect' || json.status === 'tunnel') {
-        if (json.url) media.push({ type: 'video', url: json.url, quality: 'hd' });
-      } else if (json.status === 'picker') {
-        for (const item of json.picker || []) {
-          if (item.url) {
-            const isVideo = item.type === 'video' || /\.mp4|video/i.test(item.url);
-            media.push({ type: isVideo ? 'video' : 'image', url: item.url });
-          }
-        }
-      }
-      if (media.length > 0) {
-        return { title: json.filename || 'Facebook Post', author: { name: '', username: '' }, thumbnail: null, duration: null, media };
-      }
-      errors.push('cobalt: no media returned');
-    } finally {
-      clearTimeout(timeout);
+      json = rawBody ? JSON.parse(rawBody) : {};
+    } catch {
+      /* non-JSON error page */
     }
-  } catch (err: any) {
-    errors.push(`cobalt: ${err.message}`);
-  }
 
-  // Method 2: Mobile scrape
+    if (!res.ok || json.status === 'error') {
+      const code: string | undefined = json?.error?.code;
+      throw new CobaltError(code || `cobalt returned ${res.status}`, { code, httpStatus: res.status });
+    }
+
+    const media: FacebookResult['media'] = [];
+    if (json.status === 'picker' && Array.isArray(json.picker)) {
+      for (const item of json.picker) {
+        if (!item?.url) continue;
+        const isVideo = item.type === 'video' || item.type === 'gif';
+        media.push({ type: isVideo ? 'video' : 'image', url: item.url });
+      }
+    } else if (json.url) {
+      media.push({ type: cobaltIsVideo(json.filename, url) ? 'video' : 'image', url: json.url, quality: 'hd' });
+    }
+
+    return {
+      title: 'Facebook Post',
+      author: { name: '', username: '' },
+      thumbnail: media.find((m) => m.type === 'image')?.url ?? null,
+      duration: null,
+      media,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export async function downloadFacebook(url: string, signal?: AbortSignal): Promise<FacebookResult> {
+  const normalized = await normalizeUrl(url, signal);
+  const metaPromise = ytdlpGetInfo(normalized).catch(() => null);
+
+  let base: FacebookResult;
   try {
-    const result = await fetchViaMobileScrape(normalized, signal);
-    if (result.media.length > 0) return result;
-    errors.push('mobile: no media found');
+    base = await fetchViaCobalt(normalized, signal);
   } catch (err: any) {
-    errors.push(`mobile: ${err.message}`);
+    // cobalt couldn't extract a video. For Facebook this is almost always a
+    // photo post (save directly) or a private/unavailable video — surface it
+    // as a friendly 422 rather than a scary 502.
+    const code: string | undefined = err?.code;
+    const noVideo =
+      err?.httpStatus === 400 ||
+      (code && /fetch\.(empty|short|fail|critical)|content\.(post|media).*(unavailable|private)|link\.unsupported/i.test(code));
+
+    if (noVideo) {
+      throw new AppError(
+        422,
+        'FACEBOOK_NO_VIDEO',
+        'No downloadable video found. This downloader supports Facebook videos/reels only — ' +
+          'photos can be saved directly from Facebook. (A private or unavailable video also lands here.)',
+      );
+    }
+    throw new AppError(502, 'FACEBOOK_DOWNLOAD_FAILED', `Could not download this Facebook media: ${err.message}`);
   }
 
-  // Method 3: Desktop scrape
-  try {
-    const result = await fetchViaDesktopScrape(normalized, signal);
-    if (result.media.length > 0) return result;
-    errors.push('desktop: no media found');
-  } catch (err: any) {
-    errors.push(`desktop: ${err.message}`);
+  // Keep videos only (defensive — picker may include images).
+  const videoMedia = base.media.filter((m) => m.type === 'video');
+  if (videoMedia.length === 0) {
+    throw new AppError(
+      422,
+      'FACEBOOK_NO_VIDEO',
+      'No downloadable video found. This downloader supports Facebook videos/reels only — ' +
+        'photos can be saved directly from Facebook.',
+    );
   }
+  base.media = videoMedia;
 
-  throw new Error(`Facebook download failed. Tried: ${errors.join('; ')}`);
+  const meta = await metaPromise;
+  return {
+    title: meta?.title && meta.title !== 'Untitled' ? meta.title : base.title,
+    author: meta && (meta.author.name || meta.author.username) ? meta.author : base.author,
+    thumbnail: meta?.thumbnail ?? base.thumbnail,
+    duration: meta?.duration ?? base.duration,
+    media: base.media,
+  };
 }

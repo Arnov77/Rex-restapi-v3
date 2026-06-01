@@ -50,7 +50,7 @@ function getToken(): string {
 // Extract pack name from t.me link or return as-is (file_id)
 function extractPackName(input: string): string | null {
   const m = /t\.me\/addstickers\/([A-Za-z0-9_]+)/i.exec(input);
-  return m ? m[1] : null;
+  return m?.[1] ?? null;
 }
 
 // ─── Telegram API helpers ─────────────────────────────────────────────────────
@@ -140,8 +140,9 @@ export async function generateSingle(
   if (packName) {
     // Ambil sticker pertama dari pack
     const set = await getStickerSet(packName, signal);
-    if (!set.stickers.length) throw BadRequest('Sticker pack is empty');
-    fileId = set.stickers[0].file_id;
+    const first = set.stickers[0];
+    if (!first) throw BadRequest('Sticker pack is empty');
+    fileId = first.file_id;
   }
 
   // Get file info
@@ -164,7 +165,7 @@ export async function generateSingle(
     format   = 'webp';
   } else {
     buffer   = await convertSticker(raw, opts.format, opts.quality);
-    mimeType = MIME_MAP[opts.format];
+    mimeType = MIME_MAP[opts.format] ?? 'image/webp';
     format   = opts.format;
   }
 

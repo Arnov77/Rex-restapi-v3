@@ -220,7 +220,7 @@ export async function extractFromUrl(opts: ExifQuery & { image: string }): Promi
   const res = await fetch(opts.image);
   if (!res.ok) throw Internal(`Failed to fetch image: ${res.statusText}`);
   const input = Buffer.from(await res.arrayBuffer());
-  return extractFromBuffer(input, opts.resolve_location);
+  return extractFromBuffer(input);
 }
 
 export const exifService = { extractFromBuffer, extractFromUrl };

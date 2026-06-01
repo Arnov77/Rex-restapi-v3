@@ -14,8 +14,8 @@ vi.mock('../src/shared/utils/ssrfGuard.js', () => ({
   assertPublicUrl: (...a: any[]) => ssrfMock.assertPublicUrl(...a),
 }));
 
-const { screenshotService } = await import('../src/modules/screenshot/screenshot.service.js');
-const { ScreenshotQuery } = await import('../src/modules/screenshot/screenshot.schemas.js');
+const { screenshotService } = await import('../src/modules/tools/screenshot/screenshot.service.js');
+const { ScreenshotQuery } = await import('../src/modules/tools/screenshot/screenshot.schemas.js');
 
 beforeEach(() => {
   browserMock.withPage.mockReset();
@@ -38,7 +38,9 @@ describe('screenshot.schemas', () => {
     expect(p).toMatchObject({ width: 1280, height: 720, format: 'png', quality: 85, fullPage: false });
   });
   it.each([
-    { url: 'not-a-url' },
+    // The schema auto-prepends https:// to bare hosts, so "not-a-url" is now
+    // accepted as a hostname. Empty / scheme-only inputs still fail validation.
+    { url: '' },
     { url: 'https://x.com', width: 100 },
     { url: 'https://x.com', width: 9999 },
     { url: 'https://x.com', height: 100 },

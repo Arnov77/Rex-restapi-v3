@@ -89,6 +89,7 @@ describe('authService.register', () => {
       name: 'alice-key',
       tier: 'user',
       dailyLimit: 1000,
+      storeEncrypted: true,
     });
 
     // password is hashed (bcrypt format) before insert

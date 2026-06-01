@@ -65,6 +65,12 @@ const exifRoutes: FastifyPluginAsyncZod = async (app) => {
               message: z.string(),
             }),
           }),
+          500: z.object({
+            ok: z.literal(false),
+            error: z.object({
+              message: z.string(),
+            }),
+          }),
         },
       },
     },
@@ -141,7 +147,7 @@ const exifRoutes: FastifyPluginAsyncZod = async (app) => {
         const result = await exifService.extractFromBuffer(buf);
 
         return {
-          ok: true,
+          ok: true as const,
           data: result,
         };
       }
@@ -159,10 +165,10 @@ const exifRoutes: FastifyPluginAsyncZod = async (app) => {
         });
       }
 
-      const result = await exifService.extract({ image });
+      const result = await exifService.extractFromUrl({ image });
 
       return {
-        ok: true,
+        ok: true as const,
         data: result,
       };
     },

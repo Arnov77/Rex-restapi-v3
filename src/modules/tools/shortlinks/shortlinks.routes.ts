@@ -137,7 +137,7 @@ const shortlinksRoutes: FastifyPluginAsyncZod = async (app) => {
         const link = await svc.resolve(id);
         return reply
           .header('cache-control', 'no-store')
-          .redirect(301, link.url);
+          .redirect(link.url, 301);
       } catch {
         return reply.code(404).send('Shortlink not found or expired');
       }

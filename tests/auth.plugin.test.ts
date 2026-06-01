@@ -112,9 +112,11 @@ describe('authPlugin.authenticate (JWT guard)', () => {
       url: '/protected',
       headers: { authorization: 'Bearer rex_thisIsAnApiKeyNotAJwt' },
     });
-    // extractJwt() bails → "Missing bearer token"
+    // A rex_*-shaped bearer is treated as an API key by the global preHandler;
+    // an unrecognised key now fails loudly with 401 INVALID_API_KEY rather than
+    // falling through to the JWT path.
     expect(res.statusCode).toBe(401);
-    expect(res.json().error.message).toMatch(/missing|invalid/i);
+    expect(res.json().error.message).toMatch(/not recognised|missing|invalid/i);
   });
 
   it('rejects a tampered/invalid JWT (401, "Invalid token")', async () => {

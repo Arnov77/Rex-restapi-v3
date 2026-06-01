@@ -88,6 +88,9 @@ export function isPrivateIP(ip: string): boolean {
 }
 
 export interface AssertPublicUrlOpts {
+  /** Hostnames trusted even if they resolve to a private/loopback IP — e.g. a
+  *  self-hosted cobalt instance configured by the operator. Exact, case-insensitive. */
+  allowHosts?: string[];
   allowedSchemes?: string[];
   /** Override the DNS lookup — useful for tests. */
   resolver?: (hostname: string) => Promise<{ address: string }[]>;
@@ -106,6 +109,13 @@ export async function assertPublicUrl(rawUrl: string, opts: AssertPublicUrlOpts 
   }
   const hostname = url.hostname.replace(/^\[|\]$/g, '').toLowerCase();
   if (!hostname) throw BadRequest('URL must include a hostname');
+  
+  if (opts.allowHosts?.some((h) => h.toLowerCase() === hostname)) {
+    // Operator-trusted host (scheme already validated above) — skip the
+    // private/reserved-IP checks for this hop only.
+    return url;
+  }
+  
   if (FORBIDDEN_HOSTNAMES.has(hostname)) {
     throw BadRequest('URL hostname is not allowed (loopback alias)');
   }

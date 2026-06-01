@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { loadEnv } from '../config/env.js';
 import { Unauthorized, Forbidden, AppError } from '@shared/errors.js';
 import { apiKeysRepo, type ApiKeyRecord } from '@modules/apiKeys/apiKeys.repo.js';
+import { ApiKeyCache } from '@modules/apiKeys/apiKeys.cache.js';
 import { hashApiKey, KEY_PREFIX } from '@modules/apiKeys/apiKeys.crypto.js';
 import { usersRepo, type PublicUser } from '@modules/auth/users.repo.js';
 
@@ -13,6 +14,8 @@ declare module 'fastify' {
     authenticate: (req: FastifyRequest, reply: FastifyReply) => Promise<void>;
     /** Hard-require a master API key. Sets `req.apiKey`. */
     requireMaster: (req: FastifyRequest, reply: FastifyReply) => Promise<void>;
+    /** In-process API-key lookup cache + touch throttle (auth hot path). */
+    apiKeyCache: ApiKeyCache;
   }
   interface FastifyRequest {
     user: PublicUser | null;
@@ -49,6 +52,21 @@ function extractJwt(req: FastifyRequest): string | null {
 export default fp(
   async (app) => {
     const env = loadEnv();
+
+    // Repos are stateless wrappers around the shared supabase client — build
+    // them once for the plugin instead of per-request.
+    const keys = apiKeysRepo(app.supabase);
+    const users = usersRepo(app.supabase);
+
+    // Per-instance auth cache: memoises API-key lookups (short TTL) and
+    // throttles last_used_at writes. Decorated so mutation routes can
+    // invalidate a key immediately after revoke/update/regenerate.
+    const keyCache = new ApiKeyCache({
+      ttlMs: env.API_KEY_CACHE_TTL_SEC * 1000,
+      max: env.API_KEY_CACHE_MAX,
+      touchThrottleMs: env.API_KEY_TOUCH_THROTTLE_SEC * 1000,
+    });
+    app.decorate('apiKeyCache', keyCache);
 
     // Pre-handler: attach optional API key & user context to every request
     // so downstream code (rate-limit, controllers) can inspect tier without
@@ -102,15 +120,22 @@ export default fp(
         if (!supplied.startsWith(KEY_PREFIX)) {
           throw Unauthorized('Invalid API key format');
         }
-        let record: ApiKeyRecord | null = null;
-        try {
-          record = await apiKeysRepo(app.supabase).findByHash(hashApiKey(supplied));
-        } catch (err) {
-          // Genuine DB / network error. Don't leak the underlying
-          // message; treat as service degradation but still 503 so
-          // the client doesn't silently get the wrong tier of bucket.
-          req.log.warn({ err }, 'apiKey lookup failed');
-          throw new AppError(503, 'AUTH_LOOKUP_FAILED', 'Could not validate API key, try again');
+        const hash = hashApiKey(supplied);
+        // Cache hit skips the DB lookup entirely. Only positive results are
+        // cached, so an unknown key still hits the DB (and a freshly minted
+        // key works immediately).
+        let record: ApiKeyRecord | null = keyCache.getByHash(hash) ?? null;
+        if (!record) {
+          try {
+            record = await keys.findByHash(hash);
+          } catch (err) {
+            // Genuine DB / network error. Don't leak the underlying
+            // message; treat as service degradation but still 503 so
+            // the client doesn't silently get the wrong tier of bucket.
+            req.log.warn({ err }, 'apiKey lookup failed');
+            throw new AppError(503, 'AUTH_LOOKUP_FAILED', 'Could not validate API key, try again');
+          }
+          if (record) keyCache.store(record);
         }
         if (!record) {
           // Hash didn't match any row. Almost always a stale client
@@ -121,10 +146,13 @@ export default fp(
           throw new AppError(401, 'REVOKED_API_KEY', 'API key has been revoked');
         }
         req.apiKey = record;
-        // fire-and-forget; don't block request on touch.
-        void apiKeysRepo(app.supabase).touch(record.id).catch((err) => {
-          req.log.warn({ err }, 'failed to touch api key');
-        });
+        // Throttled fire-and-forget: at most one last_used_at write per key
+        // per window, instead of one UPDATE on every request.
+        if (keyCache.shouldTouch(record.id)) {
+          void keys.touch(record.id).catch((err) => {
+            req.log.warn({ err }, 'failed to touch api key');
+          });
+        }
         return;
       }
 
@@ -134,7 +162,7 @@ export default fp(
 
       let payload: JwtPayload;
       try {
-        payload = jwt.verify(token, env.JWT_SECRET) as JwtPayload;
+        payload = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] }) as JwtPayload;
       } catch {
         // Bad/expired JWT here is non-fatal. Auth-optional routes
         // (screenshot/brat/quote) stay anon-callable; auth-required
@@ -145,13 +173,13 @@ export default fp(
 
       let userRow;
       try {
-        userRow = await usersRepo(app.supabase).findById(payload.sub);
+        userRow = await users.findById(payload.sub);
       } catch (err) {
         req.log.warn({ err }, 'jwt user lookup failed (treating as anon)');
         return;
       }
       if (!userRow) return;
-      req.user = usersRepo(app.supabase).publicView(userRow);
+      req.user = users.publicView(userRow);
 
       // Cross-link to the user's primary API key row so rate-limit
       // and quota see a consistent identity. If the user's apiKeyId
@@ -161,7 +189,11 @@ export default fp(
       // a key" action remains the recovery path.
       if (!userRow.apiKeyId) return;
       try {
-        const keyRow = await apiKeysRepo(app.supabase).findById(userRow.apiKeyId);
+        let keyRow: ApiKeyRecord | null = keyCache.getById(userRow.apiKeyId) ?? null;
+        if (!keyRow) {
+          keyRow = await keys.findById(userRow.apiKeyId);
+          if (keyRow) keyCache.store(keyRow);
+        }
         if (keyRow && !keyRow.revoked) {
           req.apiKey = keyRow;
         }
@@ -185,14 +217,14 @@ export default fp(
       if (!token) throw Unauthorized('Missing bearer token');
       let payload: JwtPayload;
       try {
-        payload = jwt.verify(token, env.JWT_SECRET) as JwtPayload;
+        payload = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] }) as JwtPayload;
       } catch (err) {
         const e = err as Error & { name?: string };
         throw Unauthorized(e.name === 'TokenExpiredError' ? 'Token expired' : 'Invalid token');
       }
-      const user = await usersRepo(app.supabase).findById(payload.sub);
+      const user = await users.findById(payload.sub);
       if (!user) throw Unauthorized('User no longer exists');
-      req.user = usersRepo(app.supabase).publicView(user);
+      req.user = users.publicView(user);
     });
 
     app.decorate('requireMaster', async (req: FastifyRequest, _reply: FastifyReply) => {

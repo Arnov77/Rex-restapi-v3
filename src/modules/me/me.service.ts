@@ -32,6 +32,7 @@ export function meService(db: SupabaseClient) {
   const users = usersRepo(db);
   const keys = apiKeysService(db);
   const quota = quotaRepo(db);
+  const env = loadEnv();
 
   /**
    * Resolve the user's API key record. Throws NotFound when the user has
@@ -87,7 +88,7 @@ export function meService(db: SupabaseClient) {
       await confirmPassword(userId, password);
       const key = await resolveKey(userId);
       if (key.revoked) throw Forbidden('Cannot regenerate a revoked key');
-      return keys.regenerate(key.id);
+      return keys.regenerate(key.id, { storeEncrypted: env.API_KEY_REVEALABLE });
     },
 
     async getUsage(userId: string): Promise<UsageView> {

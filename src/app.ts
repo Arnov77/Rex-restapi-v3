@@ -80,9 +80,15 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   //  6. routes
   await app.register(errorHandler);
   await app.register(import('@fastify/sensible'));
+  // CORS: never combine a reflected/wildcard origin with credentials — that
+  // would let ANY website make credentialed cross-origin calls. With a
+  // wildcard we serve a literal `*` and disable credentials (this is a public,
+  // header-auth API — auth travels in X-API-Key / Authorization, not cookies).
+  // With an explicit allowlist we can safely enable credentials.
+  const corsWildcard = env.CORS_ORIGINS.trim() === '*';
   await app.register(import('@fastify/cors'), {
-    origin: env.CORS_ORIGINS === '*' ? true : env.CORS_ORIGINS.split(',').map((s) => s.trim()),
-    credentials: true,
+    origin: corsWildcard ? '*' : env.CORS_ORIGINS.split(',').map((s) => s.trim()),
+    credentials: !corsWildcard,
   });
   await app.register(import('@fastify/helmet'), { contentSecurityPolicy: false });
 

@@ -205,6 +205,7 @@
 
         <div class="row-split">
           <button class="btn" id="btn-copy">Copy key</button>
+          <button class="btn" id="btn-reveal">Reveal key</button>
           <button class="btn primary" id="btn-regen">Regenerate key</button>
         </div>
       </section>
@@ -248,6 +249,29 @@
       </div>
     </div>
   </div>
+  
+    <div class="overlay" id="revealpw-modal" hidden>
+    <div class="modal modal-compact" role="dialog" aria-labelledby="revealpw-title" aria-modal="true">
+      <div class="modal-head">
+        <div class="title"><h2 id="revealpw-title">Reveal API key</h2></div>
+        <button class="modal-close" data-close-revealpw aria-label="Close">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-message">Re-enter your password to view your current API key.</p>
+        <form id="revealpw-form" autocomplete="off">
+          <div class="auth-row">
+            <label for="revealpw-password">Password</label>
+            <input class="input" type="password" id="revealpw-password" autocomplete="current-password" required />
+          </div>
+          <div class="modal-error" id="revealpw-error" hidden></div>
+        </form>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" type="button" data-close-revealpw>Cancel</button>
+        <button class="btn primary" type="button" id="revealpw-confirm">Reveal</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Reveal-after-regenerate modal — shown once with the fresh plaintext. -->
   <div class="overlay" id="reveal-modal" hidden>
@@ -259,7 +283,7 @@
         <button class="modal-close" data-close-reveal aria-label="Close">✕</button>
       </div>
       <div class="modal-body">
-        <p class="modal-message">
+        <p class="modal-message" id="reveal-message">
           Copy this somewhere safe. It's also cached on this device, but you
           won't be able to view it again from the server.
         </p>
@@ -584,6 +608,7 @@
 
     let closeRegen = null;
     let closeReveal = null;
+    let closeRevealPw = null;
 
     $('btn-regen').addEventListener('click', () => {
       $('regen-password').value = '';
@@ -622,6 +647,9 @@
 
         // Close password modal, reveal new key in a second modal.
         closeRegen?.();
+        $('reveal-title').textContent = 'Your new API key';
+        $('reveal-message').textContent =
+          "Copy this somewhere safe. It's cached on this device, and you can reveal it again here anytime with your password.";
         $('reveal-text').textContent = plaintext;
         closeReveal = openModal(revealModal);
         toast('API key regenerated.', 'ok');
@@ -644,6 +672,61 @@
         toast('Copy failed. Tap-and-hold the key to select it manually.', 'err', 3500);
       }
       closeReveal?.();
+    });
+
+    const revealpwModal = $('revealpw-modal');
+
+    $('btn-reveal').addEventListener('click', () => {
+      $('revealpw-password').value = '';
+      $('revealpw-error').hidden = true;
+      $('revealpw-error').textContent = '';
+      closeRevealPw = openModal(revealpwModal);
+    });
+
+    $('revealpw-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      $('revealpw-confirm').click();
+    });
+
+    $('revealpw-confirm').addEventListener('click', async () => {
+      const pwInput = $('revealpw-password');
+      const password = pwInput.value;
+      const errEl = $('revealpw-error');
+      const confirmBtn = $('revealpw-confirm');
+      if (!password) {
+        errEl.textContent = 'Password is required.';
+        errEl.hidden = false;
+        pwInput.focus();
+        return;
+      }
+      errEl.hidden = true;
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Revealing…';
+      try {
+        const r = await api('/api/me/key/reveal', {
+          method: 'POST',
+          body: JSON.stringify({ password }),
+        });
+        const plaintext = r.data.plaintext;
+        localStorage.setItem(LS_KEY, plaintext);
+        $('key-display').textContent = maskedKey(plaintext);
+
+        closeRevealPw?.();
+        $('reveal-title').textContent = 'Your API key';
+        $('reveal-message').textContent =
+          'Copy this somewhere safe. You can reveal it again here anytime with your password.';
+        $('reveal-text').textContent = plaintext;
+        closeReveal = openModal(revealModal);
+      } catch (err) {
+        if (err.message === 'redirecting') return;
+        errEl.textContent = /not stored|regenerate/i.test(err.message)
+          ? 'This key was created before reveal was enabled. Use “Regenerate key” to mint a fresh one.'
+          : err.message;
+        errEl.hidden = false;
+      } finally {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Reveal';
+      }
     });
 
     loadAll();

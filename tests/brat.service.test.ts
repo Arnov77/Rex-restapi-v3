@@ -15,10 +15,12 @@ vi.mock('../src/shared/browser/browserManager.js', () => ({
 vi.mock('../src/shared/utils/ssrfGuard.js', () => ({
   assertPublicUrl: (...a: any[]) => ssrfMock.assertPublicUrl(...a),
 }));
-vi.mock('gifenc/dist/gifenc.esm.js', () => ({
-  GIFEncoder: (...a: any[]) => gifMock.GIFEncoder(...a),
-  quantize: (...a: any[]) => gifMock.quantize(...a),
-  applyPalette: (...a: any[]) => gifMock.applyPalette(...a),
+vi.mock('gifenc', () => ({
+  default: {
+    GIFEncoder: (...a: any[]) => gifMock.GIFEncoder(...a),
+    quantize: (...a: any[]) => gifMock.quantize(...a),
+    applyPalette: (...a: any[]) => gifMock.applyPalette(...a),
+  },
 }));
 // pngjs is used in the service to decode screenshot PNGs to raw RGBA. Tests
 // pass synthetic non-PNG buffers, so stub the decoder to return empty pixels.
@@ -26,8 +28,8 @@ vi.mock('pngjs', () => ({
   PNG: { sync: { read: () => ({ data: Buffer.alloc(4), width: 1, height: 1 }) } },
 }));
 
-const { bratService } = await import('../src/modules/brat/brat.service.js');
-const { BratQuery } = await import('../src/modules/brat/brat.schemas.js');
+const { bratService } = await import('../src/modules/makers/brat/brat.service.js');
+const { BratQuery } = await import('../src/modules/makers/brat/brat.schemas.js');
 
 beforeEach(() => {
   browserMock.withPage.mockReset();
@@ -51,12 +53,12 @@ describe('brat.schemas', () => {
   it('applies defaults', () => {
     const p = BratQuery.parse({ text: 'hello' });
     expect(p).toMatchObject({
-      width: 720,
-      height: 720,
+      width: 512,
+      height: 512,
       format: 'png',
       quality: 90,
-      blur: 0.8,
-      background: '#8ACE00',
+      blur: 3.5,
+      background: '#FFFFFF',
       color: '#000000',
       frames: 8,
       delay: 400,
@@ -93,7 +95,7 @@ describe('brat.service.generate (still)', () => {
   it('skips SSRF guard when no bgImage provided', async () => {
     const page = makePage();
     browserMock.withPage.mockImplementationOnce(async (fn: any, opts: any) => {
-      expect(opts.viewport).toEqual({ width: 720, height: 720 });
+      expect(opts.viewport).toEqual({ width: 512, height: 512 });
       return fn(page);
     });
     const out = await bratService.generate(BratQuery.parse({ text: 'brat' }));

@@ -72,7 +72,7 @@ async function renderOnce(opts: QcQuery, signal?: AbortSignal): Promise<QcResult
 
       return el.screenshot({ type: 'png', omitBackground: true });
     },
-    { viewport: { width: 512, height: 512, deviceScaleFactor: 2 }, signal },
+    { viewport: { width: 512, height: 512 }, deviceScaleFactor: 2, signal },
   );
 
   if (!png || png.length === 0) throw Internal('QC produced empty buffer');

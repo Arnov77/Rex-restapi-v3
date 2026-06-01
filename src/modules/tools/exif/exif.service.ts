@@ -1,6 +1,6 @@
 import sharp from 'sharp';
 import { assertPublicUrl } from '@shared/utils/ssrfGuard.js';
-import { Internal, BadRequest } from '@shared/errors.js';
+import { Internal } from '@shared/errors.js';
 import type { ExifQuery } from './exif.schemas.js';
 
 export interface ExifResult {

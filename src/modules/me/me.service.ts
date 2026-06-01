@@ -92,7 +92,6 @@ export function meService(db: SupabaseClient) {
     },
 
     async getUsage(userId: string): Promise<UsageView> {
-      const env = loadEnv();
       const key = await resolveKey(userId);
       const date = todayUtc();
       const reset = secondsUntilUtcMidnight();

@@ -120,7 +120,7 @@ export async function withPage<T>(
   fn: (page: Page, context: BrowserContext) => Promise<T>,
   opts: WithPageOptions = {},
 ): Promise<T> {
-  const { signal, viewport, ...contextOverrides } = opts;
+  const { signal, viewport } = opts;
 
   // Ensure browser is up and pool is attached.
   const browser = await getBrowser();

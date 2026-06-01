@@ -5,13 +5,6 @@ import { basename } from 'node:path';
 import { stickerService } from './sticker.service.js';
 import { StickerSingleQuery, StickerPackQuery } from './sticker.schemas.js';
 import { shortProxyUrl } from '@modules/downloaders/_proxy/proxy.token.js';
-import { usersRepo } from '@modules/auth/users.repo.js';
-
-const MIME_EXT: Record<string, string> = {
-  jpeg: 'image/jpeg',
-  png:  'image/png',
-  webp: 'image/webp',
-};
 
 async function resolveAuthor(req: FastifyRequest): Promise<string> {
   const domain = process.env.APP_DOMAIN ?? 'rex-api.xyz';

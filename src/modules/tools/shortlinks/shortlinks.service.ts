@@ -4,7 +4,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { shortlinksRepo } from './shortlinks.repo.js';
 import type { CreateShortlinkBody } from './shortlinks.schemas.js';
 
-const SLUG_LENGTH = 8; // 6 bytes → 8 base64url chars
 
 function generateSlug(): string {
   return randomBytes(6).toString('base64url');

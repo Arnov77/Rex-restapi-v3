@@ -91,6 +91,12 @@ const schema = z.object({
   // path other than the project root (e.g., a packaged container that
   // copies dist/ to `/app/dist` and public/ to `/app/public`).
   STATIC_DIR: z.string().optional(),
+  
+  SHORTLINK_BASE_URL: z
+    .string()
+    .url()
+    .transform((s) => s.replace(/\/+$/, ''))
+    .optional(),
 
   // Download proxy: TTL for signed proxy tokens (seconds). Default 1 hour.
   DOWNLOAD_PROXY_TTL_SEC: z.coerce.number().int().min(60).default(3600),

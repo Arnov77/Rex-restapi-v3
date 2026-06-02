@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -23,12 +23,6 @@ const MIME = {
   ogg: 'audio/ogg',
   wav: 'audio/wav',
 } as const;
-
-const MIME_EXT: Record<string, string> = {
-  mp3: 'audio/mpeg',
-  ogg: 'audio/ogg',
-  wav: 'audio/wav',
-};
 
 // FFmpeg filter chains per effect
 const EFFECTS: Record<VcQuery['effect'], string> = {

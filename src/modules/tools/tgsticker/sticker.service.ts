@@ -1,9 +1,8 @@
 import { createHash } from 'node:crypto';
-import { createWriteStream, createReadStream } from 'node:fs';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { createWriteStream } from 'node:fs';
+import { mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { pipeline } from 'node:stream/promises';
 import { createRequire } from 'node:module';
 import { fetch, Agent } from 'undici';
 import sharp from 'sharp';
@@ -16,7 +15,6 @@ const ipv4Agent = new Agent({ connect: { family: 4 } });
 
 // archiver tidak support ESM default export
 const require = createRequire(import.meta.url);
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const archiverLib = require('archiver');
 
 // ─── Types ────────────────────────────────────────────────────────────────────

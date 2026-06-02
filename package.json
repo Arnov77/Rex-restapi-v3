@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "tsx watch --clear-screen=false src/server.ts",
     "build": "tsc -p tsconfig.json && tsc-alias -p tsconfig.json",
+    "copy-assets": "cp -r src/modules/makers/brat/assets dist/modules/makers/brat/ && cp -r src/modules/makers/smeme/assets dist/modules/makers/smeme/",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit -p tsconfig.test.json",
     "lint": "eslint .",

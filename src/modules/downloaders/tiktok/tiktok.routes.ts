@@ -15,7 +15,7 @@ const tiktokRoutes: FastifyPluginAsyncZod = async (app) => {
         response: { 200: TiktokResponse },
       },
     },
-    async (req, reply) => {
+    async (req) => {
       const result = await downloadTiktok(req.query.url, req.raw.destroyed ? undefined : undefined);
 
       // Proxy all media through our domain.

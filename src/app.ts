@@ -28,6 +28,7 @@ import lqRoutes from './modules/makers/lq/lq.routes.js';
 import vcRoutes from './modules/makers/vc/vc.routes.js';
 import exifRoutes from './modules/tools/exif/exif.routes.js';
 import shortlinkRoutes from './modules/tools/shortlinks/shortlinks.routes.js';
+import qrRoutes from './modules/tools/qr/qr.routes.js';
 import meRoutes from './modules/me/me.routes.js';
 import auditLogRoutes from './modules/auditLog/auditLog.routes.js';
 import adminUsersRoutes from './modules/adminUsers/adminUsers.routes.js';
@@ -41,6 +42,7 @@ import youtubeRoutes from './modules/downloaders/youtube/youtube.routes.js';
 import ytmp3Routes from './modules/downloaders/youtube/ytmp3.routes.js';
 import ttmp3Routes from './modules/downloaders/tiktok/ttmp3.routes.js';
 import igmp3Routes from './modules/downloaders/instagram/igmp3.routes.js';
+import pinterestRoutes from './modules/downloaders/pinterest/pinterest.routes.js';
 import { getBrowser, shutdown as shutdownBrowser } from './shared/browser/browserManager.js';
 import { shortlinksService } from './modules/tools/shortlinks/shortlinks.service.js';
 
@@ -135,6 +137,7 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(vcRoutes, { prefix: '/api/vc' });
   await app.register(exifRoutes, { prefix: '/api/exif' });
   await app.register(shortlinkRoutes, { prefix: '/api/shortlink' });
+  await app.register(qrRoutes, { prefix: '/api/qr' });
   await app.register(meRoutes, { prefix: '/api/me' });
   await app.register(auditLogRoutes, { prefix: '/api/keys/audit-log' });
   await app.register(adminUsersRoutes, { prefix: '/api/admin/users' });
@@ -148,6 +151,7 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(ytmp3Routes, { prefix: '/api/download/ytmp3' });
   await app.register(ttmp3Routes, { prefix: '/api/download/ttmp3' });
   await app.register(igmp3Routes, { prefix: '/api/download/igmp3' });
+  await app.register(pinterestRoutes, { prefix: '/api/download/pinterest' });
 
   // Shortlink redirect — inline handler, hidden from Swagger
   const resolveAndRedirect = async (

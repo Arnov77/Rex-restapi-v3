@@ -2,6 +2,8 @@
  * Tiny LRU + TTL cache. Map preserves insertion order, so the oldest key
  * is always `keys().next()`. Good enough for a single-process render cache;
  * swap for Redis if we ever need to share across instances.
+ *
+ * Cache otomatis dinonaktifkan di NODE_ENV=development.
  */
 export interface LruOptions {
   max: number;
@@ -17,15 +19,18 @@ export class LruCache<K, V> {
   private readonly map = new Map<K, Entry<V>>();
   private readonly max: number;
   private readonly ttlMs: number;
+  private readonly isDev: boolean;
   hits = 0;
   misses = 0;
 
   constructor(opts: LruOptions) {
     this.max = opts.max;
     this.ttlMs = opts.ttlMs;
+    this.isDev = process.env['NODE_ENV'] === 'development';
   }
 
   get(key: K): V | undefined {
+    if (this.isDev) return undefined; // bypass cache di dev mode
     const entry = this.map.get(key);
     if (!entry) {
       this.misses++;
@@ -44,6 +49,7 @@ export class LruCache<K, V> {
   }
 
   set(key: K, value: V): void {
+    if (this.isDev) return; // bypass cache di dev mode
     if (this.map.has(key)) this.map.delete(key);
     this.map.set(key, { value, expiresAt: Date.now() + this.ttlMs });
     while (this.map.size > this.max) {

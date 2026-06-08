@@ -28,6 +28,8 @@ import lqRoutes from './modules/makers/lq/lq.routes.js';
 import vcRoutes from './modules/makers/vc/vc.routes.js';
 import exifRoutes from './modules/tools/exif/exif.routes.js';
 import shortlinkRoutes from './modules/tools/shortlinks/shortlinks.routes.js';
+// import hitamRoutes from './modules/tools/hitam/skinfilter.routes.js';
+import imagegenRoutes from './modules/ai/imagegen/imagegen.routes.js';
 import meRoutes from './modules/me/me.routes.js';
 import auditLogRoutes from './modules/auditLog/auditLog.routes.js';
 import adminUsersRoutes from './modules/adminUsers/adminUsers.routes.js';
@@ -135,6 +137,8 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(vcRoutes, { prefix: '/api/vc' });
   await app.register(exifRoutes, { prefix: '/api/exif' });
   await app.register(shortlinkRoutes, { prefix: '/api/shortlink' });
+  // await app.register(hitamRoutes, { prefix: '/api/hitam' });
+  await app.register(imagegenRoutes, { prefix: '/api/ai/imagegen' });
   await app.register(meRoutes, { prefix: '/api/me' });
   await app.register(auditLogRoutes, { prefix: '/api/keys/audit-log' });
   await app.register(adminUsersRoutes, { prefix: '/api/admin/users' });

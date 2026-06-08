@@ -29,6 +29,8 @@ import vcRoutes from './modules/makers/vc/vc.routes.js';
 import exifRoutes from './modules/tools/exif/exif.routes.js';
 import shortlinkRoutes from './modules/tools/shortlinks/shortlinks.routes.js';
 import qrRoutes from './modules/tools/qr/qr.routes.js';
+// import hitamRoutes from './modules/tools/hitam/skinfilter.routes.js';
+import imagegenRoutes from './modules/ai/imagegen/imagegen.routes.js';
 import meRoutes from './modules/me/me.routes.js';
 import auditLogRoutes from './modules/auditLog/auditLog.routes.js';
 import adminUsersRoutes from './modules/adminUsers/adminUsers.routes.js';
@@ -73,20 +75,9 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
 
-  // Order matters:
-  //  1. error handler   → catches everything
-  //  2. supabase        → DB client decorator (other plugins need it)
-  //  3. swagger         → must be registered BEFORE routes so it can pick them up
-  //  4. auth            → adds request decorators (apiKey, user)
-  //  5. rate-limit      → uses supabase + auth context
-  //  6. routes
   await app.register(errorHandler);
   await app.register(import('@fastify/sensible'));
-  // CORS: never combine a reflected/wildcard origin with credentials — that
-  // would let ANY website make credentialed cross-origin calls. With a
-  // wildcard we serve a literal `*` and disable credentials (this is a public,
-  // header-auth API — auth travels in X-API-Key / Authorization, not cookies).
-  // With an explicit allowlist we can safely enable credentials.
+
   const corsWildcard = env.CORS_ORIGINS.trim() === '*';
   await app.register(import('@fastify/cors'), {
     origin: corsWildcard ? '*' : env.CORS_ORIGINS.split(',').map((s) => s.trim()),
@@ -121,7 +112,7 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
     },
   });
 
-  // Routes — namespaced for clean Swagger grouping.
+  // Routes
   await app.register(healthRoutes, { prefix: '/api' });
   await app.register(authRoutes, { prefix: '/api/auth' });
   await app.register(apiKeyRoutes, { prefix: '/api/keys' });
@@ -138,6 +129,8 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(exifRoutes, { prefix: '/api/exif' });
   await app.register(shortlinkRoutes, { prefix: '/api/shortlink' });
   await app.register(qrRoutes, { prefix: '/api/qr' });
+  // await app.register(hitamRoutes, { prefix: '/api/hitam' });
+  await app.register(imagegenRoutes, { prefix: '/api/ai/imagegen' });
   await app.register(meRoutes, { prefix: '/api/me' });
   await app.register(auditLogRoutes, { prefix: '/api/keys/audit-log' });
   await app.register(adminUsersRoutes, { prefix: '/api/admin/users' });
@@ -153,7 +146,7 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(igmp3Routes, { prefix: '/api/download/igmp3' });
   await app.register(pinterestRoutes, { prefix: '/api/download/pinterest' });
 
-  // Shortlink redirect — inline handler, hidden from Swagger
+  // Shortlink redirect
   const resolveAndRedirect = async (
     req: { params: unknown },
     reply: { header: (k: string, v: string) => any; code: (n: number) => any },

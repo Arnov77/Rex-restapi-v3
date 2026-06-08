@@ -118,8 +118,13 @@ const schema = z.object({
   // Path to yt-dlp cookies file (Netscape format). Used as fallback for
   // YouTube downloads when cobalt fails. Relative to cwd or absolute path.
   YTDLP_COOKIES_PATH: z.string().default('./cookies.txt'),
+  GEMINI_API_KEYS: z.string().optional(), // comma-separated, contoh: key1,key2,key3
+  CF_WORKER_URL: z.string().url().optional(),     // URL Cloudflare Worker image generator
+  CF_WORKER_API_KEY: z.string().optional(),       // API key untuk Cloudflare Worker
   
-    AUDIO_LOUDNESS_FILTER: z.string().default(''),
+  GROQ_API_KEY: z.string().optional(),
+  
+  AUDIO_LOUDNESS_FILTER: z.string().default(''),
 });
 
 export type Env = z.infer<typeof schema>;

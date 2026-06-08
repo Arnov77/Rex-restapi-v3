@@ -38,7 +38,7 @@ export function renderBratHtml(opts) {
         : '';
     // Bratify uses 48px on a 384px box (24rem). That's 12.5% of width.
     // We start a bit larger and let the shrink-to-fit loop trim down.
-    const startSize = Math.round(opts.width * 0.16);
+    const startSize = Math.round(opts.width * 0.25);
     return `<!doctype html>
 <html><head><meta charset="utf-8"><style>
   ${fontFace}

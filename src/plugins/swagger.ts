@@ -68,6 +68,29 @@ export default fp(
           };
         }
 
+        const isSttRoute =
+          args.url === '/api/ai/stt/' ||
+          args.url === '/api/ai/stt' ||
+          args.url.endsWith('/stt/') ||
+          args.url.endsWith('/stt');
+
+        if (isSttRoute) {
+          transformed.schema = {
+            ...transformed.schema,
+            consumes: ['multipart/form-data'],
+            body: {
+              type: 'object',
+              properties: {
+                file: {
+                  type: 'string',
+                  format: 'binary',
+                  description: 'File audio (mp3, mp4, ogg, wav, webm, m4a) — max 25MB. Opsional jika sudah isi ?url=',
+                },
+              },
+            },
+          };
+        }
+
         return transformed;
       },
     });

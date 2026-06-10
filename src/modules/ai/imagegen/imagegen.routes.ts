@@ -18,18 +18,13 @@ const imagegenRoutes: FastifyPluginAsyncZod = async (app) => {
       schema: {
         tags: ['ai'],
         summary: 'AI Image Generator',
-        description:
-          'Generate gambar dari teks menggunakan AI. Mendukung negative prompt auto/custom/none.',
+        description: 'Generate gambar dari teks menggunakan AI (Stable Diffusion XL via Cloudflare Workers AI). Rate limit: 5 request/menit.',
         querystring: ImagegenQuery,
       },
     },
     async (req, reply) => {
-      const buffer = await generateImage({
-        prompt: req.query.prompt,
-        negativeMode: req.query.negative_mode,
-        negativePrompt: req.query.negative_prompt,
-      });
-
+      const { prompt, negative_prompt } = req.query;
+      const buffer = await generateImage(prompt, negative_prompt);
       return reply
         .header('content-type', 'image/jpeg')
         .header('cache-control', 'no-store')

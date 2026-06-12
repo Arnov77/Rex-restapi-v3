@@ -85,11 +85,7 @@ const ttsRoutes: FastifyPluginAsyncZod = async (app) => {
 
       const base = `${req.protocol}://${req.host}`;
 
-      // Ambil path endpoint saat ini, misal:
-      // /api/tts?text=halo -> /api/tts
-      // /api/tools/tts?text=halo -> /api/tools/tts
-      const currentPath = req.url.split('?')[0].replace(/\/$/, '');
-      const internalUrl = `${base}${currentPath}/file/${id}`;
+      const internalUrl = `${base}/api/tts/file/${id}`;
 
       const proxyUrl = shortProxyUrl(base, internalUrl, {
         filename: 'tts.mp3',

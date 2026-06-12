@@ -1,19 +1,22 @@
 # Rex API — v3 (Fastify + TypeScript)
 
-WhatsApp-bot oriented REST API. Repositori-Service-Routes layering, Supabase as the only persistence layer, Swagger docs di `/docs`.
+REST API untuk aplikasi, bot WhatsApp, dan automation tools. Repositori-Service-Routes layering, Supabase sebagai persistence layer, Swagger docs di `/docs`.
 
 ## Quick start
 
 ```bash
 cp .env.example .env
-# generate API_KEY_ENC_KEY:
+# Generate API_KEY_ENC_KEY:
 openssl rand -hex 32
-# fill SUPABASE_URL & SUPABASE_SERVICE_ROLE_KEY
+# Isi SUPABASE_URL & SUPABASE_SERVICE_ROLE_KEY
 npm install
 npm run dev
 ```
 
-Open http://localhost:3000/ for the public landing page (lightweight, pure HTML), http://localhost:3000/dashboard for the Vue 3 playground & self-service panel, http://localhost:3000/admin for the operator admin console, or http://localhost:3000/docs for the Swagger reference.
+- Landing page: http://localhost:3000/
+- Dashboard: http://localhost:3000/dashboard
+- Admin console: http://localhost:3000/admin
+- Swagger docs: http://localhost:3000/docs
 
 ## Docker
 
@@ -22,114 +25,200 @@ docker build -t rex-api .
 docker run --rm -p 3000:3000 --env-file .env rex-api
 ```
 
-The image ships system Chromium for the Playwright-based render endpoints (screenshot/brat/quote). If you mount a different `public/` directory, point at it with `STATIC_DIR=/abs/path`.
-
 ## Scripts
 
-- `npm run dev` — hot reload via `tsx watch`
-- `npm run build` — emit `dist/` via `tsc`
-- `npm start` — run compiled `dist/server.js`
-- `npm test` — run vitest once
-- `npm run typecheck` — TypeScript check only
+| Command | Description |
+|---|---|
+| `npm run dev` | Hot reload via `tsx watch` |
+| `npm run build` | Compile ke `dist/` via `tsc` + copy assets |
+| `npm start` | Jalankan `dist/server.js` |
+| `npm test` | Run vitest |
+| `npm run typecheck` | TypeScript check only |
 
 ## Project layout
 
 ```
 src/
-├── server.ts                # process bootstrap (+ master-key bootstrap)
-├── app.ts                   # buildApp() — registers plugins + routes
+├── server.ts
+├── app.ts                   # buildApp() — register plugins + routes
 ├── bootstrap.ts             # first-start master API key provisioning
 ├── config/env.ts            # zod-validated env loader
 ├── plugins/                 # cross-cutting Fastify plugins
 │   ├── errorHandler.ts
 │   ├── supabase.ts
 │   ├── swagger.ts
-│   ├── auth.ts              # JWT + API-key decorators
-│   ├── rateLimit.ts         # tier-aware Supabase-backed limiter
-│   └── quota.ts             # daily usage counter
+│   ├── auth.ts
+│   ├── rateLimit.ts
+│   └── quota.ts
 ├── shared/
-│   ├── errors.ts            # AppError + helpers
-│   ├── browser/             # singleton Chromium (screenshot/brat/quote)
+│   ├── errors.ts
+│   ├── geminiRotator.ts     # Gemini API key rotation
+│   ├── groqRotator.ts       # Groq API key rotation
+│   ├── browser/
 │   └── utils/               # lruCache, ssrfGuard
-└── modules/                 # one folder per feature
+└── modules/
     ├── health/
     ├── auth/
-    ├── apiKeys/             # admin CRUD + activate/regenerate + pool-stats
-    ├── auditLog/            # admin action log (create/revoke/activate/regen/update)
-    ├── adminUsers/          # admin user list endpoint
-    ├── me/                  # self-service: profile, key, usage
-    ├── quota/               # daily usage repo
+    ├── apiKeys/
+    ├── auditLog/
+    ├── adminUsers/
+    ├── me/
+    ├── quota/
     ├── rateLimit/
-    ├── screenshot/
-    ├── brat/
-    └── quote/
-tests/                       # vitest specs
-supabase/schema.sql          # apply once via Supabase SQL editor
-supabase/migrations/         # incremental migrations (apply after schema.sql)
+    ├── ai/
+    │   ├── imagegen/        # Image generation via Cloudflare Workers AI
+    │   └── stt/             # Speech-to-text via Groq Whisper
+    ├── downloaders/
+    │   ├── youtube/
+    │   ├── tiktok/
+    │   ├── instagram/
+    │   ├── facebook/
+    │   └── pinterest/
+    ├── makers/
+    │   ├── brat/
+    │   ├── quote/
+    │   ├── smeme/
+    │   ├── miq/
+    │   ├── iqc/
+    │   └── qc/
+    └── tools/
+        ├── screenshot/
+        ├── exif/
+        ├── shortlinks/
+        ├── tgsticker/
+        ├── qr/              # QR code generator
+        ├── waifu/           # Anime character search (Jikan/MAL)
+        ├── skinfilter/      # Skin darkening filter (OpenCV + Gemini)
+        ├── iplookup/        # IP geolocation (MaxMind GeoLite2)
+        └── translate/       # Text translation (Groq LLM)
+tests/
+supabase/schema.sql
+supabase/migrations/
+data/                        # MaxMind .mmdb files (gitignored)
 ```
 
 ## Endpoints
 
-| Path | Auth | Notes |
+### Auth
+| Path | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/health`, `/api/ready` | GET | none | Liveness/readiness |
+| `/api/auth/register`, `/api/auth/login` | POST | none | Returns JWT |
+
+### Me (self-service)
+| Path | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/me` | GET | JWT | Profile |
+| `/api/me/key` | GET | JWT | API key info |
+| `/api/me/key/reveal` | POST | JWT + password | Reveal plaintext key |
+| `/api/me/key/regenerate` | POST | JWT + password | Rotate key |
+| `/api/me/usage` | GET | JWT | Daily usage |
+
+### Admin
+| Path | Method | Auth | Notes |
+|---|---|---|---|
+| `/api/keys` | GET/POST/PATCH/DELETE | master key | CRUD API keys |
+| `/api/keys/:id/regenerate` | POST | master key | Rotate key |
+| `/api/keys/:id/activate` | POST | master key | Un-revoke key |
+| `/api/keys/:id/reveal` | GET | master key | Reveal plaintext |
+| `/api/keys/pool-stats` | GET | master key | Chromium pool metrics |
+| `/api/keys/audit-log` | GET | master key | Admin action log |
+| `/api/admin/users` | GET | master key | User list |
+
+### Downloaders
+| Path | Method | Notes |
 |---|---|---|
-| `GET /api/health`, `GET /api/ready` | none | Liveness/readiness probes |
-| `POST /api/auth/register`, `/login` | none | Returns JWT + auto-provisions a user API key |
-| `GET /api/me` | JWT | Self profile |
-| `GET /api/me/key` | JWT | Self API key (no plaintext) |
-| `POST /api/me/key/reveal` | JWT + password | Reveal stored plaintext (404 if not stored) |
-| `POST /api/me/key/regenerate` | JWT + password | Rotate secret; key id preserved (quota survives) |
-| `GET /api/me/usage` | JWT | Today's UTC usage + limit |
-| `GET /api/keys`, `POST`, `PATCH`, `DELETE` | master API key | Admin CRUD |
-| `POST /api/keys/:id/regenerate` | master API key | Rotate secret (plaintext shown once) |
-| `POST /api/keys/:id/activate` | master API key | Un-revoke a key |
-| `GET /api/keys/:id/reveal` | master API key | Reveal stored plaintext |
-| `GET /api/keys/pool-stats` | master API key | Live Chromium page-pool metrics |
-| `GET /api/keys/audit-log` | master API key | Paginated admin action log |
-| `GET /api/admin/users` | master API key | Paginated user list with search |
-| `GET /api/screenshot`, `/brat`, `/quote` | optional API key | Heavy renderers; tier-aware quota + rate-limit |
+| `/api/download/youtube` | GET | Download YouTube video/audio via yt-dlp |
+| `/api/download/tiktok` | GET | Download TikTok video |
+| `/api/download/instagram` | GET | Download Instagram photo/video/reels |
+| `/api/download/facebook` | GET | Download Facebook video |
+| `/api/download/pinterest` | GET | Download Pinterest image/video |
+
+### Makers
+| Path | Method | Notes |
+|---|---|---|
+| `/api/brat` | GET | Generate brat-style image |
+| `/api/quote` | GET | Generate quote card |
+| `/api/smeme` | GET | Generate stiker meme |
+| `/api/miq` | GET | Maker IQ card |
+| `/api/iqc` | GET | IQ certificate |
+| `/api/qc` | GET | Quote card |
+
+### Tools
+| Path | Method | Notes |
+|---|---|---|
+| `/api/screenshot` | GET | Screenshot halaman web |
+| `/api/exif` | POST | Extract EXIF metadata dari gambar |
+| `/api/shortlinks` | GET/POST/DELETE | URL shortener |
+| `/api/qr` | GET | Generate QR code (PNG/SVG) |
+| `/api/waifu/random` | GET | Random anime character |
+| `/api/waifu/search` | GET | Cari anime character by nama |
+| `/api/skinfilter` | GET | Skin darkening filter (OpenCV + MediaPipe) |
+| `/api/iplookup` | GET | IP geolocation lookup |
+| `/api/translate` | GET | Translate teks (Groq LLM) |
+
+### AI
+| Path | Method | Notes |
+|---|---|---|
+| `/api/ai/imagegen` | GET | Generate gambar dari prompt (Cloudflare Workers AI + Groq) |
+| `/api/ai/stt` | POST | Speech-to-text via Groq Whisper (upload file atau URL) |
+
+## Environment Variables
+
+Lihat `.env.example` untuk dokumentasi lengkap. Variabel penting:
+
+| Variable | Required | Notes |
+|---|---|---|
+| `JWT_SECRET` | ✅ | Min 32 chars |
+| `API_KEY_ENC_KEY` | ✅ | 64 hex chars (`openssl rand -hex 32`) |
+| `SUPABASE_URL` | ✅ | |
+| `SUPABASE_SERVICE_ROLE_KEY` | ✅ | |
+| `MASTER_API_KEY_BOOTSTRAP` | First run | Format: `rex_<base64url>` |
+| `GEMINI_API_KEYS` | Skinfilter | Comma-separated |
+| `GROQ_API_KEYS` | STT, Translate, Imagegen | Comma-separated |
+| `CF_WORKER_URL` | Imagegen | URL Cloudflare Worker |
+| `CF_WORKER_API_KEY` | Imagegen | |
+| `GEOIP_CITY_DB` | IP Lookup | Path ke GeoLite2-City.mmdb |
+| `GEOIP_ASN_DB` | IP Lookup | Path ke GeoLite2-ASN.mmdb |
+| `COBALT_API_URL` | Downloaders | Default: public instance |
+| `YTDLP_COOKIES_PATH` | Pinterest/YouTube | Netscape cookies format |
+
+## External Dependencies
+
+- **Supabase** — database & auth
+- **Groq** — Whisper STT, text translation, imagegen prompt processing
+- **Gemini** — skin darkening filter (image editing)
+- **Cloudflare Workers AI** — image generation (self-deployed worker)
+- **MaxMind GeoLite2** — IP geolocation (offline database, download required)
+- **Cobalt** — media downloader (self-host recommended)
+- **yt-dlp** — YouTube/Pinterest fallback downloader
+- **MediaPipe + OpenCV** — skin detection untuk skinfilter endpoint (Python)
 
 ## Tier policy
 
-- **master** API key → no rate-limit, no daily quota
-- **user** API key with `dailyLimit: null` → **unlimited** (admin explicitly set no cap)
-- **user** API key with numeric `dailyLimit` → enforced at that number per UTC day
-- **anon** (no key) → daily quota (`ANON_DAILY_QUOTA`) keyed by IP, base per-minute budget
-
-## Conventions
-
-- **Routes** declare zod schemas; Swagger picks them up automatically.
-- **Services** contain business logic. They throw `AppError` (`Conflict`, `Unauthorized`, …) — the central error handler renders the JSON response.
-- **Repositories** are the only files that touch `app.supabase`. Pure async, no caching.
-- **Plugins** add cross-cutting capabilities via `fastify-plugin` (`fp`) so decorators leak to the parent scope.
+| Tier | Rate limit | Daily quota |
+|---|---|---|
+| master key | none | unlimited |
+| user key (`dailyLimit: null`) | per-endpoint | unlimited |
+| user key (numeric `dailyLimit`) | per-endpoint | enforced |
+| anon (no key) | base budget | `ANON_DAILY_QUOTA` per IP |
 
 ## Database
 
-Run `supabase/schema.sql` once in the Supabase SQL editor. The server connects with the service-role key and bypasses RLS.
-
-### Migrations
-
-After the initial schema, apply incremental migrations in order:
+Jalankan `supabase/schema.sql` sekali di Supabase SQL editor. Setelah itu apply migrations secara berurutan:
 
 ```bash
-# In Supabase SQL editor, paste:
-supabase/migrations/001_audit_log.sql   # adds rexapi.audit_log table
+# Di Supabase SQL editor:
+supabase/migrations/001_audit_log.sql
 ```
-
-## Admin console (`/admin`)
-
-Master-key-gated operator UI at `/admin`. Features:
-
-- **Auth gate** — paste master API key (stored in `localStorage['rex.masterApiKey']`)
-- **Health pill** — polls `/api/ready` every 5s
-- **Pool stats** — live Chromium page-pool metrics
-- **API Keys tab** — list, create, edit limit, regenerate, revoke, activate (un-revoke)
-- **Users tab** — list all users with search by username/email
-- **Audit Log tab** — paginated history of all admin key actions
-
-All admin endpoints are hidden from `/docs` (schema.hide: true).
 
 ## Bootstrap
 
-On first start with `MASTER_API_KEY_BOOTSTRAP` set, the server creates a master key using that value as plaintext. After bootstrap, **remove the env var**.
+Saat pertama start dengan `MASTER_API_KEY_BOOTSTRAP` di-set, server otomatis buat master key. Setelah server log `"provisioned master API key"`, hapus variable itu dari `.env`.
 
-If the bootstrap key was revoked and the server restarts with the same env var still set, it will log a warning and skip (no crash). Set a new env value to provision a fresh master key.
+## Conventions
+
+- **Routes** — declare Zod schemas; Swagger auto-generate docs
+- **Services** — business logic, throw `AppError`
+- **Repositories** — satu-satunya yang akses `app.supabase`
+- **Plugins** — pakai `fastify-plugin` (`fp`) agar decorators leak ke parent scope

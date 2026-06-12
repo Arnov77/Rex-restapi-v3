@@ -34,6 +34,7 @@ import translateRoutes from './modules/tools/translate/translate.routes.js';
 // import hitamRoutes from './modules/tools/hitam/skinfilter.routes.js';
 import imagegenRoutes from './modules/ai/imagegen/imagegen.routes.js';
 import sttRoutes from './modules/ai/stt/stt.routes.js';
+import ttsRoutes from './modules/tools/tts/tts.routes.js';
 import meRoutes from './modules/me/me.routes.js';
 import auditLogRoutes from './modules/auditLog/auditLog.routes.js';
 import adminUsersRoutes from './modules/adminUsers/adminUsers.routes.js';
@@ -137,6 +138,7 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   // await app.register(hitamRoutes, { prefix: '/api/hitam' });
   await app.register(imagegenRoutes, { prefix: '/api/ai/imagegen' });
   await app.register(sttRoutes, { prefix: '/api/ai/stt' });
+  await app.register(ttsRoutes, { prefix: '/api/tools/tts' });
   await app.register(meRoutes, { prefix: '/api/me' });
   await app.register(auditLogRoutes, { prefix: '/api/keys/audit-log' });
   await app.register(adminUsersRoutes, { prefix: '/api/admin/users' });

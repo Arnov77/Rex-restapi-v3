@@ -85,7 +85,7 @@ const ttsRoutes: FastifyPluginAsyncZod = async (app) => {
 
       const base = `${req.protocol}://${req.host}`;
 
-      const internalUrl = `${base}/api/tts/file/${id}`;
+      const internalUrl = `${base}/api/tools/tts/file/${id}`;
 
       const proxyUrl = shortProxyUrl(base, internalUrl, {
         filename: 'tts.mp3',

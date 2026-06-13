@@ -55,6 +55,7 @@ import instagramRoutes from './modules/downloaders/instagram/instagram.routes.js
 import facebookRoutes from './modules/downloaders/facebook/facebook.routes.js';
 import youtubeRoutes from './modules/downloaders/youtube/youtube.routes.js';
 import ytmp3Routes from './modules/downloaders/youtube/ytmp3.routes.js';
+import ytplayRoutes from './modules/downloaders/youtube/ytplay.routes.js';
 import ttmp3Routes from './modules/downloaders/tiktok/ttmp3.routes.js';
 import igmp3Routes from './modules/downloaders/instagram/igmp3.routes.js';
 import pinterestRoutes from './modules/downloaders/pinterest/pinterest.routes.js';
@@ -170,6 +171,7 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(facebookRoutes, { prefix: '/api/downloader/facebook' });
   await app.register(youtubeRoutes, { prefix: '/api/downloader/youtube' });
   await app.register(ytmp3Routes, { prefix: '/api/downloader/ytmp3' });
+  await app.register(ytplayRoutes, { prefix: '/api/downloader/ytplay' });
   await app.register(ttmp3Routes, { prefix: '/api/downloader/ttmp3' });
   await app.register(igmp3Routes, { prefix: '/api/downloader/igmp3' });
   await app.register(pinterestRoutes, { prefix: '/api/downloader/pinterest' });

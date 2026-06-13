@@ -82,16 +82,18 @@ const groups = computed(() => {
   for (const [path, methods] of Object.entries(root.paths ?? {})) {
     for (const [method, opRaw] of Object.entries(methods)) {
       if (!['get', 'post', 'put', 'patch', 'delete', 'head', 'options'].includes(method)) continue;
+
       const op = deref(opRaw, root);
       const tag = (op.tags && op.tags[0]) || 'other';
+
       if (!buckets.has(tag)) buckets.set(tag, []);
+
       buckets.get(tag).push({
         method: method.toUpperCase(),
         path,
         operationId: op.operationId,
         summary: op.summary || '',
         description: op.description || '',
-        // Keep parameters/requestBody/security with refs already inlined.
         parameters: op.parameters || [],
         requestBody: op.requestBody || null,
         security: op.security || [],
@@ -100,20 +102,16 @@ const groups = computed(() => {
     }
   }
 
-  // Stable order: well-known tags first (matches sidebar order), then alpha.
-  // Health is a system probe — keep it last so the playground leads with
-  // the developer-facing tools (maker, tool) on first paint.
-  const TAG_ORDER = ['maker', 'tool', 'health', 'other'];
-  const ranked = (t) => {
-    const i = TAG_ORDER.indexOf(t);
-    return i === -1 ? TAG_ORDER.length : i;
-  };
-
   return [...buckets.entries()]
-    .sort((a, b) => ranked(a[0]) - ranked(b[0]) || a[0].localeCompare(b[0]))
+    .sort(([tagA], [tagB]) =>
+      tagA.localeCompare(tagB, undefined, { sensitivity: 'base' }),
+    )
     .map(([tag, ops]) => ({
       tag,
-      ops: ops.sort((a, b) => a.path.localeCompare(b.path) || a.method.localeCompare(b.method)),
+      ops: ops.sort((a, b) =>
+        a.path.localeCompare(b.path, undefined, { sensitivity: 'base' }) ||
+        a.method.localeCompare(b.method, undefined, { sensitivity: 'base' }),
+      ),
     }));
 });
 

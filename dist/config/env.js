@@ -94,10 +94,14 @@ const schema = z.object({
     // YouTube downloads when cobalt fails. Relative to cwd or absolute path.
     YTDLP_COOKIES_PATH: z.string().default('./cookies.txt'),
     GEMINI_API_KEYS: z.string().optional(), // comma-separated, contoh: key1,key2,key3
+    GROQ_API_KEYS: z.string().optional(), // comma-separated, contoh: key1,key2,key3
+    GEOIP_CITY_DB: z.string().default('./GeoLite2-City.mmdb'),
+    GEOIP_ASN_DB: z.string().default('./GeoLite2-ASN.mmdb'),
     CF_WORKER_URL: z.string().url().optional(), // URL Cloudflare Worker image generator
     CF_WORKER_API_KEY: z.string().optional(), // API key untuk Cloudflare Worker
-    GROQ_API_KEY: z.string().optional(),
-    GROQ_MODEL: z.string().optional(),
+    POOF_API_KEYS: z.string().optional(),
+    POOF_API_KEY: z.string().optional(),
+    REMOVEBG_API_KEY: z.string().optional(),
     AUDIO_LOUDNESS_FILTER: z.string().default(''),
 });
 let _env = null;

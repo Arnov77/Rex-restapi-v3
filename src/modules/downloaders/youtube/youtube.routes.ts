@@ -33,7 +33,7 @@ const youtubeRoutes: FastifyPluginAsyncZod = async (app) => {
 
       const base = `${req.protocol}://${req.host}`;
       const fileId = basename(media.filePath);
-      const internalUrl = `${base}/api/download/youtube/file/${fileId}`;
+      const internalUrl = `${base}/api/downloader/youtube/file/${fileId}`;
       const proxyUrl = shortProxyUrl(base, internalUrl, {
         filename: `${result.title.replace(/[^a-zA-Z0-9 _-]/g, '')} (${media.quality}).mp4`,
         contentType: 'video/mp4',

@@ -208,8 +208,8 @@ async function callRemoveBg(
   form.set('size', 'auto');
   form.set('format', input.format);
 
-  if (background.type === 'color') {
-    form.set('bg_color', background.hex);
+  if (background !== 'transparent') {
+    form.set('bg_color', background.replace(/^#/, ''));
   }
 
   if (input.imageUrl) {

@@ -29,7 +29,7 @@ const ytmp3Routes: FastifyPluginAsyncZod = async (app) => {
 
       const base = `${req.protocol}://${req.host}`;
       const fileId = basename(result.filePath);
-      const internalUrl = `${base}/api/download/ytmp3/file/${fileId}`;
+      const internalUrl = `${base}/api/downloader/ytmp3/file/${fileId}`;
       const proxyUrl = shortProxyUrl(base, internalUrl, {
         filename: `${result.title.replace(/[^a-zA-Z0-9 _-]/g, '')}.mp3`,
         contentType: 'audio/mpeg',

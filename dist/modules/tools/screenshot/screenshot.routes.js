@@ -16,7 +16,7 @@ const screenshotRoutes = async (app) => {
     app.get('/', {
         preHandler: [quota, limit],
         schema: {
-            tags: ['tool'],
+            tags: ['tools'],
             summary: 'Capture a screenshot of a public URL',
             querystring: ScreenshotQuery,
             // No `response` schema: fastify-type-provider-zod expects Zod here,

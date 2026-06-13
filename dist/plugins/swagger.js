@@ -59,6 +59,66 @@ export default fp(async (app) => {
                     },
                 };
             }
+            const isSttRoute = args.url === '/api/ai/stt/' ||
+                args.url === '/api/ai/stt' ||
+                args.url.endsWith('/stt/') ||
+                args.url.endsWith('/stt');
+            if (isSttRoute) {
+                transformed.schema = {
+                    ...transformed.schema,
+                    consumes: ['multipart/form-data'],
+                    body: {
+                        type: 'object',
+                        properties: {
+                            file: {
+                                type: 'string',
+                                format: 'binary',
+                                description: 'File audio (mp3, mp4, ogg, wav, webm, m4a) — max 25MB. Opsional jika sudah isi ?url=',
+                            },
+                        },
+                    },
+                };
+            }
+            const isRemoveBgRoute = args.url === '/api/tools/removebg/' ||
+                args.url === '/api/tools/removebg' ||
+                args.url.endsWith('/removebg/') ||
+                args.url.endsWith('/removebg');
+            if (isRemoveBgRoute) {
+                transformed.schema = {
+                    ...transformed.schema,
+                    consumes: ['multipart/form-data'],
+                    body: {
+                        type: 'object',
+                        properties: {
+                            file: {
+                                type: 'string',
+                                format: 'binary',
+                                description: 'Image file (jpg, jpeg, png, webp) — max 10MB. Opsional jika sudah isi ?image_url=',
+                            },
+                        },
+                    },
+                };
+            }
+            const isChangeBgRoute = args.url === '/api/tools/changebg/' ||
+                args.url === '/api/tools/changebg' ||
+                args.url.endsWith('/changebg/') ||
+                args.url.endsWith('/changebg');
+            if (isChangeBgRoute) {
+                transformed.schema = {
+                    ...transformed.schema,
+                    consumes: ['multipart/form-data'],
+                    body: {
+                        type: 'object',
+                        properties: {
+                            file: {
+                                type: 'string',
+                                format: 'binary',
+                                description: 'Image file (jpg, jpeg, png, webp) — max 10MB. Opsional jika sudah isi ?image_url=',
+                            },
+                        },
+                    },
+                };
+            }
             return transformed;
         },
     });

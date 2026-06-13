@@ -14,8 +14,20 @@ import quotaPlugin from './plugins/quota.js';
 import healthRoutes from './modules/health/health.routes.js';
 import authRoutes from './modules/auth/auth.routes.js';
 import apiKeyRoutes from './modules/apiKeys/apiKeys.routes.js';
+//========[Tools]=======
 import screenshotRoutes from './modules/tools/screenshot/screenshot.routes.js';
 import tgstickerRoutes from './modules/tools/tgsticker/sticker.routes.js';
+import exifRoutes from './modules/tools/exif/exif.routes.js';
+import shortlinkRoutes from './modules/tools/shortlinks/shortlinks.routes.js';
+import qrRoutes from './modules/tools/qr/qr.routes.js';
+import iplookupRoutes from './modules/tools/iplookup/iplookup.routes.js';
+import translateRoutes from './modules/tools/translate/translate.routes.js';
+import { shortlinksService } from './modules/tools/shortlinks/shortlinks.service.js';
+// import hitamRoutes from './modules/tools/hitam/skinfilter.routes.js';
+import removebgRoutes from './modules/tools/removebg/removebg.routes.js';
+import changebgRoutes from './modules/tools/removebg/changebg.routes.js';
+import ttsRoutes from './modules/tools/tts/tts.routes.js';
+//=========[Makers]========
 import bratRoutes from './modules/makers/brat/brat.routes.js';
 import quoteRoutes from './modules/makers/quote/quote.routes.js';
 import iqcRoutes from './modules/makers/iqc/iqc.routes.js';
@@ -24,14 +36,11 @@ import miqRoutes from './modules/makers/miq/miq.routes.js';
 import smemeRoutes from './modules/makers/smeme/smeme.routes.js';
 import lqRoutes from './modules/makers/lq/lq.routes.js';
 import vcRoutes from './modules/makers/vc/vc.routes.js';
-import exifRoutes from './modules/tools/exif/exif.routes.js';
-import shortlinkRoutes from './modules/tools/shortlinks/shortlinks.routes.js';
-import qrRoutes from './modules/tools/qr/qr.routes.js';
-// import hitamRoutes from './modules/tools/hitam/skinfilter.routes.js';
+import achievementRoutes from './modules/makers/achievement/achievement.routes.js';
+//=======[AI]=======
 import imagegenRoutes from './modules/ai/imagegen/imagegen.routes.js';
-import meRoutes from './modules/me/me.routes.js';
-import auditLogRoutes from './modules/auditLog/auditLog.routes.js';
-import adminUsersRoutes from './modules/adminUsers/adminUsers.routes.js';
+import sttRoutes from './modules/ai/stt/stt.routes.js';
+//======[DOWNLOADERS]========
 import proxyRoutes from './modules/downloaders/_proxy/proxy.routes.js';
 import shortRoutes from './modules/downloaders/_proxy/short.routes.js';
 import tiktokRoutes from './modules/downloaders/tiktok/tiktok.routes.js';
@@ -43,8 +52,11 @@ import ytmp3Routes from './modules/downloaders/youtube/ytmp3.routes.js';
 import ttmp3Routes from './modules/downloaders/tiktok/ttmp3.routes.js';
 import igmp3Routes from './modules/downloaders/instagram/igmp3.routes.js';
 import pinterestRoutes from './modules/downloaders/pinterest/pinterest.routes.js';
+//===============================================
+import meRoutes from './modules/me/me.routes.js';
+import auditLogRoutes from './modules/auditLog/auditLog.routes.js';
+import adminUsersRoutes from './modules/adminUsers/adminUsers.routes.js';
 import { getBrowser, shutdown as shutdownBrowser } from './shared/browser/browserManager.js';
-import { shortlinksService } from './modules/tools/shortlinks/shortlinks.service.js';
 export async function buildApp(opts = {}) {
     const env = loadEnv();
     const trustProxy = env.TRUSTED_PROXIES.trim() === '*' ? true : env.TRUSTED_PROXIES;
@@ -97,35 +109,46 @@ export async function buildApp(opts = {}) {
     await app.register(healthRoutes, { prefix: '/api' });
     await app.register(authRoutes, { prefix: '/api/auth' });
     await app.register(apiKeyRoutes, { prefix: '/api/keys' });
-    await app.register(screenshotRoutes, { prefix: '/api/screenshot' });
-    await app.register(tgstickerRoutes, { prefix: '/api/tgsticker' });
-    await app.register(bratRoutes, { prefix: '/api/brat' });
-    await app.register(quoteRoutes, { prefix: '/api/quote' });
-    await app.register(iqcRoutes, { prefix: '/api/iqc' });
-    await app.register(qcRoutes, { prefix: '/api/qc' });
-    await app.register(miqRoutes, { prefix: '/api/miq' });
-    await app.register(smemeRoutes, { prefix: '/api/smeme' });
-    await app.register(lqRoutes, { prefix: '/api/lq' });
-    await app.register(vcRoutes, { prefix: '/api/vc' });
-    await app.register(exifRoutes, { prefix: '/api/exif' });
-    await app.register(shortlinkRoutes, { prefix: '/api/shortlink' });
-    await app.register(qrRoutes, { prefix: '/api/qr' });
-    // await app.register(hitamRoutes, { prefix: '/api/hitam' });
+    //=======[Tools]=======
+    await app.register(screenshotRoutes, { prefix: '/api/tools/screenshot' });
+    await app.register(exifRoutes, { prefix: '/api/tools/exif' });
+    await app.register(shortlinkRoutes, { prefix: '/api/tools/shortlink' });
+    await app.register(qrRoutes, { prefix: '/api/tools/qr' });
+    await app.register(iplookupRoutes, { prefix: '/api/tools/iplookup' });
+    await app.register(translateRoutes, { prefix: '/api/tools/translate' });
+    await app.register(ttsRoutes, { prefix: '/api/tools/tts' });
+    await app.register(removebgRoutes, { prefix: '/api/tools/removebg' });
+    await app.register(changebgRoutes, { prefix: '/api/tools/changebg' });
+    //=======[MAKERS]=======
+    await app.register(tgstickerRoutes, { prefix: '/api/maker/tgsticker' });
+    await app.register(bratRoutes, { prefix: '/api/maker/brat' });
+    await app.register(quoteRoutes, { prefix: '/api/maker/quote' });
+    await app.register(iqcRoutes, { prefix: '/api/maker/iqc' });
+    await app.register(qcRoutes, { prefix: '/api/maker/qc' });
+    await app.register(miqRoutes, { prefix: '/api/maker/miq' });
+    await app.register(smemeRoutes, { prefix: '/api/maker/smeme' });
+    await app.register(lqRoutes, { prefix: '/api/maker/lq' });
+    await app.register(achievementRoutes, { prefix: '/api/maker/achievement' });
+    await app.register(vcRoutes, { prefix: '/api/makera/vc' });
+    //=======[AI]======
     await app.register(imagegenRoutes, { prefix: '/api/ai/imagegen' });
+    await app.register(sttRoutes, { prefix: '/api/ai/stt' });
+    //======[DOWNLOADERS]=======
+    await app.register(proxyRoutes, { prefix: '/api/downloader/proxy' });
+    await app.register(shortRoutes, { prefix: '/p' });
+    await app.register(tiktokRoutes, { prefix: '/api/downloader/tiktok' });
+    await app.register(twitterRoutes, { prefix: '/api/downloader/twitter' });
+    await app.register(instagramRoutes, { prefix: '/api/downloader/instagram' });
+    await app.register(facebookRoutes, { prefix: '/api/downloader/facebook' });
+    await app.register(youtubeRoutes, { prefix: '/api/downloader/youtube' });
+    await app.register(ytmp3Routes, { prefix: '/api/downloader/ytmp3' });
+    await app.register(ttmp3Routes, { prefix: '/api/downloader/ttmp3' });
+    await app.register(igmp3Routes, { prefix: '/api/downloader/igmp3' });
+    await app.register(pinterestRoutes, { prefix: '/api/downloader/pinterest' });
+    //============≠===========≠========
     await app.register(meRoutes, { prefix: '/api/me' });
     await app.register(auditLogRoutes, { prefix: '/api/keys/audit-log' });
     await app.register(adminUsersRoutes, { prefix: '/api/admin/users' });
-    await app.register(proxyRoutes, { prefix: '/api/download/proxy' });
-    await app.register(shortRoutes, { prefix: '/p' });
-    await app.register(tiktokRoutes, { prefix: '/api/download/tiktok' });
-    await app.register(twitterRoutes, { prefix: '/api/download/twitter' });
-    await app.register(instagramRoutes, { prefix: '/api/download/instagram' });
-    await app.register(facebookRoutes, { prefix: '/api/download/facebook' });
-    await app.register(youtubeRoutes, { prefix: '/api/download/youtube' });
-    await app.register(ytmp3Routes, { prefix: '/api/download/ytmp3' });
-    await app.register(ttmp3Routes, { prefix: '/api/download/ttmp3' });
-    await app.register(igmp3Routes, { prefix: '/api/download/igmp3' });
-    await app.register(pinterestRoutes, { prefix: '/api/download/pinterest' });
     // Shortlink redirect
     const resolveAndRedirect = async (req, reply) => {
         const { id } = req.params;

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import sharp from 'sharp';
-import minecraftItems from 'minecraft-icon-items';
+import minecraftItems, { type MinecraftItem } from 'minecraft-icon-items';
 import { Internal } from '@shared/errors.js';
 import { LruCache } from '@shared/utils/lruCache.js';
 import type { AchievementQuery } from './achievement.schemas.js';

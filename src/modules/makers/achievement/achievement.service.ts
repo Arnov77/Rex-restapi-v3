@@ -1,6 +1,4 @@
 import { createHash } from 'node:crypto';
-import { dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 import minecraftItems from 'minecraft-icon-items';
 import { Internal } from '@shared/errors.js';
@@ -17,21 +15,7 @@ export interface AchievementGenerateOptions {
   signal?: AbortSignal;
 }
 
-interface MinecraftItem {
-  id: string;
-  name: string;
-  meta: number;
-  type: number;
-  icon: string;
-}
-
-interface MinecraftItemsApi {
-  get(key: string | number): MinecraftItem | undefined;
-  find?(key: string | number): MinecraftItem[];
-  getBukkit?(key: string): MinecraftItem | undefined;
-}
-
-const mc = minecraftItems as MinecraftItemsApi;
+const mc = minecraftItems;
 
 const MIME = {
   png: 'image/png',
@@ -47,8 +31,6 @@ const cache = new LruCache<string, AchievementResult>({
 });
 
 const inflight = new Map<string, Promise<AchievementResult>>();
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 
 function cacheKey(opts: AchievementQuery): string {
   const sorted = Object.fromEntries(

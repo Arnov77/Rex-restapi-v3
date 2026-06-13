@@ -16,7 +16,7 @@ const qrRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       preHandler: [limit],
       schema: {
-        tags: ['tool'],
+        tags: ['tools'],
         summary: 'Generate QR code',
         description: 'Generate QR code sebagai PNG atau SVG. Parameter dikirim via query string.',
         querystring: QrQuery,

@@ -125,7 +125,11 @@ const schema = z.object({
   CF_WORKER_URL: z.string().url().optional(),     // URL Cloudflare Worker image generator
   CF_WORKER_API_KEY: z.string().optional(),       // API key untuk Cloudflare Worker
   
-    AUDIO_LOUDNESS_FILTER: z.string().default(''),
+  POOF_API_KEYS: z.string().optional(),
+  POOF_API_KEY: z.string().optional(),
+  REMOVEBG_API_KEY: z.string().optional(),
+    
+  AUDIO_LOUDNESS_FILTER: z.string().default(''),
 });
 
 export type Env = z.infer<typeof schema>;

@@ -59,6 +59,7 @@ import ytplayRoutes from './modules/downloaders/youtube/ytplay.routes.js';
 import ttmp3Routes from './modules/downloaders/tiktok/ttmp3.routes.js';
 import igmp3Routes from './modules/downloaders/instagram/igmp3.routes.js';
 import pinterestRoutes from './modules/downloaders/pinterest/pinterest.routes.js';
+import mediafireRoutes from './modules/downloaders/mediafire/mediafire.routes.js';
 
 //======[SEARCH]======
 import pinSearch from './modules/search/pinterest/pinterest.routes.js';
@@ -178,6 +179,7 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(ttmp3Routes, { prefix: '/api/downloader/ttmp3' });
   await app.register(igmp3Routes, { prefix: '/api/downloader/igmp3' });
   await app.register(pinterestRoutes, { prefix: '/api/downloader/pinterest' });
+  await app.register(mediafireRoutes, { prefix: '/api/downloader/mediafire' });
   
   //======[SEARCH]=====
   await app.register(pinSearch, { prefix: '/api/search/pinterest' });

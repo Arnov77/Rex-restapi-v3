@@ -101,7 +101,7 @@ export async function downloadMediafire(url: string): Promise<MediafireResult> {
     throw new AppError(502, 'MEDIAFIRE_NO_LINK', 'Gagal mengekstrak link download. File mungkin butuh login atau sudah dihapus.');
   }
 
-  const downloadUrl = dlMatch[1].replace(/\\u002F/g, '/').replace(/\\/g, '');
+  const downloadUrl = (dlMatch[1] ?? '').replace(/\\u002F/g, '/').replace(/\\/g, '');
 
   // ─── Filename — dari URL download (paling akurat, ada ekstensi lengkap) ──
   const filenameFromUrl = decodeURIComponent(downloadUrl.split('/').pop()?.split('?')[0] ?? '');
@@ -112,7 +112,7 @@ export async function downloadMediafire(url: string): Promise<MediafireResult> {
     html.match(/<title>([^|<]+)/i);
 
   const filenameFromHtml = filenameMatch
-    ? filenameMatch[1].trim().replace(/\s*[-|]\s*MediaFire.*/i, '').trim()
+    ? (filenameMatch[1] ?? '').trim().replace(/\s*[-|]\s*MediaFire.*/i, '').trim()
     : null;
 
   // Prioritas: URL (ada ekstensi) > HTML
@@ -123,18 +123,18 @@ export async function downloadMediafire(url: string): Promise<MediafireResult> {
     html.match(/"filesize"\s*:\s*"([^"]+)"/i) ??
     html.match(/class="[^"]*fileinfo[^"]*"[^>]*>[\s\S]*?(\d[\d.,]+\s*(?:KB|MB|GB|TB))/i) ??
     html.match(/(\d[\d.,]+\s*(?:KB|MB|GB|TB))/i);
-  const size = sizeMatch ? sizeMatch[1].trim() : null;
+  const size = sizeMatch ? (sizeMatch[1] ?? '').trim() || null : null;
 
   // ─── Mime type — dari HTML dulu, fallback derive dari ekstensi filename ──
   const mimeMatch = html.match(/"content_type"\s*:\s*"([^"]+)"/i);
-  const mimetype = mimeMatch ? mimeMatch[1] : mimeFromFilename(filename);
+  const mimetype = (mimeMatch ? mimeMatch[1] : mimeFromFilename(filename)) ?? null;
 
   // ─── Upload date — dari <li>Uploaded: <span>YYYY-MM-DD HH:mm:ss</span></li> ──
   const dateMatch =
     html.match(/<li>Uploaded:\s*<span>([^<]+)<\/span>/i) ??
     html.match(/"created"\s*:\s*"([^"]+)"/i) ??
     html.match(/uploaded from[^<]+on\s+([A-Za-z]+ \d{1,2}, \d{4})/i);
-  const uploadedAt = dateMatch ? dateMatch[1].trim() : null;
+  const uploadedAt = dateMatch ? (dateMatch[1] ?? '').trim() || null : null;
 
   return { filename, size, mimetype, uploadedAt, downloadUrl };
 }

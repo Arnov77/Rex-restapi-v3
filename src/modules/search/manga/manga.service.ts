@@ -406,3 +406,75 @@ export async function getMangaDetail(q: string): Promise<MangaDetail> {
     chapters,
   };
 }
+// ─── Latest Chapters ──────────────────────────────────────────────────────────
+
+export interface MangaLatest {
+  title: string;
+  url: string;
+  chapters: MangaChapter[];
+}
+
+export async function getLatestChapters(q: string): Promise<MangaLatest> {
+  const mangaUrl = await resolveDetailUrl(q);
+  const detail = await getMangaDetail(mangaUrl);
+  return {
+    title: detail.title,
+    url: mangaUrl,
+    chapters: detail.chapters.slice(0, 10), // 10 chapter terbaru
+  };
+}
+
+// ─── Chapter Images ───────────────────────────────────────────────────────────
+
+export interface ChapterImages {
+  chapter: string;
+  url: string;
+  total: number;
+  images: string[];
+}
+
+export async function getChapterImages(chapterUrl: string): Promise<ChapterImages> {
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(chapterUrl);
+  } catch {
+    throw new AppError(400, 'INVALID_URL', `URL chapter tidak valid: ${chapterUrl}`);
+  }
+
+  if (!parsedUrl.hostname.includes('komiku')) {
+    throw new AppError(400, 'INVALID_URL', 'URL harus dari domain komiku.org');
+  }
+
+  const html = await fetchHtml(parsedUrl.toString());
+
+  // Filter hanya gambar chapter dari CDN komiku
+  const imgRegex = /src="(https:\/\/img\.komiku\.org\/[^"]+\.(jpg|jpeg|png|webp))"/gi;
+  const images: string[] = [];
+  const seen = new Set<string>();
+  let match: RegExpExecArray | null;
+
+  while ((match = imgRegex.exec(html)) !== null) {
+    const url = match[1]!;
+    if (!seen.has(url)) {
+      seen.add(url);
+      images.push(url);
+    }
+  }
+
+  if (images.length === 0) {
+    throw new AppError(404, 'CHAPTER_NO_IMAGES', 'Tidak ada gambar ditemukan di chapter ini');
+  }
+
+  // Nama chapter dari URL: one-piece-chapter-1 → One Piece Chapter 1
+  const slug = parsedUrl.pathname.replace(/\//g, '');
+  const chapterName = slug
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+
+  return {
+    chapter: chapterName,
+    url: parsedUrl.toString(),
+    total: images.length,
+    images,
+  };
+}

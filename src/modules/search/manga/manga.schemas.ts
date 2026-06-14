@@ -24,48 +24,53 @@ const MangaDetail = z.object({
   rating: z.string().nullable(),
   views: z.string().nullable(),
   synopsis: z.string().nullable(),
-  chapters: z.array(
-    z.object({
-      title: z.string(),
-      url: z.string(),
-    }),
-  ),
+  chapters: z.array(z.object({ title: z.string(), url: z.string() })),
+});
+
+const MangaLatest = z.object({
+  title: z.string(),
+  url: z.string(),
+  chapters: z.array(z.object({ title: z.string(), url: z.string() })),
+});
+
+const MangaChapterImages = z.object({
+  chapter: z.string(),
+  url: z.string(),
+  total: z.number(),
+  images: z.array(z.string()),
 });
 
 // ─── Query ────────────────────────────────────────────────────────────────────
 
 export const MangaSearchQuery = z.object({
   action: z
-    .enum(['search', 'detail'])
-    .describe('"search" untuk mencari manga, "detail" untuk detail manga'),
+    .enum(['search', 'detail', 'latest', 'chapter'])
+    .describe([
+      '"search" — cari manga berdasarkan kata kunci',
+      '"detail" — detail manga dari URL atau judul',
+      '"latest" — ambil daftar chapter terbaru dari URL manga',
+      '"chapter" — ambil semua gambar dari URL chapter',
+    ].join(' | ')),
   q: z
     .string()
     .min(1)
     .max(300)
-    .describe('Kata kunci pencarian (action=search) atau URL halaman manga (action=detail)'),
+    .describe('Kata kunci / URL manga / URL chapter tergantung action'),
 });
 
 export type MangaSearchQuery = z.infer<typeof MangaSearchQuery>;
 
 // ─── Response ─────────────────────────────────────────────────────────────────
-//
-// Fastify + zod serializer tidak bisa pakai discriminatedUnion di level root
-// response karena ia mencari discriminator di top-level object, bukan di
-// dalam nested field. Solusinya: satu schema "superposition" yang membuat
-// semua field optional kecuali yang selalu ada (ok).
-//
-// Alternatif lebih bersih: gunakan z.union() langsung — Fastify akan
-// mencoba tiap variant dan memakai yang pertama cocok saat serialisasi.
 
 export const MangaApiResponse = z.object({
   ok: z.literal(true),
   data: z.object({
-    action: z.enum(['search', 'detail']),
+    action: z.enum(['search', 'detail', 'latest', 'chapter']),
     query: z.string(),
-    // search mode
     results: z.array(MangaItem).optional(),
-    // detail mode
     result: MangaDetail.optional(),
+    latest: MangaLatest.optional(),
+    chapter: MangaChapterImages.optional(),
   }),
 });
 

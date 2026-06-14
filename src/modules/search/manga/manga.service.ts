@@ -323,7 +323,7 @@ export async function getMangaDetail(q: string): Promise<MangaDetail> {
       if (!row.toLowerCase().includes(labelSubstr.toLowerCase())) continue;
       const tds = allBetween(row, '<td', '</td>');
       if (tds.length < 2) continue;
-      return clean(tagContent(tds[1]));
+      return clean(tagContent(tds[1] ?? ''));
     }
     return null;
   }
@@ -343,7 +343,7 @@ export async function getMangaDetail(q: string): Promise<MangaDetail> {
   );
   if (genreRow) {
     const tds = allBetween(genreRow, '<td', '</td>');
-    const genreTd = tds.length >= 2 ? tagContent(tds[1]) : tagContent(genreRow);
+    const genreTd = tds.length >= 2 ? tagContent(tds[1] ?? '') : tagContent(genreRow);
     // Ambil teks di dalam setiap <a>…</a>
     genres = allBetween(genreTd, '<a', '</a>')
       .map((a) => clean(tagContent(a)))

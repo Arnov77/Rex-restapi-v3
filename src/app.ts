@@ -62,7 +62,7 @@ import pinterestRoutes from './modules/downloaders/pinterest/pinterest.routes.js
 
 //======[SEARCH]======
 import pinSearch from './modules/search/pinterest/pinterest.routes.js';
-
+import mangaRoutes from './modules/search/manga/manga.routes.js';
 //===============================================
 import meRoutes from './modules/me/me.routes.js';
 import auditLogRoutes from './modules/auditLog/auditLog.routes.js';
@@ -181,6 +181,7 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   
   //======[SEARCH]=====
   await app.register(pinSearch, { prefix: '/api/search/pinterest' });
+  await app.register(mangaRoutes, { prefix: '/api/search/manga' });
   //============≠===========≠========
   await app.register(meRoutes, { prefix: '/api/me' });
   await app.register(auditLogRoutes, { prefix: '/api/keys/audit-log' });

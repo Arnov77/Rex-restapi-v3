@@ -24,8 +24,8 @@ const pinterestSearchRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (req) => {
-      const { q, limit: lim } = req.query;
-      const results = await searchPinterest(q, lim);
+      const { q } = req.query;
+      const results = await searchPinterest(q, 10);
 
       // Pastikan field nullable tetap terkirim sebagai null, bukan undefined.
       // Fastify + Zod response serializer akan error kalau property yang required bernilai undefined.

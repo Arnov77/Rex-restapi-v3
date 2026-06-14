@@ -122,6 +122,8 @@ const schema = z.object({
   GROQ_API_KEYS: z.string().optional(),   // comma-separated, contoh: key1,key2,key3
   GEOIP_CITY_DB: z.string().default('./GeoLite2-City.mmdb'),
   GEOIP_ASN_DB: z.string().default('./GeoLite2-ASN.mmdb'),
+  SERPAPI_KEYS: z.string().optional(),
+  SERPAPI_KEY: z.string().optional(),
   CF_WORKER_URL: z.string().url().optional(),     // URL Cloudflare Worker image generator
   CF_WORKER_API_KEY: z.string().optional(),       // API key untuk Cloudflare Worker
   

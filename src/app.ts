@@ -60,6 +60,9 @@ import ttmp3Routes from './modules/downloaders/tiktok/ttmp3.routes.js';
 import igmp3Routes from './modules/downloaders/instagram/igmp3.routes.js';
 import pinterestRoutes from './modules/downloaders/pinterest/pinterest.routes.js';
 
+//======[SEARCH]======
+import pinSearch from './modules/search/pinterest/pinterest.routes.js';
+
 //===============================================
 import meRoutes from './modules/me/me.routes.js';
 import auditLogRoutes from './modules/auditLog/auditLog.routes.js';
@@ -176,6 +179,8 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(igmp3Routes, { prefix: '/api/downloader/igmp3' });
   await app.register(pinterestRoutes, { prefix: '/api/downloader/pinterest' });
   
+  //======[SEARCH]=====
+  await app.register(pinSearch, { prefix: '/api/search/pinterest' });
   //============≠===========≠========
   await app.register(meRoutes, { prefix: '/api/me' });
   await app.register(auditLogRoutes, { prefix: '/api/keys/audit-log' });

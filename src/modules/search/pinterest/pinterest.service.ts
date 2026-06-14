@@ -55,9 +55,9 @@ interface PinterestUrlMeta {
 
 const ENGINES = ['google', 'google_images', 'google_images_light'];
 const QUERY_TEMPLATES = [
-  (query: string) => `${query} site:pinterest.com`,
-  (query: string) => `${query} site:id.pinterest.com`,
-  (query: string) => `pinterest ${query}`,
+  (query: string) => `${query} site:pinterest.com/pin`,
+  (query: string) => `${query} site:id.pinterest.com/pin`,
+  (query: string) => `${query} pinterest pin`,
 ];
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
@@ -164,6 +164,39 @@ function usernameFromAuthorUrl(authorUrl: string | null | undefined): string | n
     return username || null;
   } catch {
     return null;
+  }
+}
+
+function isPinterestPinUrl(url: string | null | undefined): boolean {
+  if (!url) return false;
+
+  try {
+    const parsed = new URL(url);
+    if (!parsed.hostname.includes('pinterest.')) return false;
+
+    const parts = parsed.pathname.split('/').filter(Boolean);
+    return parts.includes('pin');
+  } catch {
+    return false;
+  }
+}
+
+function isPinterestNonPinPage(url: string | null | undefined): boolean {
+  if (!url) return true;
+
+  try {
+    const parsed = new URL(url);
+    const path = parsed.pathname.toLowerCase();
+
+    return (
+      !path.includes('/pin/') ||
+      path.includes('/ideas/') ||
+      path.includes('/search/') ||
+      path.includes('/today/') ||
+      path.includes('/explore/')
+    );
+  } catch {
+    return true;
   }
 }
 
@@ -328,6 +361,7 @@ function mapImageResults(data: SerpApiResponse, limit: number): PinterestSearchR
       const link = getPinterestLink(item);
       const image = item.original || item.thumbnail || null;
       if (!link && !image) return null;
+      if (link && link.includes('pinterest.') && isPinterestNonPinPage(link)) return null;
 
       const uniqueKey = image || link!;
       if (seen.has(uniqueKey)) return null;
@@ -356,6 +390,7 @@ function mapOrganicResults(data: SerpApiResponse, limit: number): PinterestSearc
   return (data.organic_results || [])
     .map((item, index): PinterestSearchResult | null => {
       if (!item.link?.includes('pinterest.')) return null;
+      if (isPinterestNonPinPage(item.link)) return null;
 
       const source = normalizePinterestSource(item.link);
       if (!source || seen.has(source)) return null;

@@ -10,17 +10,6 @@ const mangaSearchRoutes: FastifyPluginAsyncZod = async (app) => {
     keyGenerator: (req) => req.apiKey?.id ?? req.ip,
     message: 'Too many manga search requests',
   });
-
-  app.get('/debug-chapter', async (req) => {
-  // Pakai chapter One Piece yang pasti ada
-  const res = await fetch('https://komiku.org/one-piece-chapter-1185/', {
-    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
-  });
-  const html = await res.text();
-  // Cari semua img yang kemungkinan gambar chapter
-  const imgs = [...html.matchAll(/src="([^"]+\.(jpg|jpeg|png|webp)[^"]*)"/gi)].map(m => m[1]);
-  return { total: imgs.length, sample: imgs.slice(0, 10) };
-});
   
   app.get(
     '/',

@@ -15,6 +15,32 @@ const spotifyRoutes: FastifyPluginAsyncZod = async (app) => {
     message: 'Too many Spotify download requests',
   });
 
+
+  app.get('/debug-playlist3', async (req) => {
+  const res = await fetch(
+    'https://open.spotify.com/embed/playlist/4BFInZOeil84cUr7L9492Y?utm_source=oembed',
+    {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+      }
+    }
+  );
+  const html = await res.text();
+
+  // Cari JSON embedded
+  const nextData = html.match(/<script[^>]*>({"props".*?)<\/script>/s)?.[1];
+  const stateMatch = html.match(/window\.__INITIAL_STATE__\s*=\s*({.+?});<\/script>/s)?.[1];
+  
+  return {
+    hasNextData: !!nextData,
+    hasInitialState: !!stateMatch,
+    nextDataSnippet: nextData?.slice(0, 1000),
+    stateSnippet: stateMatch?.slice(0, 1000),
+    htmlSnippet: html.slice(0, 500),
+  };
+});
+  
   // GET /api/downloader/spotify
   app.get(
     '/',
@@ -70,7 +96,7 @@ const spotifyRoutes: FastifyPluginAsyncZod = async (app) => {
 
         return reply
           .code(206)
-          .header('content-type', 'audio/mpeg')
+          .header('content-type', 'audio/mp4')
           .header('content-length', String(end - start + 1))
           .header('content-range', `bytes ${start}-${end}/${fileSize}`)
           .header('accept-ranges', 'bytes')
@@ -82,7 +108,7 @@ const spotifyRoutes: FastifyPluginAsyncZod = async (app) => {
       // Full response dengan inline supaya bisa di-stream/play di browser
       return reply
         .code(200)
-        .header('content-type', 'audio/mpeg')
+        .header('content-type', 'audio/mp4')
         .header('content-length', String(fileSize))
         .header('accept-ranges', 'bytes')
         .header('content-disposition', `inline; filename="${safeFilename}"`)

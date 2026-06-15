@@ -13,8 +13,9 @@ const SpotifyTrack = z.object({
   title: z.string(),
   artist: z.string(),
   album: z.string().nullable(),
+  playlist: z.string().nullable(),
   duration: z.number().nullable(),
-  url: z.string().describe('Short proxy URL untuk streaming MP3 (valid 10 menit)'),
+  url: z.string().describe('Short proxy URL untuk streaming m4a (valid 10 menit)'),
 });
 
 export const SpotifyResponse = z.object({

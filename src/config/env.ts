@@ -126,8 +126,8 @@ const schema = z.object({
   SERPAPI_KEY: z.string().optional(),
   CF_WORKER_URL: z.string().url().optional(),     // URL Cloudflare Worker image generator
   CF_WORKER_API_KEY: z.string().optional(),       // API key untuk Cloudflare Worker
-  SPOTIFY_CLIENT_ID: z.strinh().optional(),
-  SPOTIFY_CLIENT_SECRET: z.strinh().optional(),
+  SPOTIFY_CLIENT_ID: z.string().optional(),
+  SPOTIFY_CLIENT_SECRET: z.string().optional(),
   
   POOF_API_KEYS: z.string().optional(),
   POOF_API_KEY: z.string().optional(),

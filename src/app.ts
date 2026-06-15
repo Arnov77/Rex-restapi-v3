@@ -30,6 +30,7 @@ import { shortlinksService } from './modules/tools/shortlinks/shortlinks.service
 import removebgRoutes from './modules/tools/removebg/removebg.routes.js';
 import changebgRoutes from './modules/tools/removebg/changebg.routes.js';
 import ttsRoutes from './modules/tools/tts/tts.routes.js';
+import ocrRoutes from './modules/tools/ocr/ocr.routes.js';
 
 //=========[Makers]========
 import bratRoutes from './modules/makers/brat/brat.routes.js';
@@ -150,6 +151,7 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(ttsRoutes, { prefix: '/api/tools/tts' });
   await app.register(removebgRoutes, { prefix: '/api/tools/removebg' });
   await app.register(changebgRoutes, { prefix: '/api/tools/changebg' });
+  await app.register(ocrRoutes, { prefix: '/api/tools/ocr' });
   
   //=======[MAKERS]=======
   await app.register(tgstickerRoutes, { prefix: '/api/maker/tgsticker' });

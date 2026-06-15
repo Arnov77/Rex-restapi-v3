@@ -137,6 +137,29 @@ export default fp(
           };
         }
 
+        const isOcrRoute =
+          args.url === '/api/tools/ocr/' ||
+          args.url === '/api/tools/ocr' ||
+          args.url.endsWith('/ocr/') ||
+          args.url.endsWith('/ocr');
+ 
+        if (isOcrRoute) {
+          transformed.schema = {
+            ...transformed.schema,
+            consumes: ['multipart/form-data'],
+            body: {
+              type: 'object',
+              properties: {
+                file: {
+                  type: 'string',
+                  format: 'binary',
+                  description: 'File gambar (JPEG, PNG, WebP, GIF, BMP, TIFF, HEIC) — max 20MB. Opsional jika sudah isi ?image=',
+                },
+              },
+            },
+          };
+        }
+
         return transformed;
       },
     });

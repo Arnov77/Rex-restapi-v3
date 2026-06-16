@@ -1,0 +1,131 @@
+import { Client } from '@gradio/client';
+import { AppError } from '@shared/errors.js';
+import { assertPublicUrl } from '@shared/utils/ssrfGuard.js';
+import { loadEnv } from '../../../config/env.js';
+import { ANIME_STYLE, ANIME_PROMPT } from './anime.schemas.js';
+
+const HF_SPACE = 'prithivMLmods/Qwen-Image-Edit-2511-LoRAs-Fast';
+
+export interface AnimeResult {
+  buffer: Buffer;
+  mimeType: string;
+}
+
+// ─── Token Rotator ────────────────────────────────────────────────────────────
+
+let tokens: string[] = [];
+let tokenIndex = 0;
+
+function loadTokens(): string[] {
+  if (tokens.length > 0) return tokens;
+  const env = loadEnv();
+  const raw = env.HF_TOKENS ?? '';
+  tokens = raw.split(',').map((t: string) => t.trim()).filter(Boolean);
+  return tokens; 
+}
+
+function nextToken(): string | undefined {
+  const t = loadTokens();
+  if (t.length === 0) return undefined;
+  const token = t[tokenIndex % t.length];
+  tokenIndex = (tokenIndex + 1) % t.length;
+  return token;
+}
+
+function isQuotaError(err: unknown): boolean {
+  const msg = String((err as any)?.message ?? '').toLowerCase();
+  return msg.includes('zerogpu quota') || msg.includes('exceeded your') || msg.includes('quota');
+}
+
+// ─── Core Logic ───────────────────────────────────────────────────────────────
+
+async function animeFromBase64(imgsJson: string, seed?: number): Promise<AnimeResult> {
+  const actualSeed = seed ?? Math.floor(Math.random() * 2147483647);
+  const allTokens = loadTokens();
+  
+  // Coba semua token + 1 attempt anonymous kalau tidak ada token
+  const attempts = allTokens.length > 0 ? allTokens.length : 1;
+  let lastError: unknown;
+
+  for (let i = 0; i < attempts; i++) {
+    const token = nextToken();
+    let client: Client;
+    
+    try {
+      client = await Client.connect(HF_SPACE, token ? { token: token as `hf_${string}` } : {});
+    } catch (err) {
+      lastError = err;
+      continue;
+    }
+
+    let result: any;
+    try {
+      // Parameter order: [images_json, prompt, lora_name, seed, randomize_seed, guidance_scale, steps]
+      result = await client.predict('/infer', [
+        imgsJson,
+        ANIME_PROMPT,
+        ANIME_STYLE,
+        actualSeed,
+        seed === undefined,
+        3.5,
+        8,
+      ]);
+    } catch (err: any) {
+      if (isQuotaError(err)) {
+        lastError = err;
+        continue;
+      }
+      const msg = String(err?.message ?? '').toLowerCase();
+      if (msg.includes('queue') || msg.includes('timeout')) {
+        throw new AppError(503, 'ANIME_QUEUE_TIMEOUT', 'HF Space queue timeout', null, 'Server sedang sibuk, coba lagi dalam beberapa saat.');
+      }
+      throw new AppError(502, 'ANIME_INFERENCE_FAILED', `Gagal generate gambar: ${err?.message ?? 'unknown error'}`, null, 'Gagal memproses gambar. Coba dengan gambar lain.');
+    }
+
+    const output = Array.isArray(result?.data) ? result.data[0] : result?.data;
+    const outputUrl: string | undefined = typeof output === 'string' ? output : output?.url ?? output?.path ?? undefined;
+
+    if (!outputUrl) throw new AppError(502, 'ANIME_NO_OUTPUT', 'HF Space tidak menghasilkan gambar', null, 'Gagal memproses gambar. Coba lagi dengan gambar yang berbeda.');
+
+    const dlRes = await fetch(outputUrl);
+    if (!dlRes.ok) throw new AppError(502, 'ANIME_DOWNLOAD_FAILED', `Gagal download hasil: ${dlRes.status}`, null, 'Gagal mengambil hasil gambar. Coba lagi.');
+
+    const buffer = Buffer.from(await dlRes.arrayBuffer());
+    const mimeType = dlRes.headers.get('content-type') ?? 'image/jpeg';
+
+    return { buffer, mimeType };
+  }
+
+  throw new AppError(
+    503,
+    'ANIME_QUOTA_EXHAUSTED',
+    `Semua HuggingFace token kena quota ZeroGPU (${attempts} token)`, // → log internal
+    null,
+    'Fitur anime sedang sibuk, coba lagi dalam beberapa menit.' // → response ke user
+  );
+}
+
+// ─── Wrappers ─────────────────────────────────────────────────────────────────
+
+/**
+ * Handler jika input berupa URL gambar
+ */
+export async function animeFromUrl(imageUrl: string, seed?: number): Promise<AnimeResult> {
+  await assertPublicUrl(imageUrl);
+  
+  const imgRes = await fetch(imageUrl);
+  if (!imgRes.ok) throw new AppError(400, 'ANIME_FETCH_FAILED', `Gagal fetch gambar: ${imgRes.status}`, null, 'URL gambar tidak bisa diakses. Pastikan URL valid dan publik.');
+  
+  const imgBuf = Buffer.from(await imgRes.arrayBuffer());
+  const imgsJson = JSON.stringify([imgBuf.toString('base64')]);
+  
+  return animeFromBase64(imgsJson, seed);
+}
+
+/**
+ * Handler jika input berupa Buffer (dari multipart form data / upload langsung)
+ */
+export async function animeFromBuffer(buffer: Buffer, seed?: number): Promise<AnimeResult> {
+  const imgsJson = JSON.stringify([buffer.toString('base64')]);
+  return animeFromBase64(imgsJson, seed);
+}

@@ -31,6 +31,8 @@ import removebgRoutes from './modules/tools/removebg/removebg.routes.js';
 import changebgRoutes from './modules/tools/removebg/changebg.routes.js';
 import ttsRoutes from './modules/tools/tts/tts.routes.js';
 import ocrRoutes from './modules/tools/ocr/ocr.routes.js';
+import animeRoutes from './modules/tools/anime/anime.routes.js';
+import hitamRoutes from './modules/tools/hitam/hitam.routes.js';
 
 //=========[Makers]========
 import bratRoutes from './modules/makers/brat/brat.routes.js';
@@ -152,6 +154,8 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(removebgRoutes, { prefix: '/api/tools/removebg' });
   await app.register(changebgRoutes, { prefix: '/api/tools/changebg' });
   await app.register(ocrRoutes, { prefix: '/api/tools/ocr' });
+  await app.register(animeRoutes, { prefix: '/api/tools/anime' });
+  await app.register(hitamRoutes, { prefix: '/api/tools/hitam' });
   
   //=======[MAKERS]=======
   await app.register(tgstickerRoutes, { prefix: '/api/maker/tgsticker' });
@@ -163,7 +167,7 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(smemeRoutes, { prefix: '/api/maker/smeme' });
   await app.register(lqRoutes, { prefix: '/api/maker/lq' });
   await app.register(achievementRoutes, { prefix: '/api/maker/achievement' });
-  await app.register(vcRoutes, { prefix: '/api/makera/vc' });
+  await app.register(vcRoutes, { prefix: '/api/maker/vc' });
   
   //=======[AI]======
   await app.register(imagegenRoutes, { prefix: '/api/ai/imagegen' });

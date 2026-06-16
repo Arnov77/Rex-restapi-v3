@@ -55,7 +55,7 @@ interface PinterestUrlMeta {
 
 const ENGINES = ['google', 'google_images', 'google_images_light'];
 const QUERY_TEMPLATES = [
-  (query: string) => `${query} site:pinterest.com/pin`,
+  // (query: string) => `${query} site:pinterest.com/pin`,
   (query: string) => `${query} site:id.pinterest.com/pin`,
   (query: string) => `${query} pinterest pin`,
 ];

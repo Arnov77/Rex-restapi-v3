@@ -159,6 +159,52 @@ export default fp(
             },
           };
         }
+        
+        const isAnimeRoute =
+          args.url === '/api/tools/anime/' ||
+          args.url === '/api/tools/anime' ||
+          args.url.endsWith('/anime/') ||
+          args.url.endsWith('/anime');
+ 
+        if (isAnimeRoute) {
+          transformed.schema = {
+            ...transformed.schema,
+            consumes: ['multipart/form-data'],
+            body: {
+              type: 'object',
+              properties: {
+                file: {
+                  type: 'string',
+                  format: 'binary',
+                  description: 'File gambar (JPEG, PNG, WebP, GIF, BMP, TIFF, HEIC) — max 20MB. Opsional jika sudah isi ?image=',
+                },
+              },
+            },
+          };
+        }
+        
+        const isHitamRoute =
+          args.url === '/api/tools/hitam/' ||
+          args.url === '/api/tools/hitam' ||
+          args.url.endsWith('/hitam/') ||
+          args.url.endsWith('/hitam');
+ 
+        if (isHitamRoute) {
+          transformed.schema = {
+            ...transformed.schema,
+            consumes: ['multipart/form-data'],
+            body: {
+              type: 'object',
+              properties: {
+                file: {
+                  type: 'string',
+                  format: 'binary',
+                  description: 'File gambar (JPEG, PNG, WebP, GIF, BMP, TIFF, HEIC) — max 20MB. Opsional jika sudah isi ?image=',
+                },
+              },
+            },
+          };
+        }
 
         return transformed;
       },

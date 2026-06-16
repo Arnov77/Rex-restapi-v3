@@ -1,6 +1,6 @@
 import fp from 'fastify-plugin';
 import { ZodError } from 'zod';
-import { AppError } from '@shared/errors.js';
+import { AppError, getPublicMessage } from '@shared/errors.js';
 
 /**
  * Centralized error handler. Maps:
@@ -8,15 +8,21 @@ import { AppError } from '@shared/errors.js';
  *   - ZodError       → 400 with field issues
  *   - fastify schema → 400 with details
  *   - everything else → 500 (logged, body sanitized)
+ *
+ * Internal error messages go to logs only.
+ * User-facing messages are sanitized and friendly.
  */
 export default fp(
   async (app) => {
     app.setErrorHandler((err: any, req, reply) => {
       if (err instanceof AppError) {
-        req.log.warn({ err, code: err.code }, err.message);
+        // Internal message → log only
+        req.log.warn({ err, code: err.code, internalMessage: err.message }, `AppError: ${err.code}`);
         return reply.code(err.statusCode).send({
           ok: false,
-          error: { code: err.code, message: err.message, details: err.details ?? null },
+          error: {
+            message: getPublicMessage(err),
+          },
         });
       }
 
@@ -24,9 +30,7 @@ export default fp(
         return reply.code(400).send({
           ok: false,
           error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid request payload',
-            details: err.issues,
+            message: 'Parameter tidak valid. Periksa kembali request yang dikirim.',
           },
         });
       }
@@ -34,7 +38,9 @@ export default fp(
       if (err.validation) {
         return reply.code(400).send({
           ok: false,
-          error: { code: 'VALIDATION_ERROR', message: err.message, details: err.validation },
+          error: {
+            message: 'Parameter tidak valid. Periksa kembali request yang dikirim.',
+          },
         });
       }
 
@@ -48,9 +54,9 @@ export default fp(
       return reply.code(statusCode).send({
         ok: false,
         error: {
-          code: statusCode >= 500 ? 'INTERNAL_ERROR' : 'REQUEST_ERROR',
-          message: statusCode >= 500 ? 'Internal server error' : err.message,
-          details: null,
+          message: statusCode >= 500
+            ? 'Terjadi kesalahan pada server. Coba lagi nanti.'
+            : 'Terjadi kesalahan. Coba lagi nanti.',
         },
       });
     });
@@ -58,7 +64,7 @@ export default fp(
     app.setNotFoundHandler((req, reply) => {
       reply.code(404).send({
         ok: false,
-        error: { code: 'NOT_FOUND', message: `Route ${req.method} ${req.url} not found`, details: null },
+        error: { message: 'Endpoint tidak ditemukan.' },
       });
     });
   },

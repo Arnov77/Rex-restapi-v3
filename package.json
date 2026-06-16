@@ -28,6 +28,7 @@
     "@fastify/swagger-ui": "^5.1.0",
     "@fastify/under-pressure": "^9.0.1",
     "@google/genai": "^2.8.0",
+    "@gradio/client": "^2.2.2",
     "@maxmind/geoip2-node": "^6.3.4",
     "@supabase/supabase-js": "^2.105.4",
     "@types/qrcode": "^1.5.6",

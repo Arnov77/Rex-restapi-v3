@@ -132,6 +132,7 @@ const schema = z.object({
   POOF_API_KEYS: z.string().optional(),
   POOF_API_KEY: z.string().optional(),
   REMOVEBG_API_KEY: z.string().optional(),
+  HF_TOKENS: z.string().optional(),
     
   AUDIO_LOUDNESS_FILTER: z.string().default(''),
 });

@@ -143,7 +143,7 @@ const ttmp3Routes: FastifyPluginAsyncZod = async (app) => {
       const cleanTitle = source.title.replace(/[^a-zA-Z0-9 _-]/g, '').trim().slice(0, 80) || 'tiktok_audio';
       const base = `${req.protocol}://${req.host}`;
       const fileId = basename(filePath);
-      const internalUrl = `${base}/api/download/ttmp3/file/${fileId}`;
+      const internalUrl = `${base}/api/downloader/ttmp3/file/${fileId}`;
       const proxyedUrl = shortProxyUrl(base, internalUrl, {
         filename: `${cleanTitle}.mp3`,
         contentType: 'audio/mpeg',

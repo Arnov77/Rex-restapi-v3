@@ -10,7 +10,7 @@ export interface Family100Item {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const DATA_PATH = join(__dirname, '../../../../data/family100.json');
+const DATA_PATH = join(__dirname, '../../../../data/games/family100.json');
 
 let cache: Family100Item[] | null = null;
 

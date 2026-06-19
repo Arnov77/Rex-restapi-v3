@@ -11,7 +11,7 @@ export interface TebakkalimatItem {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const DATA_PATH = join(__dirname, '../../../../data/tebakkalimat.json');
+const DATA_PATH = join(__dirname, '../../../../data/games/tebakkalimat.json');
 
 let cache: TebakkalimatItem[] | null = null;
 

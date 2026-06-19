@@ -10,7 +10,7 @@ export interface TekatekiItem {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const DATA_PATH = join(__dirname, '../../../../data/tekateki.json');
+const DATA_PATH = join(__dirname, '../../../../data/games/tekateki.json');
 
 let cache: TekatekiItem[] | null = null;
 

@@ -12,7 +12,7 @@ export interface CaklontongItem {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const DATA_PATH = join(__dirname, '../../../../data/caklontong.json');
+const DATA_PATH = join(__dirname, '../../../../data/games/caklontong.json');
 
 let cache: CaklontongItem[] | null = null;
 

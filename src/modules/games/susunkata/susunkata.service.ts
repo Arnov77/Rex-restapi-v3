@@ -12,7 +12,7 @@ export interface SusunkataItem {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const DATA_PATH = join(__dirname, '../../../../data/susunkata.json');
+const DATA_PATH = join(__dirname, '../../../../data/games/susunkata.json');
 
 let cache: SusunkataItem[] | null = null;
 

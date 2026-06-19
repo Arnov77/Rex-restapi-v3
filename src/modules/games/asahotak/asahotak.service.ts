@@ -11,7 +11,7 @@ export interface AsahotakItem {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const DATA_PATH = join(__dirname, '../../../../data/asahotak.json');
+const DATA_PATH = join(__dirname, '../../../../data/games/asahotak.json');
 
 let cache: AsahotakItem[] | null = null;
 

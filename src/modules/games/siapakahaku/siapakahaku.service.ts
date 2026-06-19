@@ -11,7 +11,7 @@ export interface SiapakahakuItem {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const DATA_PATH = join(__dirname, '../../../../data/siapakahaku.json');
+const DATA_PATH = join(__dirname, '../../../../data/games/siapakahaku.json');
 
 let cache: SiapakahakuItem[] | null = null;
 

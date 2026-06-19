@@ -10,7 +10,7 @@ export interface Tebakbendera2Item {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const DATA_PATH = join(__dirname, '../../../../data/tebakbendera2.json');
+const DATA_PATH = join(__dirname, '../../../../data/games/tebakbendera2.json');
 
 let cache: Tebakbendera2Item[] | null = null;
 

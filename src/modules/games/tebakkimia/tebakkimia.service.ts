@@ -10,7 +10,7 @@ export interface TebakkimiaItem {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const DATA_PATH = join(__dirname, '../../../../data/tebakkimia.json');
+const DATA_PATH = join(__dirname, '../../../../data/games/tebakkimia.json');
 
 let cache: TebakkimiaItem[] | null = null;
 

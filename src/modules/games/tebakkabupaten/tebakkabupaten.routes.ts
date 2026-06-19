@@ -9,7 +9,9 @@ const tebakkabupatenRoutes: FastifyPluginAsyncZod = async (_app) => {
       schema: {
         tags: ['games'],
         summary: 'Tebak kabupaten acak',
-        description: 'Mengembalikan satu data kabupaten/kota secara acak.',
+        description:
+          'Mengembalikan satu data kabupaten/kota secara acak, dengan gambar lambang ' +
+          'yang sudah di-cache dari Wikipedia (data lokal, tidak ada network call saat runtime).',
         response: { 200: TebakkabupatenResponse },
       },
     },

@@ -69,6 +69,24 @@ import spotifyRoutes from './modules/downloaders/spotify/spotify.routes.js';
 //======[SEARCH]======
 import pinSearch from './modules/search/pinterest/pinterest.routes.js';
 import mangaRoutes from './modules/search/manga/manga.routes.js';
+
+//=======[GAMES]=======
+import asahotakRoutes from './modules/games/asahotak/asahotak.routes.js';
+import caklontongRoutes from './modules/games/caklontong/caklontong.routes.js';
+import family100Routes from './modules/games/family100/family100.routes.js';
+import siapakahakuRoutes from './modules/games/siapakahaku/siapakahaku.routes.js';
+import susunkataRoutes from './modules/games/susunkata/susunkata.routes.js';
+import tebakbenderaRoutes from './modules/games/tebakbendera/tebakbendera.routes.js';
+import tebakbendera2Routes from './modules/games/tebakbendera2/tebakbendera2.routes.js';
+import tebakgambarRoutes from './modules/games/tebakgambar/tebakgambar.routes.js';
+import tebakkabupatenRoutes from './modules/games/tebakkabupaten/tebakkabupaten.routes.js';
+import tebakkalimatRoutes from './modules/games/tebakkalimat/tebakkalimat.routes.js';
+import tebakkataRoutes from './modules/games/tebakkata/tebakkata.routes.js';
+import tebakkimiaRoutes from './modules/games/tebakkimia/tebakkimia.routes.js';
+import tebaklirikRoutes from './modules/games/tebaklirik/tebaklirik.routes.js';
+import tebaktebakanRoutes from './modules/games/tebaktebakan/tebaktebakan.routes.js';
+import tekatekiRoutes from './modules/games/tekateki/tekateki.routes.js';
+
 //===============================================
 import meRoutes from './modules/me/me.routes.js';
 import auditLogRoutes from './modules/auditLog/auditLog.routes.js';
@@ -194,6 +212,24 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   //======[SEARCH]=====
   await app.register(pinSearch, { prefix: '/api/search/pinterest' });
   await app.register(mangaRoutes, { prefix: '/api/search/manga' });
+
+  //========[GAMES]=======
+  await app.register(asahotakRoutes, { prefix: '/api/games/asahotak' });
+  await app.register(caklontongRoutes, { prefix: '/api/games/caklontong' });
+  await app.register(family100Routes, { prefix: '/api/games/family100' });
+  await app.register(siapakahakuRoutes, { prefix: '/api/games/siapakahaku' });
+  await app.register(susunkataRoutes, { prefix: '/api/games/susunkata' });
+  await app.register(tebakbenderaRoutes, { prefix: '/api/games/tebakbendera' });
+  await app.register(tebakbendera2Routes, { prefix: '/api/games/tebakbendera2' });
+  await app.register(tebakgambarRoutes, { prefix: '/api/games/tebakgambar' });
+  await app.register(tebakkabupatenRoutes, { prefix: '/api/games/tebakkabupaten' });
+  await app.register(tebakkalimatRoutes, { prefix: '/api/games/tebakkalimat' });
+  await app.register(tebakkataRoutes, { prefix: '/api/games/tebakkata' });
+  await app.register(tebakkimiaRoutes, { prefix: '/api/games/tebakkimia' });
+  await app.register(tebaklirikRoutes, { prefix: '/api/games/tebaklirik' });
+  await app.register(tebaktebakanRoutes, { prefix: '/api/games/tebaktebakan' });
+  await app.register(tekatekiRoutes, { prefix: '/api/games/tekateki' });
+  
   //============≠===========≠========
   await app.register(meRoutes, { prefix: '/api/me' });
   await app.register(auditLogRoutes, { prefix: '/api/keys/audit-log' });

@@ -176,7 +176,7 @@ export default fp(
                 file: {
                   type: 'string',
                   format: 'binary',
-                  description: 'File gambar (JPEG, PNG, WebP, GIF, BMP, TIFF, HEIC) — max 20MB. Opsional jika sudah isi ?image=',
+                  description: 'File gambar (JPEG, PNG) — max 20MB. Opsional jika sudah isi ?image=',
                 },
               },
             },
@@ -199,7 +199,30 @@ export default fp(
                 file: {
                   type: 'string',
                   format: 'binary',
-                  description: 'File gambar (JPEG, PNG, WebP, GIF, BMP, TIFF, HEIC) — max 20MB. Opsional jika sudah isi ?image=',
+                  description: 'File gambar (JPEG, PNG) — max 20MB. Opsional jika sudah isi ?image=',
+                },
+              },
+            },
+          };
+        }
+        
+        const isTofigureRoute =
+          args.url === '/api/tools/tofigure/' ||
+          args.url === '/api/tools/tofigure' ||
+          args.url.endsWith('/tofigure/') ||
+          args.url.endsWith('/tofigure');
+ 
+        if (isTofigureRoute) {
+          transformed.schema = {
+            ...transformed.schema,
+            consumes: ['multipart/form-data'],
+            body: {
+              type: 'object',
+              properties: {
+                file: {
+                  type: 'string',
+                  format: 'binary',
+                  description: 'File gambar (JPEG, PNG) — max 20MB. Opsional jika sudah isi ?image=',
                 },
               },
             },

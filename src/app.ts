@@ -34,6 +34,7 @@ import ocrRoutes from './modules/tools/ocr/ocr.routes.js';
 import animeRoutes from './modules/tools/anime/anime.routes.js';
 import hitamRoutes from './modules/tools/hitam/hitam.routes.js';
 import tofigureRoutes from './modules/tools/tofigure/tofigure.routes.js';
+import nsfwRoutes from './modules/tools/nsfw/nsfw.routes.js';
 
 //=========[Makers]========
 import bratRoutes from './modules/makers/brat/brat.routes.js';
@@ -177,6 +178,7 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(animeRoutes, { prefix: '/api/tools/anime' });
   await app.register(hitamRoutes, { prefix: '/api/tools/hitam' });
   await app.register(tofigureRoutes, { prefix: '/api/tools/tofigure' });
+  await app.register(nsfwRoutes, { prefix: '/api/tools/nsfw' });
   
   //=======[MAKERS]=======
   await app.register(tgstickerRoutes, { prefix: '/api/maker/tgsticker' });

@@ -229,6 +229,29 @@ export default fp(
           };
         }
 
+        const isNsfwRoute =
+          args.url === '/api/tools/nsfw/' ||
+          args.url === '/api/tools/nsfw' ||
+          args.url.endsWith('/nsfw/') ||
+          args.url.endsWith('/nsfw');
+ 
+        if (isNsfwRoute) {
+          transformed.schema = {
+            ...transformed.schema,
+            consumes: ['multipart/form-data'],
+            body: {
+              type: 'object',
+              properties: {
+                file: {
+                  type: 'string',
+                  format: 'binary',
+                  description: 'File gambar (JPEG, PNG, GIf, Webp, MP4) — max 20MB. Opsional jika sudah isi ?image=',
+                },
+              },
+            },
+          };
+        }
+
         return transformed;
       },
     });

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const TOFIGURE_STYLE = 'Style-Transfer' as const;
-export const TOFIGURE_PROMPT = 'Create a 1/7 scale commercialized figurine of the characters in the picture, in a realistic style, in a real environment. The figurine is placed on a computer desk. The figurine has a round transparent acrylic base, with no text on the base. The content on the computer screen is a 3D modeling process of this figurine. Next to the computer screen is a toy packaging box, designed in a style reminiscent of high-quality collectible figures, printed with original artwork. The packaging features two-dimensional flat illustrations.' as const;
+export const TOFIGURE_PROMPT = 'A professional commercial product photograph of a premium 1/7 scale anime girl figurine in camouflage pants, displayed on a wooden computer desk. The figurine stands on a flawless, perfectly round transparent acrylic base with absolutely no text or writing. In the background, a computer monitor clearly displays a 3D modeling software interface of this figurine. Next to the monitor is its collectible packaging box, designed in a sleek, premium, minimalist style featuring only a clean 2D flat illustration of the anime character. The image must be free from any gibberish text, unreadable letters, or random words. The packaging box must not have any childish colorful cartoon doodles or messy drawings; it must look like a high-end, professional product. Sharp focus, realistic textures.' as const;
 
 export const TofigureQuery = z.object({
   image: z

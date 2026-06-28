@@ -26,7 +26,7 @@ const vcRoutes = async (app) => {
         const result = await vcService.generate(req.query, { signal: ac.signal });
         const base = `${req.protocol}://${req.host}`;
         const fileId = basename(result.filePath);
-        const internalUrl = `${base}/api/vc/file/${fileId}`;
+        const internalUrl = `${base}/api/maker/vc/file/${fileId}`;
         const url = shortProxyUrl(base, internalUrl, {
             filename: `vc-${req.query.effect}.${result.format}`,
             contentType: result.mimeType,

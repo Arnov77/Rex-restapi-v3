@@ -27,6 +27,11 @@ import { shortlinksService } from './modules/tools/shortlinks/shortlinks.service
 import removebgRoutes from './modules/tools/removebg/removebg.routes.js';
 import changebgRoutes from './modules/tools/removebg/changebg.routes.js';
 import ttsRoutes from './modules/tools/tts/tts.routes.js';
+import ocrRoutes from './modules/tools/ocr/ocr.routes.js';
+import animeRoutes from './modules/tools/anime/anime.routes.js';
+import hitamRoutes from './modules/tools/hitam/hitam.routes.js';
+import tofigureRoutes from './modules/tools/tofigure/tofigure.routes.js';
+import nsfwRoutes from './modules/tools/nsfw/nsfw.routes.js';
 //=========[Makers]========
 import bratRoutes from './modules/makers/brat/brat.routes.js';
 import quoteRoutes from './modules/makers/quote/quote.routes.js';
@@ -40,6 +45,8 @@ import achievementRoutes from './modules/makers/achievement/achievement.routes.j
 //=======[AI]=======
 import imagegenRoutes from './modules/ai/imagegen/imagegen.routes.js';
 import sttRoutes from './modules/ai/stt/stt.routes.js';
+import muslimAiRoutes from './modules/ai/muslim/muslimAi.routes.js';
+import heruRoutes from './modules/ai/heru/heru.routes.js';
 //======[DOWNLOADERS]========
 import proxyRoutes from './modules/downloaders/_proxy/proxy.routes.js';
 import shortRoutes from './modules/downloaders/_proxy/short.routes.js';
@@ -49,9 +56,31 @@ import instagramRoutes from './modules/downloaders/instagram/instagram.routes.js
 import facebookRoutes from './modules/downloaders/facebook/facebook.routes.js';
 import youtubeRoutes from './modules/downloaders/youtube/youtube.routes.js';
 import ytmp3Routes from './modules/downloaders/youtube/ytmp3.routes.js';
+import ytplayRoutes from './modules/downloaders/youtube/ytplay.routes.js';
 import ttmp3Routes from './modules/downloaders/tiktok/ttmp3.routes.js';
 import igmp3Routes from './modules/downloaders/instagram/igmp3.routes.js';
 import pinterestRoutes from './modules/downloaders/pinterest/pinterest.routes.js';
+import mediafireRoutes from './modules/downloaders/mediafire/mediafire.routes.js';
+import spotifyRoutes from './modules/downloaders/spotify/spotify.routes.js';
+//======[SEARCH]======
+import pinSearch from './modules/search/pinterest/pinterest.routes.js';
+import mangaRoutes from './modules/search/manga/manga.routes.js';
+//=======[GAMES]=======
+import asahotakRoutes from './modules/games/asahotak/asahotak.routes.js';
+import caklontongRoutes from './modules/games/caklontong/caklontong.routes.js';
+import family100Routes from './modules/games/family100/family100.routes.js';
+import siapakahakuRoutes from './modules/games/siapakahaku/siapakahaku.routes.js';
+import susunkataRoutes from './modules/games/susunkata/susunkata.routes.js';
+import tebakbenderaRoutes from './modules/games/tebakbendera/tebakbendera.routes.js';
+import tebakbendera2Routes from './modules/games/tebakbendera2/tebakbendera2.routes.js';
+import tebakgambarRoutes from './modules/games/tebakgambar/tebakgambar.routes.js';
+import tebakkabupatenRoutes from './modules/games/tebakkabupaten/tebakkabupaten.routes.js';
+import tebakkalimatRoutes from './modules/games/tebakkalimat/tebakkalimat.routes.js';
+import tebakkataRoutes from './modules/games/tebakkata/tebakkata.routes.js';
+import tebakkimiaRoutes from './modules/games/tebakkimia/tebakkimia.routes.js';
+import tebaklirikRoutes from './modules/games/tebaklirik/tebaklirik.routes.js';
+import tebaktebakanRoutes from './modules/games/tebaktebakan/tebaktebakan.routes.js';
+import tekatekiRoutes from './modules/games/tekateki/tekateki.routes.js';
 //===============================================
 import meRoutes from './modules/me/me.routes.js';
 import auditLogRoutes from './modules/auditLog/auditLog.routes.js';
@@ -119,6 +148,11 @@ export async function buildApp(opts = {}) {
     await app.register(ttsRoutes, { prefix: '/api/tools/tts' });
     await app.register(removebgRoutes, { prefix: '/api/tools/removebg' });
     await app.register(changebgRoutes, { prefix: '/api/tools/changebg' });
+    await app.register(ocrRoutes, { prefix: '/api/tools/ocr' });
+    await app.register(animeRoutes, { prefix: '/api/tools/anime' });
+    await app.register(hitamRoutes, { prefix: '/api/tools/hitam' });
+    await app.register(tofigureRoutes, { prefix: '/api/tools/tofigure' });
+    await app.register(nsfwRoutes, { prefix: '/api/tools/nsfw' });
     //=======[MAKERS]=======
     await app.register(tgstickerRoutes, { prefix: '/api/maker/tgsticker' });
     await app.register(bratRoutes, { prefix: '/api/maker/brat' });
@@ -129,10 +163,12 @@ export async function buildApp(opts = {}) {
     await app.register(smemeRoutes, { prefix: '/api/maker/smeme' });
     await app.register(lqRoutes, { prefix: '/api/maker/lq' });
     await app.register(achievementRoutes, { prefix: '/api/maker/achievement' });
-    await app.register(vcRoutes, { prefix: '/api/makera/vc' });
+    await app.register(vcRoutes, { prefix: '/api/maker/vc' });
     //=======[AI]======
     await app.register(imagegenRoutes, { prefix: '/api/ai/imagegen' });
     await app.register(sttRoutes, { prefix: '/api/ai/stt' });
+    await app.register(muslimAiRoutes, { prefix: '/api/ai/muslim-ai' });
+    await app.register(heruRoutes, { prefix: '/api/ai/heru-ai' });
     //======[DOWNLOADERS]=======
     await app.register(proxyRoutes, { prefix: '/api/downloader/proxy' });
     await app.register(shortRoutes, { prefix: '/p' });
@@ -142,9 +178,31 @@ export async function buildApp(opts = {}) {
     await app.register(facebookRoutes, { prefix: '/api/downloader/facebook' });
     await app.register(youtubeRoutes, { prefix: '/api/downloader/youtube' });
     await app.register(ytmp3Routes, { prefix: '/api/downloader/ytmp3' });
+    await app.register(ytplayRoutes, { prefix: '/api/downloader/ytplay' });
     await app.register(ttmp3Routes, { prefix: '/api/downloader/ttmp3' });
     await app.register(igmp3Routes, { prefix: '/api/downloader/igmp3' });
     await app.register(pinterestRoutes, { prefix: '/api/downloader/pinterest' });
+    await app.register(mediafireRoutes, { prefix: '/api/downloader/mediafire' });
+    await app.register(spotifyRoutes, { prefix: '/api/downloader/spotify' });
+    //======[SEARCH]=====
+    await app.register(pinSearch, { prefix: '/api/search/pinterest' });
+    await app.register(mangaRoutes, { prefix: '/api/search/manga' });
+    //========[GAMES]=======
+    await app.register(asahotakRoutes, { prefix: '/api/games/asahotak' });
+    await app.register(caklontongRoutes, { prefix: '/api/games/caklontong' });
+    await app.register(family100Routes, { prefix: '/api/games/family100' });
+    await app.register(siapakahakuRoutes, { prefix: '/api/games/siapakahaku' });
+    await app.register(susunkataRoutes, { prefix: '/api/games/susunkata' });
+    await app.register(tebakbenderaRoutes, { prefix: '/api/games/tebakbendera' });
+    await app.register(tebakbendera2Routes, { prefix: '/api/games/tebakbendera2' });
+    await app.register(tebakgambarRoutes, { prefix: '/api/games/tebakgambar' });
+    await app.register(tebakkabupatenRoutes, { prefix: '/api/games/tebakkabupaten' });
+    await app.register(tebakkalimatRoutes, { prefix: '/api/games/tebakkalimat' });
+    await app.register(tebakkataRoutes, { prefix: '/api/games/tebakkata' });
+    await app.register(tebakkimiaRoutes, { prefix: '/api/games/tebakkimia' });
+    await app.register(tebaklirikRoutes, { prefix: '/api/games/tebaklirik' });
+    await app.register(tebaktebakanRoutes, { prefix: '/api/games/tebaktebakan' });
+    await app.register(tekatekiRoutes, { prefix: '/api/games/tekateki' });
     //============≠===========≠========
     await app.register(meRoutes, { prefix: '/api/me' });
     await app.register(auditLogRoutes, { prefix: '/api/keys/audit-log' });

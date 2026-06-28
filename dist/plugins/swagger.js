@@ -119,6 +119,106 @@ export default fp(async (app) => {
                     },
                 };
             }
+            const isOcrRoute = args.url === '/api/tools/ocr/' ||
+                args.url === '/api/tools/ocr' ||
+                args.url.endsWith('/ocr/') ||
+                args.url.endsWith('/ocr');
+            if (isOcrRoute) {
+                transformed.schema = {
+                    ...transformed.schema,
+                    consumes: ['multipart/form-data'],
+                    body: {
+                        type: 'object',
+                        properties: {
+                            file: {
+                                type: 'string',
+                                format: 'binary',
+                                description: 'File gambar (JPEG, PNG, WebP, GIF, BMP, TIFF, HEIC) — max 20MB. Opsional jika sudah isi ?image=',
+                            },
+                        },
+                    },
+                };
+            }
+            const isAnimeRoute = args.url === '/api/tools/anime/' ||
+                args.url === '/api/tools/anime' ||
+                args.url.endsWith('/anime/') ||
+                args.url.endsWith('/anime');
+            if (isAnimeRoute) {
+                transformed.schema = {
+                    ...transformed.schema,
+                    consumes: ['multipart/form-data'],
+                    body: {
+                        type: 'object',
+                        properties: {
+                            file: {
+                                type: 'string',
+                                format: 'binary',
+                                description: 'File gambar (JPEG, PNG) — max 20MB. Opsional jika sudah isi ?image=',
+                            },
+                        },
+                    },
+                };
+            }
+            const isHitamRoute = args.url === '/api/tools/hitam/' ||
+                args.url === '/api/tools/hitam' ||
+                args.url.endsWith('/hitam/') ||
+                args.url.endsWith('/hitam');
+            if (isHitamRoute) {
+                transformed.schema = {
+                    ...transformed.schema,
+                    consumes: ['multipart/form-data'],
+                    body: {
+                        type: 'object',
+                        properties: {
+                            file: {
+                                type: 'string',
+                                format: 'binary',
+                                description: 'File gambar (JPEG, PNG) — max 20MB. Opsional jika sudah isi ?image=',
+                            },
+                        },
+                    },
+                };
+            }
+            const isTofigureRoute = args.url === '/api/tools/tofigure/' ||
+                args.url === '/api/tools/tofigure' ||
+                args.url.endsWith('/tofigure/') ||
+                args.url.endsWith('/tofigure');
+            if (isTofigureRoute) {
+                transformed.schema = {
+                    ...transformed.schema,
+                    consumes: ['multipart/form-data'],
+                    body: {
+                        type: 'object',
+                        properties: {
+                            file: {
+                                type: 'string',
+                                format: 'binary',
+                                description: 'File gambar (JPEG, PNG) — max 20MB. Opsional jika sudah isi ?image=',
+                            },
+                        },
+                    },
+                };
+            }
+            const isNsfwRoute = args.url === '/api/tools/nsfw/' ||
+                args.url === '/api/tools/nsfw' ||
+                args.url.endsWith('/nsfw/') ||
+                args.url.endsWith('/nsfw');
+            if (isNsfwRoute) {
+                transformed.schema = {
+                    ...transformed.schema,
+                    consumes: ['multipart/form-data'],
+                    body: {
+                        type: 'object',
+                        properties: {
+                            file: {
+                                type: 'string',
+                                format: 'binary',
+                                description: 'File gambar (JPEG, PNG, GIf, Webp, MP4) — max 20MB. Opsional jika sudah isi ?image=',
+                            },
+                        },
+                    },
+                };
+            }
             return transformed;
         },
     });

@@ -17,6 +17,8 @@ import { loadEnv } from '../../../config/env.js';
 
 const execFileAsync = promisify(execFile);
 
+const YTDLP_CLIENT_ARGS = ['--extractor-args', 'youtube:player_client=web'];
+
 export interface YtdlpResult {
   title: string;
   author: string;
@@ -61,6 +63,7 @@ export async function ytdlpGetMeta(url: string): Promise<{ title: string; author
     '-j',
     '--no-playlist',
     '--skip-download',
+    ...YTDLP_CLIENT_ARGS,
     ...(cookies ? ['--cookies', cookies] : []),
     url,
   ];
@@ -94,6 +97,7 @@ export async function ytdlpDownloadVideo(url: string, quality: string = '720'): 
     '-f', `bv*[height<=${quality}]+ba/b[height<=${quality}]/b`,
     '--merge-output-format', 'mp4',
     '-o', outputPath,
+    ...YTDLP_CLIENT_ARGS,
     ...(cookies ? ['--cookies', cookies] : []),
     url,
   ];
@@ -134,6 +138,7 @@ export async function ytdlpDownloadAudio(url: string): Promise<YtdlpResult> {
     '-x',
     '--audio-format', 'mp3',
     '-o', `${outputTemplate}.%(ext)s`,
+    ...YTDLP_CLIENT_ARGS,
     ...(cookies ? ['--cookies', cookies] : []),
     url,
   ];
@@ -279,6 +284,7 @@ export async function ytdlpGetInfo(url: string): Promise<YtdlpInfo> {
     '--no-warnings',
     '-J',
     '--playlist-end', '20',
+    ...YTDLP_CLIENT_ARGS,
     ...(cookies ? ['--cookies', cookies] : []),
     url,
   ];

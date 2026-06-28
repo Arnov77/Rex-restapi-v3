@@ -97,11 +97,18 @@ const schema = z.object({
     GROQ_API_KEYS: z.string().optional(), // comma-separated, contoh: key1,key2,key3
     GEOIP_CITY_DB: z.string().default('./GeoLite2-City.mmdb'),
     GEOIP_ASN_DB: z.string().default('./GeoLite2-ASN.mmdb'),
+    SERPAPI_KEYS: z.string().optional(),
+    SERPAPI_KEY: z.string().optional(),
+    SIGHTENGINE_API_USER: z.string().optional(),
+    SIGHTENGINE_API_SECRET: z.string().optional(),
     CF_WORKER_URL: z.string().url().optional(), // URL Cloudflare Worker image generator
     CF_WORKER_API_KEY: z.string().optional(), // API key untuk Cloudflare Worker
+    SPOTIFY_CLIENT_ID: z.string().optional(),
+    SPOTIFY_CLIENT_SECRET: z.string().optional(),
     POOF_API_KEYS: z.string().optional(),
     POOF_API_KEY: z.string().optional(),
     REMOVEBG_API_KEY: z.string().optional(),
+    HF_TOKENS: z.string().optional(),
     AUDIO_LOUDNESS_FILTER: z.string().default(''),
 });
 let _env = null;

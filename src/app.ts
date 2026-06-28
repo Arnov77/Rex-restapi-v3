@@ -51,6 +51,7 @@ import achievementRoutes from './modules/makers/achievement/achievement.routes.j
 import imagegenRoutes from './modules/ai/imagegen/imagegen.routes.js';
 import sttRoutes from './modules/ai/stt/stt.routes.js';
 import muslimAiRoutes from './modules/ai/muslim/muslimAi.routes.js';
+import heruRoutes from './modules/ai/heru/heru.routes.js';
 
 //======[DOWNLOADERS]========
 import proxyRoutes from './modules/downloaders/_proxy/proxy.routes.js';
@@ -196,6 +197,7 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(imagegenRoutes, { prefix: '/api/ai/imagegen' });
   await app.register(sttRoutes, { prefix: '/api/ai/stt' });
   await app.register(muslimAiRoutes, { prefix: '/api/ai/muslim-ai' });
+  await app.register(heruRoutes, { prefix: '/api/ai/heru-ai' });
   
   //======[DOWNLOADERS]=======
   await app.register(proxyRoutes, { prefix: '/api/downloader/proxy' });

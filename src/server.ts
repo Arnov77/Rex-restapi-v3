@@ -1,7 +1,6 @@
 import { buildApp } from './app.js';
 import { loadEnv } from './config/env.js';
 import { ensureMasterKeyBootstrap } from './bootstrap.js';
-import { loadNsfwModel } from './modules/tools/nsfw/nsfw.service.js';
 
 async function main() {
   const env = loadEnv();
@@ -16,10 +15,6 @@ async function main() {
     app.log.error({ err }, 'master key bootstrap failed');
     process.exit(1);
   }
-
-  loadNsfwModel().catch((err) => {
-    app.log.warn({ err }, '[nsfw] model gagal preload, akan retry saat request pertama');
-  });
 
   const shutdown = async (signal: string) => {
     app.log.info({ signal }, 'shutting down');

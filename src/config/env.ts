@@ -124,6 +124,8 @@ const schema = z.object({
   GEOIP_ASN_DB: z.string().default('./GeoLite2-ASN.mmdb'),
   SERPAPI_KEYS: z.string().optional(),
   SERPAPI_KEY: z.string().optional(),
+  SIGHTENGINE_API_USER: z.string().optional(),
+  SIGHTENGINE_API_SECRET: z.string().optional(),
   CF_WORKER_URL: z.string().url().optional(),     // URL Cloudflare Worker image generator
   CF_WORKER_API_KEY: z.string().optional(),       // API key untuk Cloudflare Worker
   SPOTIFY_CLIENT_ID: z.string().optional(),

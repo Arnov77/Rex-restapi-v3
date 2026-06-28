@@ -6,13 +6,13 @@ export const NsfwQuery = z.object({
     .url()
     .max(2048)
     .optional()
-    .describe('URL gambar/GIF/video yang akan diperiksa. Gunakan ini ATAU upload file multipart.'),
+    .describe('URL gambar yang akan diperiksa. Gunakan ini ATAU upload file multipart.'),
 });
 
 export const NsfwResponse = z.object({
   ok: z.literal(true),
   data: z.object({
-    is_nsfw: z.boolean().describe('true jika konten mengandung NSFW'),
+    is_nsfw: z.boolean().describe('true jika gambar mengandung konten NSFW'),
     score: z.number().min(0).max(1).describe('Skor probabilitas NSFW (0.0 = aman, 1.0 = eksplisit)'),
     rating: z
       .enum(['safe', 'suggestive', 'explicit'])
@@ -20,10 +20,20 @@ export const NsfwResponse = z.object({
     categories: z
       .array(z.string())
       .describe('Kategori konten yang terdeteksi, kosong jika aman'),
-    frames_checked: z
-      .number()
-      .int()
-      .describe('Jumlah frame yang diperiksa (>1 untuk GIF/WebP animasi dan video)'),
+    severity: z
+      .enum(['low', 'medium', 'high'])
+      .optional(),
+
+    top_category: z.object({
+      name: z.string(),
+      score: z.number()
+    }).optional(),
+
+    details: z.object({
+      explicit: z.number(),
+      suggestive: z.number(),
+      safe: z.number(),
+    }).optional(),
   }),
 });
 

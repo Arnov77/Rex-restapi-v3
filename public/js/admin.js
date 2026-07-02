@@ -55,10 +55,10 @@ function makeApi(getKey) {
       if (search) params.set('search', search);
       return call('GET', `/api/admin/users/?${params}`);
     },
-    listStickerPacks: () => call('GET', '/api/admin/memesticker/packs/'),
-    addStickerPack: (body) => call('POST', '/api/admin/memesticker/packs/', { body }),
-    setStickerPackActive: (id, active) => call('PATCH', `/api/admin/memesticker/packs/${id}`, { body: { active } }),
-    deleteStickerPack: (id) => call('DELETE', `/api/admin/memesticker/packs/${id}`),
+    listStickerPacks: () => call('GET', '/api/admin/randomSticker/packs/'),
+    addStickerPack: (body) => call('POST', '/api/admin/randomSticker/packs/', { body }),
+    setStickerPackActive: (id, active) => call('PATCH', `/api/admin/randomSticker/packs/${id}`, { body: { active } }),
+    deleteStickerPack: (id) => call('DELETE', `/api/admin/randomSticker/packs/${id}`),
   };
 }
 

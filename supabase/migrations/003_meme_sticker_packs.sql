@@ -1,5 +1,5 @@
 -- Meme sticker packs (Telegram sticker pack short-names) used by the
--- /api/tools/memesticker random sticker endpoint.
+-- /api/tools/randomSticker random sticker endpoint.
 -- Apply in Supabase SQL editor after 001_audit_log.sql and 002_muslim_ai_sessions.sql.
 
 create table if not exists rexapi.meme_sticker_packs (

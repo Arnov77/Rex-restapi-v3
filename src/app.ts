@@ -35,8 +35,8 @@ import animeRoutes from './modules/tools/anime/anime.routes.js';
 import hitamRoutes from './modules/tools/hitam/hitam.routes.js';
 import tofigureRoutes from './modules/tools/tofigure/tofigure.routes.js';
 import nsfwRoutes from './modules/tools/nsfw/nsfw.routes.js';
-import randomMemeRoutes from './modules/tools/memesticker/memesticker.routes.js';
-import memeStickerAdminRoutes from './modules/tools/memesticker/memesticker.admin.routes.js';
+import randomMemeRoutes from './modules/tools/randomsticker/randomsticker.routes.js';
+import randomStickerAdminRoutes from './modules/tools/randomsticker/randomsticker.admin.routes.js';
 
 //=========[Makers]========
 import bratRoutes from './modules/makers/brat/brat.routes.js';
@@ -91,6 +91,10 @@ import tebakkimiaRoutes from './modules/games/tebakkimia/tebakkimia.routes.js';
 import tebaklirikRoutes from './modules/games/tebaklirik/tebaklirik.routes.js';
 import tebaktebakanRoutes from './modules/games/tebaktebakan/tebaktebakan.routes.js';
 import tekatekiRoutes from './modules/games/tekateki/tekateki.routes.js';
+
+//=================[FUN]=================
+import cekkodamRoutes from './modules/fun/cek-kodam/cekkodam.routes.js';
+import cekprimbonRoutes from './modules/fun/primbon/primbon.routes.js';
 
 //===============================================
 import meRoutes from './modules/me/me.routes.js';
@@ -183,7 +187,7 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(tofigureRoutes, { prefix: '/api/tools/tofigure' });
   await app.register(nsfwRoutes, { prefix: '/api/tools/nsfw' });
   await app.register(randomMemeRoutes, { prefix: '/api/tools/random-sticker' });
-  await app.register(memeStickerAdminRoutes, { prefix: '/api/admin/memesticker/packs' });
+  await app.register(randomStickerAdminRoutes, { prefix: '/api/admin/randomSticker/packs' });
   
   //=======[MAKERS]=======
   await app.register(tgstickerRoutes, { prefix: '/api/maker/tgsticker' });
@@ -240,6 +244,10 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(tebaktebakanRoutes, { prefix: '/api/games/tebaktebakan' });
   await app.register(tekatekiRoutes, { prefix: '/api/games/tekateki' });
   
+  //=================[FUN]=================
+  await app.register(cekkodamRoutes, { prefix: '/api/fun/cek-kodam' });
+  await app.register(cekprimbonRoutes, { prefix: '/api/fun/primbon' });
+
   //============≠===========≠========
   await app.register(meRoutes, { prefix: '/api/me' });
   await app.register(auditLogRoutes, { prefix: '/api/keys/audit-log' });

@@ -14,6 +14,7 @@ import { existsSync, mkdirSync, unlinkSync, readdirSync, statSync, writeFileSync
 import { randomBytes } from 'node:crypto';
 import { loadEnv } from '../../../config/env.js';
 const execFileAsync = promisify(execFile);
+const YTDLP_CLIENT_ARGS = ['--extractor-args', 'youtube:player_client=web'];
 const TEMP_DIR = resolve(process.cwd(), '.ytdlp-temp');
 // Ensure temp dir exists
 if (!existsSync(TEMP_DIR))
@@ -50,6 +51,7 @@ export async function ytdlpGetMeta(url) {
         '-j',
         '--no-playlist',
         '--skip-download',
+        ...YTDLP_CLIENT_ARGS,
         ...(cookies ? ['--cookies', cookies] : []),
         url,
     ];
@@ -79,6 +81,7 @@ export async function ytdlpDownloadVideo(url, quality = '720') {
         '-f', `bv*[height<=${quality}]+ba/b[height<=${quality}]/b`,
         '--merge-output-format', 'mp4',
         '-o', outputPath,
+        ...YTDLP_CLIENT_ARGS,
         ...(cookies ? ['--cookies', cookies] : []),
         url,
     ];
@@ -113,6 +116,7 @@ export async function ytdlpDownloadAudio(url) {
         '-x',
         '--audio-format', 'mp3',
         '-o', `${outputTemplate}.%(ext)s`,
+        ...YTDLP_CLIENT_ARGS,
         ...(cookies ? ['--cookies', cookies] : []),
         url,
     ];
@@ -208,6 +212,7 @@ export async function ytdlpGetInfo(url) {
         '--no-warnings',
         '-J',
         '--playlist-end', '20',
+        ...YTDLP_CLIENT_ARGS,
         ...(cookies ? ['--cookies', cookies] : []),
         url,
     ];

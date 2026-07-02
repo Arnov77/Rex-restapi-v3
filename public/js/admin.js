@@ -55,6 +55,13 @@ function makeApi(getKey) {
       if (search) params.set('search', search);
       return call('GET', `/api/admin/users/?${params}`);
     },
+<<<<<<< HEAD
+=======
+    listStickerPacks: () => call('GET', '/api/admin/memesticker/packs/'),
+    addStickerPack: (body) => call('POST', '/api/admin/memesticker/packs/', { body }),
+    setStickerPackActive: (id, active) => call('PATCH', `/api/admin/memesticker/packs/${id}`, { body: { active } }),
+    deleteStickerPack: (id) => call('DELETE', `/api/admin/memesticker/packs/${id}`),
+>>>>>>> ef8e6ddfefb5b202852d51112a951f2d2b1659af
   };
 }
 
@@ -546,6 +553,136 @@ const UsersTab = {
 
 
 // ─────────────────────────────────────────────────────────────────────
+<<<<<<< HEAD
+=======
+// Sticker Packs tab (meme sticker packs for /api/tools/random-sticker)
+// ─────────────────────────────────────────────────────────────────────
+const StickerPacksTab = {
+  name: 'StickerPacksTab',
+  props: { api: { type: Object, required: true } },
+  emits: ['toast'],
+  setup(props, { emit }) {
+    const packs = ref([]);
+    const loading = ref(false);
+    const busyId = ref(null);
+    const form = reactive({ name: '', label: '' });
+    const adding = ref(false);
+
+    async function load() {
+      loading.value = true;
+      try {
+        const r = await props.api.listStickerPacks();
+        packs.value = r.data.packs;
+      } catch (err) {
+        emit('toast', { kind: 'err', text: `Load failed: ${err.message}` });
+      } finally { loading.value = false; }
+    }
+    onMounted(load);
+
+    async function submitAdd() {
+      const name = form.name.trim();
+      if (!name) { emit('toast', { kind: 'err', text: 'Pack name required' }); return; }
+      adding.value = true;
+      try {
+        await props.api.addStickerPack({ name, label: form.label.trim() || undefined });
+        form.name = ''; form.label = '';
+        emit('toast', { kind: 'ok', text: `Added pack "${name}"` });
+        load();
+      } catch (err) {
+        emit('toast', { kind: 'err', text: `Add failed: ${err.message}` });
+      } finally { adding.value = false; }
+    }
+
+    async function toggleActive(pack) {
+      busyId.value = pack.id;
+      try {
+        await props.api.setStickerPackActive(pack.id, !pack.active);
+        emit('toast', { kind: 'ok', text: `${!pack.active ? 'Activated' : 'Deactivated'} "${pack.name}"` });
+        load();
+      } catch (err) {
+        emit('toast', { kind: 'err', text: `Update failed: ${err.message}` });
+      } finally { busyId.value = null; }
+    }
+
+    async function removePack(pack) {
+      if (!confirm(`Remove pack "${pack.name}"? This cannot be undone.`)) return;
+      busyId.value = pack.id;
+      try {
+        await props.api.deleteStickerPack(pack.id);
+        emit('toast', { kind: 'ok', text: `Removed "${pack.name}"` });
+        load();
+      } catch (err) {
+        emit('toast', { kind: 'err', text: `Delete failed: ${err.message}` });
+      } finally { busyId.value = null; }
+    }
+
+    function fmtDate(s) { if (!s) return '—'; try { return new Date(s).toLocaleString(); } catch { return s; } }
+
+    return () => h('div', { style: 'display:flex;flex-direction:column;gap:12px' }, [
+      h('div', { class: 'card' }, [
+        h('h3', 'Add Telegram sticker pack'),
+        h('p', { class: 'hint', style: 'margin:4px 0 12px' },
+          'Paste the short-name from t.me/addstickers/<name> — e.g. "MemesIndonesia". Powers /api/tools/random-sticker.'),
+        h('div', { class: 'toolbar' }, [
+          h('input', {
+            class: 'input grow', placeholder: 'Pack short-name (required)',
+            value: form.name, onInput: (e) => (form.name = e.target.value),
+            onKeydown: (e) => { if (e.key === 'Enter') submitAdd(); },
+          }),
+          h('input', {
+            class: 'input grow', placeholder: 'Label (optional)',
+            value: form.label, onInput: (e) => (form.label = e.target.value),
+            onKeydown: (e) => { if (e.key === 'Enter') submitAdd(); },
+          }),
+          h('button', { class: 'btn primary', disabled: adding.value, onClick: submitAdd },
+            adding.value ? 'Adding…' : '+ Add pack'),
+        ]),
+      ]),
+
+      h('div', { class: 'toolbar' }, [
+        h('span', { class: 'count' }, `${packs.value.length} packs${loading.value ? ' · loading…' : ''}`),
+        h('button', { class: 'btn', onClick: load, disabled: loading.value }, 'Refresh'),
+      ]),
+
+      h('div', { class: 'keys-table-wrap' }, h('table', { class: 'keys' }, [
+        h('thead', null, h('tr', null, [
+          h('th', 'Name'), h('th', 'Label'), h('th', 'Status'), h('th', 'Added'),
+          h('th', { style: 'text-align:right' }, 'Actions'),
+        ])),
+        h('tbody', null, [
+          packs.value.length === 0
+            ? h('tr', { class: 'empty-row' }, h('td', { colspan: 5 },
+                loading.value ? 'Loading…' : 'No sticker packs yet. Add one above.'))
+            : packs.value.map((p) => h('tr', { key: p.id, class: p.active ? '' : 'revoked' }, [
+                h('td', null, [
+                  h('div', { class: 'name' }, p.name),
+                  h('a', { class: 'id-mono', href: `https://t.me/addstickers/${p.name}`, target: '_blank', rel: 'noopener' },
+                    `t.me/addstickers/${p.name}`),
+                ]),
+                h('td', null, p.label || h('span', { style: 'color:var(--fg-dim)' }, '—')),
+                h('td', null, h('span', { class: `badge status-${p.active ? 'active' : 'revoked'}` },
+                  p.active ? 'active' : 'inactive')),
+                h('td', null, fmtDate(p.created_at)),
+                h('td', { class: 'actions' }, [
+                  h('button', {
+                    class: 'btn sm', disabled: busyId.value === p.id,
+                    onClick: () => toggleActive(p),
+                  }, p.active ? 'Deactivate' : 'Activate'),
+                  h('button', {
+                    class: 'btn sm danger', disabled: busyId.value === p.id,
+                    onClick: () => removePack(p),
+                  }, 'Remove'),
+                ]),
+              ])),
+        ]),
+      ])),
+    ]);
+  },
+};
+
+
+// ─────────────────────────────────────────────────────────────────────
+>>>>>>> ef8e6ddfefb5b202852d51112a951f2d2b1659af
 // Root app — tabs: Keys | Users | Audit Log
 // ─────────────────────────────────────────────────────────────────────
 const App = {
@@ -580,6 +717,10 @@ const App = {
         h('div', { class: 'toolbar', style: 'border-bottom:1px solid var(--b-1);padding-bottom:8px' }, [
           h('button', { class: `btn ${activeTab.value === 'keys' ? 'primary' : 'ghost'}`, onClick: () => (activeTab.value = 'keys') }, 'API Keys'),
           h('button', { class: `btn ${activeTab.value === 'users' ? 'primary' : 'ghost'}`, onClick: () => (activeTab.value = 'users') }, 'Users'),
+<<<<<<< HEAD
+=======
+          h('button', { class: `btn ${activeTab.value === 'stickers' ? 'primary' : 'ghost'}`, onClick: () => (activeTab.value = 'stickers') }, 'Sticker Packs'),
+>>>>>>> ef8e6ddfefb5b202852d51112a951f2d2b1659af
           h('button', { class: `btn ${activeTab.value === 'audit' ? 'primary' : 'ghost'}`, onClick: () => (activeTab.value = 'audit') }, 'Audit Log'),
         ]),
 
@@ -588,7 +729,13 @@ const App = {
           ? h(KeysTable, { api, key: masterKey.value, onToast: pushToast, onUnauth })
           : activeTab.value === 'users'
             ? h(UsersTab, { api, key: masterKey.value, onToast: pushToast })
+<<<<<<< HEAD
             : h(AuditLogTab, { api, key: masterKey.value, onToast: pushToast }),
+=======
+            : activeTab.value === 'stickers'
+              ? h(StickerPacksTab, { api, key: masterKey.value, onToast: pushToast })
+              : h(AuditLogTab, { api, key: masterKey.value, onToast: pushToast }),
+>>>>>>> ef8e6ddfefb5b202852d51112a951f2d2b1659af
 
         renderToasts(toasts.value),
       ]);
@@ -613,4 +760,8 @@ function renderToasts(list) {
   return h('div', { class: 'toasts' }, list.map((t) => h('div', { class: `toast ${t.kind}`, key: t.id }, t.text)));
 }
 
+<<<<<<< HEAD
 createApp(App).mount('#admin-app');
+=======
+createApp(App).mount('#admin-app');
+>>>>>>> ef8e6ddfefb5b202852d51112a951f2d2b1659af

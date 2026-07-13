@@ -119,10 +119,7 @@ export async function getRandomrandomSticker(
     throw Internal('No active meme sticker packs configured. Add one via /api/admin/randomSticker/packs.');
   }
 
-  const packName = opts.pack ?? pickRandom(packs);
-  if (opts.pack && !packs.includes(opts.pack)) {
-    throw BadRequest(`Unknown or inactive pack "${opts.pack}". Allowed: ${packs.join(', ')}`);
-  }
+  const packName = pickRandom(packs);
 
   const set = await resolveStickerSet(packName, signal);
   const sticker = pickRandom(set.stickers);

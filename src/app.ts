@@ -70,6 +70,7 @@ import igmp3Routes from './modules/downloaders/instagram/igmp3.routes.js';
 import pinterestRoutes from './modules/downloaders/pinterest/pinterest.routes.js';
 import mediafireRoutes from './modules/downloaders/mediafire/mediafire.routes.js';
 import spotifyRoutes from './modules/downloaders/spotify/spotify.routes.js';
+import soundCloudRoutes from './modules/downloaders/soundcloud/soundcloud.routes.js';
 
 //======[SEARCH]======
 import pinSearch from './modules/search/pinterest/pinterest.routes.js';
@@ -222,6 +223,7 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(pinterestRoutes, { prefix: '/api/downloader/pinterest' });
   await app.register(mediafireRoutes, { prefix: '/api/downloader/mediafire' });
   await app.register(spotifyRoutes, { prefix: '/api/downloader/spotify' });
+  await app.register(soundCloudRoutes, { prefix: '/api/downloader/soundcloud' });
   
   //======[SEARCH]=====
   await app.register(pinSearch, { prefix: '/api/search/pinterest' });

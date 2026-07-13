@@ -82,7 +82,7 @@ export async function downloadPinterest(url: string): Promise<PinterestResult> {
         author: info.author,
         board: null,
         thumbnail: info.thumbnail,
-        media: info.media,
+        media: info.media.filter((m): m is typeof m & { type: 'image' | 'video' } => m.type === 'image' || m.type === 'video'),
       };
     }
   } catch (err: any) {

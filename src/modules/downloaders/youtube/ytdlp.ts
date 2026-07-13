@@ -217,7 +217,7 @@ export function getTempDir(): string {
 // back gracefully for photo posts and carousels (playlist entries).
 
 export interface YtdlpMediaItem {
-  type: 'video' | 'image';
+  type: 'video' | 'image' | 'audio';
   url: string;
   quality?: string;
 }
@@ -298,6 +298,13 @@ function entryToMedia(entry: YtdlpEntry): YtdlpMediaItem[] {
     return out;
   }
 
+  // Audio-only (SoundCloud tracks, etc.) — pick highest-bitrate audio format.
+  const audios = formats.filter(isLikelyAudioOnly);
+  if (audios.length) {
+    const best = audios.sort((a, b) => (b.tbr ?? 0) - (a.tbr ?? 0))[0];
+    if (best?.url) return [{ type: 'audio', url: best.url, quality: best.ext }];
+  }
+  
   // Photo post → image. Prefer an image-ext format; fall back to entry.url.
   const imgFmt = formats.find((f) => /^(jpe?g|png|webp|heic|gif)$/i.test(f.ext ?? ''));
   if (imgFmt?.url) return [{ type: 'image', url: imgFmt.url }];
@@ -306,6 +313,11 @@ function entryToMedia(entry: YtdlpEntry): YtdlpMediaItem[] {
   if (typeof entry.url === 'string' && (isImageExt || (entry.vcodec === 'none' && entry.acodec === 'none'))) {
     return [{ type: 'image', url: entry.url }];
   }
+  // Bare entry with no formats array but vcodec/acodec indicate audio-only (e.g. some SoundCloud responses).
+  if (typeof entry.url === 'string' && entry.vcodec === 'none' && entry.acodec && entry.acodec !== 'none') {
+    return [{ type: 'audio', url: entry.url }];
+  }
+  
   if (typeof entry.url === 'string') return [{ type: 'image', url: entry.url }];
   return [];
 }

@@ -18,6 +18,13 @@ import { loadEnv } from '../../../config/env.js';
 const execFileAsync = promisify(execFile);
 
 const YTDLP_CLIENT_ARGS = ['--extractor-args', 'youtube:player_client=web'];
+const YTDLP_CLIENT_ARGS_FALLBACK = ['--extractor-args', 'youtube:player_client=android'];
+
+/** Optional upstream proxy for yt-dlp (e.g. http://user:pass@ip:port). */
+function getProxyArgs(): string[] {
+  const env = loadEnv();
+  return env.YTDLP_PROXY_URL ? ['--proxy', env.YTDLP_PROXY_URL] : [];
+}
 
 export interface YtdlpResult {
   title: string;
@@ -58,20 +65,31 @@ function getCookiesPath(): string | null {
  */
 export async function ytdlpGetMeta(url: string): Promise<{ title: string; author: string; thumbnail: string | null; duration: number | null }> {
   const cookies = getCookiesPath();
-  const args = [
-    '--no-warnings',
-    '-j',
-    '--no-playlist',
-    '--skip-download',
+  const proxyArgs = getProxyArgs();
+
+  const baseArgs = ['--no-warnings', '-j', '--no-playlist', '--skip-download'];
+
+  const primaryArgs = [
+    ...baseArgs,
     ...YTDLP_CLIENT_ARGS,
+    ...proxyArgs,
     ...(cookies ? ['--cookies', cookies] : []),
     url,
   ];
 
-  const { stdout } = await execFileAsync('yt-dlp', args, {
-    timeout: 30_000,
-    maxBuffer: 10 * 1024 * 1024,
-  });
+  let stdout: string;
+  try {
+    ({ stdout } = await execFileAsync('yt-dlp', primaryArgs, { timeout: 30_000, maxBuffer: 10 * 1024 * 1024 }));
+  } catch (err) {
+    if (!proxyArgs.length) throw err;
+    const fallbackArgs = [
+      ...baseArgs,
+      ...YTDLP_CLIENT_ARGS_FALLBACK,
+      ...proxyArgs,
+      url,
+    ];
+    ({ stdout } = await execFileAsync('yt-dlp', fallbackArgs, { timeout: 30_000, maxBuffer: 10 * 1024 * 1024 }));
+  }
 
   const data = JSON.parse(stdout);
   return {
@@ -98,6 +116,7 @@ export async function ytdlpDownloadVideo(url: string, quality: string = '720'): 
     '--merge-output-format', 'mp4',
     '-o', outputPath,
     ...YTDLP_CLIENT_ARGS,
+    ...getProxyArgs(),
     ...(cookies ? ['--cookies', cookies] : []),
     url,
   ];
@@ -130,23 +149,40 @@ export async function ytdlpDownloadAudio(url: string): Promise<YtdlpResult> {
   const cookies = getCookiesPath();
   const id = randomBytes(8).toString('hex');
   const outputTemplate = join(TEMP_DIR, `${id}`);
+  const proxyArgs = getProxyArgs();
 
-  const args = [
+  const baseArgs = [
     '--no-warnings',
     '--no-playlist',
-    '-f', 'ba/b',
     '-x',
     '--audio-format', 'mp3',
     '-o', `${outputTemplate}.%(ext)s`,
+  ];
+
+  const primaryArgs = [
+    ...baseArgs,
+    '-f', 'ba/b',
     ...YTDLP_CLIENT_ARGS,
+    ...proxyArgs,
     ...(cookies ? ['--cookies', cookies] : []),
     url,
   ];
 
-  await execFileAsync('yt-dlp', args, {
-    timeout: 120_000,
-    maxBuffer: 10 * 1024 * 1024,
-  });
+  try {
+    await execFileAsync('yt-dlp', primaryArgs, { timeout: 120_000, maxBuffer: 10 * 1024 * 1024 });
+  } catch (err) {
+    if (!proxyArgs.length) throw err;
+    // android client only exposes muxed format 18 (no separate audio-only
+    // stream) — but reliably bypasses the captcha/sign-in soft-block.
+    const fallbackArgs = [
+      ...baseArgs,
+      '-f', '18/best',
+      ...YTDLP_CLIENT_ARGS_FALLBACK,
+      ...proxyArgs,
+      url,
+    ];
+    await execFileAsync('yt-dlp', fallbackArgs, { timeout: 120_000, maxBuffer: 10 * 1024 * 1024 });
+  }
 
   // Find the output file (yt-dlp names it with the actual extension)
   const mp3Path = `${outputTemplate}.mp3`;
@@ -285,6 +321,7 @@ export async function ytdlpGetInfo(url: string): Promise<YtdlpInfo> {
     '-J',
     '--playlist-end', '20',
     ...YTDLP_CLIENT_ARGS,
+    ...getProxyArgs(),
     ...(cookies ? ['--cookies', cookies] : []),
     url,
   ];

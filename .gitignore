@@ -15,6 +15,7 @@ cookies.txt
 .ytdlp-temp/
 cookies.txt
 cookies.json
+*.mp3
 
 *.patch
 update.txt

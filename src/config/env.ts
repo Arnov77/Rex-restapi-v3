@@ -118,6 +118,7 @@ const schema = z.object({
   // Path to yt-dlp cookies file (Netscape format). Used as fallback for
   // YouTube downloads when cobalt fails. Relative to cwd or absolute path.
   YTDLP_COOKIES_PATH: z.string().default('./cookies.txt'),
+  YTDLP_PROXY_URL: z.string().optional(),
   GEMINI_API_KEYS: z.string().optional(), // comma-separated, contoh: key1,key2,key3
   GROQ_API_KEYS: z.string().optional(),   // comma-separated, contoh: key1,key2,key3
   GEOIP_CITY_DB: z.string().default('./GeoLite2-City.mmdb'),

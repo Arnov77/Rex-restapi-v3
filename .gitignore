@@ -12,9 +12,11 @@ data/
 # Test coverage output
 coverage/
 cookies.txt
+cokkies.txt
 .ytdlp-temp/
 cookies.txt
 cookies.json
+*.old
 *.mp3
 
 *.patch

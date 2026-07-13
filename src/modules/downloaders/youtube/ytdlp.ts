@@ -17,8 +17,8 @@ import { loadEnv } from '../../../config/env.js';
 
 const execFileAsync = promisify(execFile);
 
-const YTDLP_CLIENT_ARGS = ['--extractor-args', 'youtube:player_client=web'];
-export const YTDLP_CLIENT_ARGS_FALLBACK = ['--extractor-args', 'youtube:player_client=android'];
+const YTDLP_CLIENT_ARGS: string[] = [];
+export const YTDLP_CLIENT_ARGS_FALLBACK: string[] = [];
 
 /** Optional upstream proxy for yt-dlp (e.g. http://user:pass@ip:port). */
 export function getProxyArgs(): string[] {

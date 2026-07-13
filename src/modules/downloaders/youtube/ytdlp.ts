@@ -18,10 +18,10 @@ import { loadEnv } from '../../../config/env.js';
 const execFileAsync = promisify(execFile);
 
 const YTDLP_CLIENT_ARGS = ['--extractor-args', 'youtube:player_client=web'];
-const YTDLP_CLIENT_ARGS_FALLBACK = ['--extractor-args', 'youtube:player_client=android'];
+export const YTDLP_CLIENT_ARGS_FALLBACK = ['--extractor-args', 'youtube:player_client=android'];
 
 /** Optional upstream proxy for yt-dlp (e.g. http://user:pass@ip:port). */
-function getProxyArgs(): string[] {
+export function getProxyArgs(): string[] {
   const env = loadEnv();
   return env.YTDLP_PROXY_URL ? ['--proxy', env.YTDLP_PROXY_URL] : [];
 }

@@ -7,6 +7,7 @@ import { parseFile } from 'music-metadata';
 import { AppError } from '@shared/errors.js';
 import { storeSpotifyFile } from './spotify.store.js';
 import { shortProxyUrl } from '@modules/downloaders/_proxy/proxy.token.js';
+import { getProxyArgs, YTDLP_CLIENT_ARGS_FALLBACK } from '@modules/downloaders/youtube/ytdlp.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -182,22 +183,36 @@ async function downloadTrack(
   tempDir: string,
   cookiesPath: string,
 ): Promise<string> {
-  // Cari di YouTube Music dengan query: "judul artis"
   const query = `${meta.title} ${meta.artist}`;
   const outTemplate = join(tempDir, `${meta.spotifyId}.%(ext)s`);
+  const proxyArgs = getProxyArgs();
 
-  await execFileAsync('yt-dlp', [
-    `ytsearch1:${query}`,
-    '--format', 'bestaudio[ext=m4a]/bestaudio',
-    '--output', outTemplate,
-    '--no-playlist',
-    '--cookies', cookiesPath,
-    '--no-warnings',
-    '--quiet',
-  ], { timeout: 60 * 1000 });
+  try {
+    await execFileAsync('yt-dlp', [
+      `ytsearch1:${query}`,
+      '--format', 'bestaudio[ext=m4a]/bestaudio',
+      '--output', outTemplate,
+      '--no-playlist',
+      '--cookies', cookiesPath,
+      ...proxyArgs,
+      '--no-warnings',
+      '--quiet',
+    ], { timeout: 60 * 1000 });
+  } catch (err) {
+    if (!proxyArgs.length) throw err;
+    await execFileAsync('yt-dlp', [
+      `ytsearch1:${query}`,
+      '--format', '18/bestaudio/best',
+      '--output', outTemplate,
+      '--no-playlist',
+      ...YTDLP_CLIENT_ARGS_FALLBACK,
+      ...proxyArgs,
+      '--no-warnings',
+      '--quiet',
+    ], { timeout: 60 * 1000 });
+  }
 
-  // Cari file hasil download
-  const files = readdirSync(tempDir).filter((f) => f.startsWith(meta.spotifyId) && (f.endsWith('.m4a') || f.endsWith('.webm') || f.endsWith('.opus')));
+  const files = readdirSync(tempDir).filter((f) => f.startsWith(meta.spotifyId) && (f.endsWith('.m4a') || f.endsWith('.webm') || f.endsWith('.opus') || f.endsWith('.mp4')));
   if (!files.length) throw new AppError(502, 'DOWNLOAD_FAILED', `Gagal download: ${query}`);
   return join(tempDir, files[0]!);
 }

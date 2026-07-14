@@ -6,7 +6,7 @@ import { downloadDeezload } from './deezload.service.js';
 import { shortProxyUrl } from '@modules/downloaders/_proxy/proxy.token.js';
 import { cache, inflight, normalizeQuery, trackFile, type DeezloadEntry } from './deezload.store.js';
 
-const DOWNLOAD_DIR = process.env.DEEZLOAD_DOWNLOAD_DIR ?? '/root/tele/downloads';
+const DOWNLOAD_DIR = process.env.DEEZLOAD_DOWNLOAD_DIR ?? '/root/rex-api/downloads';
 
 function parseQuery(raw: string): { title: string; artist?: string } {
   const dashIdx = raw.indexOf(' - ');
@@ -41,14 +41,11 @@ const deezloadRoutes: FastifyPluginAsyncZod = async (app) => {
       const { title, artist } = parseQuery(req.query.query);
       const base = `${req.protocol}://${req.host}`;
 
-      // Cache key include artist supaya "negoro angin" dan "negoro angin - denny caknan" tidak clash
       const key = normalizeQuery(title) + (artist ? `|${artist.toLowerCase()}` : '');
       const hitsBefore = cache.hits;
 
-      // 1. Cache hit
       let entry = cache.get(key);
 
-      // 2. Miss — download dengan dedup inflight
       if (!entry) {
         let promise = inflight.get(key);
         if (!promise) {

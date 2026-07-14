@@ -26,3 +26,8 @@ dist/
 update.txt
 
 scripts/
+
+python/deezload/venv/
+python/deezload/.env
+*.session
+*.session-journal

@@ -31,3 +31,5 @@ python/deezload/venv/
 python/deezload/.env
 *.session
 *.session-journal
+__pycache__/
+*.pyc

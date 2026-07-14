@@ -1,7 +1,10 @@
 import { z } from 'zod';
 
 export const DeezloadQuery = z.object({
-  query: z.string().min(1, 'Query is required'),
+  query: z
+    .string()
+    .min(1, 'Query is required')
+    .describe('Judul lagu, atau "Judul - Artist" untuk hasil lebih akurat. Contoh: Negoro Angin - Denny Caknan'),
 });
 
 export type DeezloadQuery = z.infer<typeof DeezloadQuery>;

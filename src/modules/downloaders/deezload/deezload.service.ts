@@ -12,12 +12,14 @@ export interface DeezloadResult {
 
 export async function downloadDeezload(
   query: string,
+  artist?: string,
 ): Promise<DeezloadResult> {
   try {
     const { data } = await axios.post<DeezloadResult>(
       'http://127.0.0.1:8001/download',
       {
         query,
+        artist,
       },
       {
         timeout: 180000,

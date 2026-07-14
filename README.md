@@ -27,7 +27,7 @@ npm run dev
 ```bash
 apt update && apt install -y \
   nodejs ffmpeg deno \
-  python3.11 curl git
+  python3.11 python3.11-venv curl git
 ```
 
 > **Node.js v22+** disarankan. Cek dengan `node --version`.

@@ -1,12 +1,16 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { statSync, createReadStream } from 'node:fs';
-import { basename } from 'node:path';
+import { basename, resolve } from 'node:path';
 import { DeezloadQuery, DeezloadResponse } from './deezload.schemas.js';
 import { downloadDeezload } from './deezload.service.js';
 import { shortProxyUrl } from '@modules/downloaders/_proxy/proxy.token.js';
 import { cache, inflight, normalizeQuery, trackFile, type DeezloadEntry } from './deezload.store.js';
 
-const DOWNLOAD_DIR = process.env.DEEZLOAD_DOWNLOAD_DIR ?? '../../../downloads';
+const DOWNLOAD_DIR = process.env.DEEZLOAD_DOWNLOAD_DIR
+  ? resolve(process.env.DEEZLOAD_DOWNLOAD_DIR)
+  : resolve(process.cwd(), 'downloads');
+
+console.log(`[deezload] Serving files from: ${DOWNLOAD_DIR}`);
 
 function parseQuery(raw: string): { title: string; artist?: string } {
   const dashIdx = raw.indexOf(' - ');
@@ -14,6 +18,16 @@ function parseQuery(raw: string): { title: string; artist?: string } {
   const title = raw.slice(0, dashIdx).trim();
   const artist = raw.slice(dashIdx + 3).trim() || undefined;
   return { title, artist };
+}
+
+function parseDescription(desc: string | null): { artist: string | null; album: string | null } {
+  if (!desc) return { artist: null, album: null };
+  const artistMatch = desc.match(/Artist:\s*(.+)/i);
+  const albumMatch = desc.match(/Album:\s*(.+)/i);
+  return {
+    artist: artistMatch?.[1]?.trim() || null,
+    album: albumMatch?.[1]?.trim() || null,
+  };
 }
 
 const deezloadRoutes: FastifyPluginAsyncZod = async (app) => {
@@ -75,6 +89,7 @@ const deezloadRoutes: FastifyPluginAsyncZod = async (app) => {
         filename: entry.fileName,
         contentType: 'audio/flac',
       });
+      const { artist: parsedArtist, album } = parseDescription(entry.description);
 
       return reply
         .header('x-cache', cacheHit ? 'HIT' : 'MISS')
@@ -82,7 +97,8 @@ const deezloadRoutes: FastifyPluginAsyncZod = async (app) => {
           ok: true as const,
           data: {
             title: entry.title,
-            description: entry.description,
+            artist: parsedArtist,
+            album,
             filename: entry.fileName,
             format: 'flac' as const,
             url,

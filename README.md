@@ -27,7 +27,7 @@ npm run dev
 ```bash
 apt update && apt install -y \
   nodejs ffmpeg deno \
-  python3.11 curl git
+  python3.11 python3.11-venv curl git
 ```
 
 > **Node.js v22+** disarankan. Cek dengan `node --version`.
@@ -52,7 +52,100 @@ which yt-dlp   # harus /usr/local/bin/yt-dlp
 head -1 $(which yt-dlp)  # harus #!/usr/bin/python3.11
 ```
 
-### 3. bgutil Docker (YouTube PO Token)
+### 3. DeezLoad (Spotify Downloader)
+
+Rex API menggunakan integrasi **DeezLoad** untuk mengunduh lagu Spotify melalui Telegram Userbot. Seluruh environment Python menggunakan **Python 3.11**.
+
+Masuk ke folder DeezLoad:
+
+```bash
+cd /root/rex-api/python/deezload
+```
+
+Buat virtual environment:
+
+```bash
+python3.11 -m venv venv
+```
+
+Aktifkan virtual environment:
+
+```bash
+source venv/bin/activate
+```
+
+Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+Setelah selesai:
+
+```bash
+deactivate
+```
+
+> **Catatan:** Jalankan DeezLoad menggunakan virtual environment tersebut agar dependency tidak bercampur dengan instalasi Python sistem.
+
+### 4. Telegram API Setup
+
+DeezLoad menggunakan Telegram Userbot sehingga membutuhkan **API ID** dan **API Hash**.
+
+Cara mendapatkannya:
+
+1. Login ke https://my.telegram.org
+2. Pilih **API Development Tools**
+3. Buat aplikasi baru.
+4. Salin:
+   - API ID
+   - API Hash
+
+Isi file `.env` pada folder `python/deezload`:
+
+```env
+TG_API_ID=
+TG_API_HASH=
+```
+
+### 5. Generate Telegram Session
+
+Sebelum menjalankan DeezLoad sebagai service, session Telegram harus dibuat terlebih dahulu.
+
+Masuk ke folder DeezLoad dan aktifkan virtual environment:
+
+```bash
+cd /root/rex-api/python/deezload
+source venv/bin/activate
+```
+
+Jalankan service secara manual:
+
+```bash
+uvicorn deezload_service:app --host 127.0.0.1 --port 8001
+```
+
+Saat pertama kali dijalankan, Telethon akan meminta login ke akun Telegram.
+
+Masukkan:
+
+- Nomor telepon
+- Kode verifikasi (OTP)
+- Password 2FA (jika ada)
+
+Setelah login berhasil, file berikut akan dibuat otomatis:
+
+```
+sesi_scraper.session
+```
+
+Tekan `Ctrl + C` untuk menghentikan service setelah session berhasil dibuat.
+
+> File `sesi_scraper.session` berisi autentikasi Telegram Userbot. Jangan dihapus atau dibagikan kepada siapa pun.
+
+> Jangan membagikan API Hash kepada siapa pun.
+
+### 6. bgutil Docker (YouTube PO Token)
 
 YouTube membutuhkan PO Token yang valid untuk bypass bot detection. Jalankan bgutil sebagai Docker container:
 
@@ -73,7 +166,7 @@ curl -X POST http://127.0.0.1:4416/get_pot \
 # Harus return JSON dengan poToken terisi
 ```
 
-### 4. yt-dlp Config
+### 7. yt-dlp Config
 
 Buat config global yt-dlp supaya semua flag aktif otomatis:
 
@@ -100,7 +193,7 @@ EOF
 > ln -sf /usr/bin/node /usr/local/bin/node
 > ```
 
-### 5. YouTube Cookies
+### 8. YouTube Cookies
 
 IP server VPS biasanya kena flag YouTube dan perlu cookies untuk bypass. Export cookies dari browser yang sudah login YouTube:
 
@@ -121,7 +214,7 @@ YTDLP_COOKIES_PATH=./cookies.txt
 
 > **Tips:** Refresh cookies setiap 2–4 minggu. Pakai akun Google yang aktif dipakai (bukan akun baru/kosong) agar lebih tahan lama.
 
-### 6. Proxy (Opsional tapi Disarankan)
+### 9. Proxy (Opsional tapi Disarankan)
 
 Jika IP server sudah kena flag YouTube (muncul captcha/bot error), tambahkan proxy HTTP:
 
@@ -139,7 +232,7 @@ yt-dlp --proxy "http://user:pass@ip:port" \
 
 Format audio/video harus muncul (bukan cuma storyboard).
 
-### 7. Test yt-dlp End-to-End
+### 10. Test yt-dlp End-to-End
 
 ```bash
 yt-dlp --cookies /root/rex-api/cookies.txt \
@@ -251,6 +344,17 @@ src/
         ├── memesticker/
         ├── randomsticker/
         └── tofigure/
+python/
+└── deezload/
+    ├── deezload_service.py           # FastAPI service
+    ├── requirements.txt
+    ├── .env
+    ├── .env.example
+    ├── logs/                         # Runtime logs (gitignored)
+    ├── venv/                         # Virtual environment (gitignored)
+    ├── __pycache__/                  # Auto-generated (gitignored)
+    ├── sesi_scraper.session          # Telegram session (generated, gitignored)
+    └── sesi_scraper.session-journal  # SQLite journal (auto-generated)
 tests/
 supabase/schema.sql
 supabase/migrations/

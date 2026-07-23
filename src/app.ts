@@ -48,6 +48,7 @@ import smemeRoutes from './modules/makers/smeme/smeme.routes.js';
 import lqRoutes from './modules/makers/lq/lq.routes.js';
 import vcRoutes from './modules/makers/vc/vc.routes.js';
 import achievementRoutes from './modules/makers/achievement/achievement.routes.js';
+import captionRoutes from './modules/makers/caption/caption.routes.js';
 
 //=======[AI]=======
 import imagegenRoutes from './modules/ai/imagegen/imagegen.routes.js';
@@ -202,6 +203,7 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(lqRoutes, { prefix: '/api/maker/lq' });
   await app.register(achievementRoutes, { prefix: '/api/maker/achievement' });
   await app.register(vcRoutes, { prefix: '/api/maker/vc' });
+  await app.register(captionRoutes, { prefix: '/api/maker/caption' });
   
   //=======[AI]======
   await app.register(imagegenRoutes, { prefix: '/api/ai/imagegen' });

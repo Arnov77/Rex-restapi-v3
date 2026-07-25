@@ -37,6 +37,7 @@ import tofigureRoutes from './modules/tools/tofigure/tofigure.routes.js';
 import nsfwRoutes from './modules/tools/nsfw/nsfw.routes.js';
 import randomMemeRoutes from './modules/tools/randomsticker/randomsticker.routes.js';
 import randomStickerAdminRoutes from './modules/tools/randomsticker/randomsticker.admin.routes.js';
+import combineRoutes from './modules/tools/combine/combine.routes.js';
 
 //=========[Makers]========
 import bratRoutes from './modules/makers/brat/brat.routes.js';
@@ -191,6 +192,7 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(nsfwRoutes, { prefix: '/api/tools/nsfw' });
   await app.register(randomMemeRoutes, { prefix: '/api/tools/random-sticker' });
   await app.register(randomStickerAdminRoutes, { prefix: '/api/admin/randomSticker/packs' });
+  await app.register(combineRoutes, { prefix: '/api/tools/combine' });
   
   //=======[MAKERS]=======
   await app.register(tgstickerRoutes, { prefix: '/api/maker/tgsticker' });

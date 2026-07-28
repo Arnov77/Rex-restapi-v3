@@ -72,7 +72,7 @@ function getLqParams(level: number, userQuality: number) {
    * Tujuannya cuma menghilangkan tepi kasar setelah downscale,
    * bukan membuat gambar jadi blur total.
    */
-  const softBlur = clamp(0.12 + normalized * 0.055, 0.12, 0.95);
+  const softBlur = clamp(0.12 + normalized * 0.055, 0.3, 0.95);
 
   /**
    * JPEG quality internal.

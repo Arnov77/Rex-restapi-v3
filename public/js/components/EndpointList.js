@@ -11,19 +11,20 @@
 
 import { ref, computed, h, watch } from 'vue';
 
-const TAG_NAMES = {
-  health: 'Health',
-  auth: 'Auth',
-  me: 'Me',
+// prettyTag() below derives a display name from the tag automatically
+// (e.g. 'audit-log' -> 'Audit Log'), which is correct for every tag in
+// src/plugins/swagger.ts except ones containing an acronym — title-casing
+// "ai" gives "Ai", not "AI". This map exists ONLY for that acronym case,
+// so it can't drift the way a full tag-name duplicate would: adding a new
+// tag in swagger.ts needs no change here unless the new tag is (or
+// contains) an acronym like "ai" or "api-keys".
+const TAG_NAME_OVERRIDES = {
+  ai: 'AI',
   'api-keys': 'API Keys',
-  screenshot: 'Screenshot',
-  brat: 'Brat',
-  quote: 'Quote',
-  other: 'Other',
 };
 
 function prettyTag(tag) {
-  return TAG_NAMES[tag] || tag.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  return TAG_NAME_OVERRIDES[tag] || tag.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export default {

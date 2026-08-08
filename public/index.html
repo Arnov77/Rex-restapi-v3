@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- Primary SEO -->
-  <title>Rex API — REST API for Apps, Bots & Image Tools</title>
+  <title>Rex API — REST API for Bots, Apps & Automation</title>
   <meta
     name="description"
-    content="Rex API is a developer-friendly REST API for apps, bots, and automation tools. Generate images, capture website screenshots, create quote cards, and access useful web utilities through one simple API."
+    content="Rex API is a developer-friendly REST API for bots, apps, and automation. Download media from popular platforms, use AI tools, generate images, and access dozens of web utilities — all through one documented API."
   />
   <meta
     name="keywords"
@@ -21,19 +21,19 @@
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="Rex API" />
-  <meta property="og:title" content="Rex API — REST API for Apps, Bots & Image Tools" />
+  <meta property="og:title" content="Rex API — REST API for Bots, Apps & Automation" />
   <meta
     property="og:description"
-    content="Build faster with one simple API for screenshots, image tools, quote cards, bot utilities, and developer tools."
+    content="One documented REST API for bots, apps, and automation — media downloaders, AI tools, image generators, and web utilities in one place."
   />
   <meta property="og:url" content="/" />
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Rex API — REST API for Apps, Bots & Image Tools" />
+  <meta name="twitter:title" content="Rex API — REST API for Bots, Apps & Automation" />
   <meta
     name="twitter:description"
-    content="Screenshots, image tools, quote cards, and bot utilities — available through one fast and documented REST API."
+    content="Media downloaders, AI tools, image generators, and web utilities — all through one fast, documented REST API."
   />
 
   <!-- Favicons / manifest -->
@@ -51,7 +51,7 @@
     "name": "Rex API",
     "applicationCategory": "DeveloperApplication",
     "operatingSystem": "Any",
-    "description": "A REST API for apps, bots, screenshots, image tools, quote cards, and developer utilities.",
+    "description": "A REST API for bots, apps, and automation — media downloaders, AI tools, image generators, games, and web utilities.",
     "url": "/",
     "offers": [
       {
@@ -101,13 +101,13 @@
         </div>
 
         <h1 id="hero-title">
-          REST API for <span class="accent">apps, bots</span><br />
-          and creative tools
+          One REST API for <span class="accent">bots, apps,</span><br />
+          and automation
         </h1>
 
         <p class="sub">
-          Build features faster with one simple API for screenshots, image tools,
-          quote cards, captions, and bot utilities — documented, secured with JWT,
+          Download media, use AI tools, generate images, and access dozens of
+          web utilities — all through one documented API, secured with JWT
           and ready to use from your dashboard.
         </p>
 
@@ -127,56 +127,105 @@
 
         <p class="lede">
           Rex API gives you ready-to-use endpoints for apps, bots, dashboards,
-          automation workflows, and creative tools — all documented and protected
-          with fair usage limits.
+          and automation workflows — media downloaders, AI tools, image
+          generators, and web utilities, all documented and protected with
+          fair usage limits.
         </p>
 
         <div class="feat-grid">
           <article class="feat">
-            <div class="feat-icon" aria-hidden="true">SS</div>
-            <h3>Screenshot API</h3>
+            <div class="feat-icon" aria-hidden="true">DL</div>
+            <h3>Media Downloaders</h3>
             <p>
-              Capture public web pages as clean PNG or JPEG images with custom
-              viewport, full-page capture, and light or dark mode support.
+              Pull video and audio from YouTube, TikTok, Instagram, Twitter/X,
+              Spotify, SoundCloud, and more — one endpoint per platform.
             </p>
             <div class="endpoints">
-              <code>GET /api/screenshot</code>
+              <code>GET /api/downloader/youtube</code>
             </div>
           </article>
 
           <article class="feat">
-            <div class="feat-icon" aria-hidden="true">BR</div>
-            <h3>Caption Generator</h3>
+            <div class="feat-icon" aria-hidden="true">AI</div>
+            <h3>AI Tools</h3>
             <p>
-              Create brat-style captions in PNG, JPEG, animated GIF, or WebP
-              format for bots, stickers, social posts, and image-based tools.
+              Chat with an AI assistant, generate images from a prompt, or
+              transcribe audio to text.
             </p>
             <div class="endpoints">
-              <code>GET /api/brat</code>
+              <code>GET /api/ai/imagegen</code>
             </div>
           </article>
 
           <article class="feat">
-            <div class="feat-icon" aria-hidden="true">QT</div>
-            <h3>Quote Card API</h3>
+            <div class="feat-icon" aria-hidden="true">MK</div>
+            <h3>Image Makers</h3>
             <p>
-              Generate clean quote cards with custom themes, fonts, accent colors,
-              profile details, and verified badges.
+              Generate quote cards, brat-style captions, stickers, and other
+              ready-to-post images.
             </p>
             <div class="endpoints">
-              <code>GET /api/quote</code>
+              <code>GET /api/maker/quote</code>
             </div>
           </article>
 
           <article class="feat">
-            <div class="feat-icon" aria-hidden="true">+</div>
-            <h3>And Much More</h3>
+            <div class="feat-icon" aria-hidden="true">TL</div>
+            <h3>Web Utilities</h3>
             <p>
-              Explore more utilities for media, stickers, image processing, and
-              bot automation — all available through one simple REST API.
+              Screenshots, OCR, translation, text-to-speech, QR codes,
+              background removal, and other everyday utilities.
             </p>
             <div class="endpoints">
-              <code>more tools</code>
+              <code>GET /api/tools/screenshot</code>
+            </div>
+          </article>
+
+          <article class="feat">
+            <div class="feat-icon" aria-hidden="true">SR</div>
+            <h3>Search</h3>
+            <p>
+              Search manga titles and Pinterest images directly through the
+              API.
+            </p>
+            <div class="endpoints">
+              <code>GET /api/search/manga</code>
+            </div>
+          </article>
+
+          <article class="feat">
+            <div class="feat-icon" aria-hidden="true">GM</div>
+            <h3>Games &amp; Fun</h3>
+            <p>
+              Trivia, word games, and novelty endpoints, popular for bot
+              minigames — Indonesian-language content.
+            </p>
+            <div class="endpoints">
+              <code>GET /api/games/tebaktebakan/random</code>
+            </div>
+          </article>
+
+          <article class="feat">
+            <div class="feat-icon" aria-hidden="true">SL</div>
+            <h3>Shortlinks</h3>
+            <p>
+              Create and manage short URLs, with click tracking and optional
+              expiry, right from your dashboard.
+            </p>
+            <div class="endpoints">
+              <code>POST /api/tools/shortlink</code>
+            </div>
+          </article>
+
+          <article class="feat">
+            <div class="feat-icon" aria-hidden="true">KY</div>
+            <h3>Accounts &amp; API Keys</h3>
+            <p>
+              Register, sign in, and manage your personal API key and usage —
+              no backend of your own required.
+            </p>
+            <div class="endpoints">
+              <code>POST /api/auth/register</code>
             </div>
           </article>
         </div>

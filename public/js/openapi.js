@@ -66,8 +66,10 @@ function deref(value, root, depth = 0) {
  * Flatten `paths` into an array of operations ({ method, path, ...op }),
  * then group by their first tag.
  *
- * Public tags (set in src/plugins/swagger.ts):
- *   health, maker, tool
+ * Tags come from each route's own `tags: [...]` schema field; the
+ * authoritative list of tags (with descriptions) lives in
+ * src/plugins/swagger.ts. Not duplicated here — grepping route files or
+ * hitting /docs/json is the source of truth if it's ever unclear.
  *
  * The backend hides auth/me/api-keys from /docs/json with `hide: true`,
  * so we don't filter them here — anything that shows up is intended to

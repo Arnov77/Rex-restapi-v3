@@ -8,68 +8,7 @@
   <link rel="icon" type="image/x-icon" href="/assets/image/favicon.ico" />
   <link rel="manifest" href="/site.webmanifest" />
   <link rel="stylesheet" href="/css/dashboard.css" />
-  <style>
-    /*
-      Page-local layout. The login screen is a one-off — it doesn't
-      reuse the dashboard's sidebar/main grid, so an inline block is
-      cleaner than putting these in dashboard.css.
-    */
-    .auth-page {
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 32px 20px;
-      background:
-        radial-gradient(1200px 600px at 50% -10%, rgba(29, 155, 240, 0.10), transparent 60%),
-        var(--bg-0);
-    }
-    .auth-box {
-      width: 100%;
-      max-width: 380px;
-      background: var(--bg-1);
-      border: 1px solid var(--b-1);
-      border-radius: var(--r-lg);
-      padding: 28px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-    .auth-brand {
-      display: flex;
-      align-items: baseline;
-      gap: 8px;
-      justify-content: center;
-      text-decoration: none;
-      color: var(--fg);
-      margin-bottom: 4px;
-    }
-    .auth-brand:hover { text-decoration: none; }
-    .auth-brand .brand-mark { font-family: var(--font-mono); color: var(--accent); font-weight: 600; font-size: 18px; }
-    .auth-brand .brand-name { font-weight: 600; font-size: 16px; }
-    .auth-h1 { font-size: 18px; font-weight: 600; text-align: center; }
-    .auth-sub { color: var(--fg-mu); font-size: 13px; text-align: center; margin-top: -10px; }
-    .auth-err {
-      color: var(--err);
-      background: rgba(239, 68, 68, 0.08);
-      border: 1px solid rgba(239, 68, 68, 0.3);
-      border-radius: var(--r-sm);
-      padding: 8px 12px;
-      font-size: 12.5px;
-      line-height: 1.4;
-    }
-    .auth-foot {
-      text-align: center;
-      font-size: 12px;
-      color: var(--fg-dim);
-      padding-top: 6px;
-    }
-    .auth-foot a { color: var(--fg-mu); }
-    .auth-foot a:hover { color: var(--fg); }
-
-    /* Hide whichever form isn't the active tab. */
-    [hidden] { display: none !important; }
-  </style>
+  <link rel="stylesheet" href="/css/login.css" />
 </head>
 <body>
   <main class="auth-page">
@@ -93,7 +32,7 @@
           <label for="login-id">Email or username</label>
           <input class="input" id="login-id" type="text" autocomplete="username" required />
         </div>
-        <div class="auth-row" style="margin-top:10px">
+        <div class="auth-row">
           <label for="login-pw">Password</label>
           <input class="input" id="login-pw" type="password" autocomplete="current-password" required />
         </div>
@@ -107,11 +46,11 @@
           <label for="reg-username">Username</label>
           <input class="input" id="reg-username" type="text" autocomplete="username" minlength="3" maxlength="32" pattern="[a-zA-Z0-9_]+" required />
         </div>
-        <div class="auth-row" style="margin-top:10px">
+        <div class="auth-row">
           <label for="reg-email">Email</label>
           <input class="input" id="reg-email" type="email" autocomplete="email" required />
         </div>
-        <div class="auth-row" style="margin-top:10px">
+        <div class="auth-row">
           <label for="reg-pw">Password (min 8 chars)</label>
           <input class="input" id="reg-pw" type="password" autocomplete="new-password" minlength="8" required />
         </div>

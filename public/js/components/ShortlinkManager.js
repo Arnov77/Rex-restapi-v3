@@ -1,12 +1,12 @@
 /**
- * ShortlinkManager — tab untuk manage shortlinks.
+ * ShortlinkManager — tab for managing shortlinks.
  *
  * Features:
- *   - List semua shortlinks milik user
- *   - Buat shortlink baru (URL, custom slug, expiry)
- *   - Copy short URL ke clipboard
- *   - Hapus shortlink
- *   - Klik count per link
+ *   - List all shortlinks owned by the user
+ *   - Create a new shortlink (URL, custom slug, expiry)
+ *   - Copy short URL to clipboard
+ *   - Delete a shortlink
+ *   - Click count per link
  */
 
 import { ref, computed, h, onMounted } from 'vue';
@@ -37,7 +37,7 @@ export default {
 
     async function apiFetch(path, init = {}) {
       const headers = { ...authHeaders(), ...(init.headers ?? {}) };
-      // Jangan set Content-Type untuk DELETE/GET yang tidak ada body
+      // Don't set Content-Type for DELETE/GET requests with no body
       if (init.body) headers['Content-Type'] = 'application/json';
 
       const res = await fetch(path, { ...init, headers });
@@ -53,7 +53,7 @@ export default {
       loading.value = true;
       error.value = '';
       try {
-        const r = await apiFetch('/api/shortlink');
+        const r = await apiFetch('/api/tools/shortlink');
         links.value = r.data ?? [];
       } catch (e) {
         error.value = e.message;
@@ -65,20 +65,20 @@ export default {
     // ── Create link ────────────────────────────────────────────────────────────
     async function createLink() {
       formError.value = '';
-      if (!form.value.url) { formError.value = 'URL wajib diisi'; return; }
+      if (!form.value.url) { formError.value = 'URL is required'; return; }
       formLoading.value = true;
       try {
         const body = { url: form.value.url };
         if (form.value.slug.trim()) body.slug = form.value.slug.trim();
         if (form.value.expires_in) body.expires_in = parseInt(form.value.expires_in);
 
-        const r = await apiFetch('/api/shortlink', {
+        const r = await apiFetch('/api/tools/shortlink', {
           method: 'POST',
           body: JSON.stringify(body),
         });
         links.value.unshift(r.data);
         form.value = { url: '', slug: '', expires_in: '' };
-        emit('toast', { kind: 'ok', text: 'Shortlink berhasil dibuat!' });
+        emit('toast', { kind: 'ok', text: 'Shortlink created!' });
       } catch (e) {
         emit('toast', { kind: 'err', text: e.message });
       } finally {
@@ -89,15 +89,15 @@ export default {
     // ── Delete link ────────────────────────────────────────────────────────────
     const deletingId = ref('');
     async function deleteLink(id) {
-      const confirmed = await showConfirm('Hapus shortlink ini?');
+      const confirmed = await showConfirm('Delete this shortlink?');
       if (!confirmed) return;
       deletingId.value = id;
       try {
-        await apiFetch(`/api/shortlink/${id}`, { method: 'DELETE' });
+        await apiFetch(`/api/tools/shortlink/${id}`, { method: 'DELETE' });
         links.value = links.value.filter((l) => l.id !== id);
-        emit('toast', { kind: 'ok', text: 'Shortlink berhasil dihapus!' });
+        emit('toast', { kind: 'ok', text: 'Shortlink deleted!' });
       } catch (e) {
-        emit('toast', { kind: 'err', text: 'Gagal hapus: ' + e.message });
+        emit('toast', { kind: 'err', text: 'Failed to delete: ' + e.message });
       } finally {
         deletingId.value = '';
       }
@@ -148,7 +148,7 @@ export default {
 
     function formatDate(iso) {
       if (!iso) return '—';
-      return new Date(iso).toLocaleDateString('id-ID', {
+      return new Date(iso).toLocaleDateString('en-US', {
         day: 'numeric', month: 'short', year: 'numeric',
       });
     }
@@ -189,8 +189,8 @@ export default {
           h('div', { class: 'auth-gate-row' }, [
             h('span', { class: 'auth-gate-icon' }, '🔒'),
             h('div', { class: 'auth-gate-text' }, [
-              h('strong', {}, 'Login diperlukan'),
-              h('div', {}, 'Login untuk membuat dan mengelola shortlinks kamu.'),
+              h('strong', {}, 'Sign in required'),
+              h('div', {}, 'Sign in to create and manage your shortlinks.'),
             ]),
           ]),
         ]),
@@ -199,7 +199,7 @@ export default {
         isAuth && h('div', {
           style: 'background:var(--bg-2);border:1px solid var(--b-1);border-radius:var(--r-lg);padding:18px;margin-bottom:24px;',
         }, [
-          h('div', { class: 'section-label', style: 'margin-bottom:14px' }, 'Buat Shortlink Baru'),
+          h('div', { class: 'section-label', style: 'margin-bottom:14px' }, 'Create a new shortlink'),
 
           // URL input
           h('div', { class: 'field' }, [
@@ -226,7 +226,7 @@ export default {
               h('input', {
                 class: 'input',
                 type: 'text',
-                placeholder: 'custom-slug (auto jika kosong)',
+                placeholder: 'custom-slug (auto-generated if empty)',
                 value: form.value.slug,
                 onInput: (e) => (form.value.slug = e.target.value),
               }),
@@ -234,12 +234,12 @@ export default {
             h('div', { class: 'field' }, [
               h('div', { class: 'field-label' }, [
                 h('span', { class: 'name' }, 'expires_in'),
-                h('span', { class: 'type' }, 'hari, optional'),
+                h('span', { class: 'type' }, 'days, optional'),
               ]),
               h('input', {
                 class: 'input',
                 type: 'number',
-                placeholder: '30 (kosong = permanent)',
+                placeholder: '30 (leave empty for permanent)',
                 value: form.value.expires_in,
                 min: 1, max: 365,
                 onInput: (e) => (form.value.expires_in = e.target.value),
@@ -254,7 +254,7 @@ export default {
             class: 'btn primary',
             onClick: createLink,
             disabled: formLoading.value,
-          }, formLoading.value ? 'Membuat…' : '+ Buat Shortlink'),
+          }, formLoading.value ? 'Creating…' : '+ Create shortlink'),
         ]),
 
         // Error state
@@ -263,12 +263,12 @@ export default {
         // Loading state
         loading.value && h('div', { class: 'empty' }, [
           h('span', { class: 'spinner', style: 'margin-right:8px' }),
-          'Memuat shortlinks…',
+          'Loading shortlinks…',
         ]),
 
         // Empty state
         !loading.value && !error.value && links.value.length === 0 && h('div', { class: 'empty' },
-          isAuth ? 'Belum ada shortlink. Buat yang pertama di atas!' : 'Login untuk melihat shortlinks kamu.',
+          isAuth ? 'No shortlinks yet. Create your first one above!' : 'Sign in to view your shortlinks.',
         ),
 
         // Modal
@@ -284,11 +284,11 @@ export default {
               modalType.value === 'confirm' && h('button', {
                 class: 'btn sm',
                 onClick: () => closeModal(false),
-              }, 'Batal'),
+              }, 'Cancel'),
               h('button', {
                 class: modalType.value === 'confirm' ? 'btn sm danger' : 'btn sm primary',
                 onClick: () => closeModal(modalType.value === 'confirm' ? true : false),
-              }, modalType.value === 'confirm' ? 'Hapus' : 'Oke'),
+              }, modalType.value === 'confirm' ? 'Delete' : 'OK'),
             ]),
           ]),
         ]),
@@ -334,7 +334,7 @@ export default {
                   href: link.short_url,
                   target: '_blank',
                   rel: 'noopener',
-                  title: 'Buka link',
+                  title: 'Open link',
                 }, '⇗'),
 
                 // Delete button
@@ -342,7 +342,7 @@ export default {
                   class: 'btn sm danger',
                   onClick: () => deleteLink(link.id),
                   disabled: deletingId.value === link.id,
-                  title: 'Hapus',
+                  title: 'Delete',
                 }, deletingId.value === link.id ? '…' : h('i', { class: 'bi bi-trash' })),
               ]),
             ]),
@@ -357,7 +357,7 @@ export default {
             h('div', { style: 'display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--fg-dim);' }, [
               h('span', {}, [
                 h('i', { class: 'bi bi-eye-fill' }),
-                ' ' + link.clicks + ' klik'
+                ' ' + link.clicks + ' clicks'
                 ]),
                 
               h('span', {}, [

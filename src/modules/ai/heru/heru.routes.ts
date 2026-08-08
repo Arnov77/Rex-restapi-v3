@@ -10,7 +10,7 @@ const heruRoutes: FastifyPluginAsyncZod = async (app) => {
     windowSec: 60,
     max: 20,
     keyGenerator: (req) => req.apiKey?.id ?? req.ip,
-    message: 'Terlalu banyak request, coba lagi dalam 1 menit',
+    message: 'Too many requests. Try again in a minute.',
   });
 
   app.get('/', {

@@ -30,7 +30,7 @@ export default fp(
         return reply.code(400).send({
           ok: false,
           error: {
-            message: 'Parameter tidak valid. Periksa kembali request yang dikirim.',
+            message: 'Invalid parameters. Please check the request you sent.',
           },
         });
       }
@@ -39,7 +39,7 @@ export default fp(
         return reply.code(400).send({
           ok: false,
           error: {
-            message: 'Parameter tidak valid. Periksa kembali request yang dikirim.',
+            message: 'Invalid parameters. Please check the request you sent.',
           },
         });
       }
@@ -55,8 +55,8 @@ export default fp(
         ok: false,
         error: {
           message: statusCode >= 500
-            ? 'Terjadi kesalahan pada server. Coba lagi nanti.'
-            : 'Terjadi kesalahan. Coba lagi nanti.',
+            ? 'A server error occurred. Please try again later.'
+            : 'Something went wrong. Please try again.',
         },
       });
     });
@@ -64,7 +64,7 @@ export default fp(
     app.setNotFoundHandler((req, reply) => {
       reply.code(404).send({
         ok: false,
-        error: { message: 'Endpoint tidak ditemukan.' },
+        error: { message: 'Endpoint not found.' },
       });
     });
   },

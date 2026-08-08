@@ -60,7 +60,7 @@ export async function chatWithUstadz(
     });
 
     const content = completion.choices[0]?.message?.content;
-    if (!content) throw new AppError(502, 'MUSLIM_AI_EMPTY_RESPONSE', 'Groq tidak menghasilkan respons', null, 'Gagal mendapatkan jawaban. Coba lagi.');
+    if (!content) throw new AppError(502, 'MUSLIM_AI_EMPTY_RESPONSE', 'Groq returned no response', null, 'Could not get an answer. Please try again.');
     return content.trim();
   });
 

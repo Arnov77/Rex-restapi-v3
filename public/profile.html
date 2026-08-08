@@ -7,127 +7,7 @@
   <link rel="icon" type="image/x-icon" href="/assets/image/favicon.ico" />
   <link rel="manifest" href="/site.webmanifest" />
   <link rel="stylesheet" href="/css/dashboard.css" />
-  <style>
-    /*
-      Profile page is a single-column document, not the dashboard's
-      sidebar/main grid. Reuse buttons + tokens from dashboard.css.
-    */
-    body { background: var(--bg-0); }
-    .page {
-      max-width: 720px;
-      margin: 0 auto;
-      padding: 24px 20px 60px;
-      display: flex;
-      flex-direction: column;
-      gap: 18px;
-    }
-    .pg-top { display: flex; align-items: center; gap: 12px; }
-    .pg-top .brand { flex: 1; color: var(--fg); text-decoration: none; }
-
-    .pg-card {
-      background: var(--bg-2);
-      border: 1px solid var(--b-1);
-      border-radius: var(--r-lg);
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
-    .pg-card h2 {
-      font-size: 14px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--fg-mu);
-    }
-    .pg-id-row { display: flex; align-items: center; gap: 14px; }
-    .pg-id-row .me-avatar { width: 48px; height: 48px; flex: 0 0 48px; font-size: 18px; }
-    .pg-id-meta { flex: 1; min-width: 0; }
-    .pg-id-name { font-size: 18px; font-weight: 600; }
-    .pg-id-email { color: var(--fg-mu); font-size: 13px; }
-    .pg-tier {
-      display: inline-block;
-      margin-top: 4px;
-      padding: 2px 8px;
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      background: var(--accent-soft);
-      color: var(--accent);
-      border-radius: 999px;
-    }
-
-    .quota-stats {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-      text-align: center;
-    }
-    .quota-stat {
-      background: var(--bg-3);
-      border: 1px solid var(--b-1);
-      border-radius: var(--r);
-      padding: 14px 8px;
-    }
-    .quota-stat .num { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
-    .quota-stat .lbl {
-      color: var(--fg-mu);
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      margin-top: 4px;
-    }
-
-    .key-mono {
-      font-family: var(--font-mono);
-      font-size: 12.5px;
-      background: var(--bg-3);
-      border: 1px solid var(--b-1);
-      border-radius: var(--r-sm);
-      padding: 10px 12px;
-      color: var(--fg-mu);
-      word-break: break-all;
-      user-select: all;
-    }
-
-    .row-split { display: flex; gap: 8px; flex-wrap: wrap; }
-
-    .pg-loading, .pg-error { text-align: center; color: var(--fg-mu); padding: 40px; }
-    .pg-error { color: var(--err); }
-
-    /*
-      Modal-form sizing tweak — the dashboard's .modal is sized for the
-      try-it form (max-width: 720px). For a confirmation we want a more
-      compact shell.
-    */
-    .modal-compact { max-width: 420px; }
-    .modal-compact .modal-body { padding: 18px 20px; }
-    .modal-message { color: var(--fg-mu); font-size: 13.5px; line-height: 1.55; }
-    .modal-error {
-      color: var(--err);
-      background: rgba(239, 68, 68, 0.08);
-      border: 1px solid rgba(239, 68, 68, 0.25);
-      border-radius: var(--r-sm);
-      padding: 8px 10px;
-      font-size: 12.5px;
-      line-height: 1.4;
-      margin-top: 10px;
-    }
-    .reveal-key {
-      font-family: var(--font-mono);
-      font-size: 12px;
-      background: var(--bg-3);
-      border: 1px solid var(--b-1);
-      border-radius: var(--r-sm);
-      padding: 10px 12px;
-      color: var(--fg);
-      word-break: break-all;
-      user-select: all;
-    }
-
-    [hidden] { display: none !important; }
-  </style>
+  <link rel="stylesheet" href="/css/profile.css" />
 </head>
 <body>
   <main class="page">
@@ -139,12 +19,12 @@
       <a class="btn sm" href="/dashboard">← Dashboard</a>
     </header>
 
-    <h1 style="font-size:22px;font-weight:600;letter-spacing:-0.01em">Profile</h1>
+    <h1 class="pg-h1">Profile</h1>
 
     <div id="state-loading" class="pg-loading">Loading…</div>
     <div id="state-error" class="pg-error" hidden></div>
 
-    <div id="state-ready" hidden style="display:flex;flex-direction:column;gap:18px">
+    <div id="state-ready" hidden class="pg-ready">
 
       <!-- Identity card -->
       <section class="pg-card">
@@ -179,16 +59,16 @@
         </div>
 
         <div>
-          <div class="usage-line" style="margin-bottom:6px">
+          <div class="usage-line usage-line-top">
             <span>Daily quota</span>
             <span><strong id="quota-used">0</strong> / <span id="quota-limit">—</span></span>
           </div>
           <div class="usage-bar">
             <div id="quota-fill" class="usage-bar-fill" style="width:0%"></div>
           </div>
-          <div class="usage-line" style="margin-top:6px">
-            <span style="color:var(--fg-dim)">UTC date</span>
-            <span class="mono" id="quota-date" style="color:var(--fg-dim);font-size:11px"></span>
+          <div class="usage-line usage-line-bottom">
+            <span class="label-dim">UTC date</span>
+            <span class="mono" id="quota-date"></span>
           </div>
         </div>
       </section>
@@ -196,8 +76,8 @@
       <!-- API key card -->
       <section class="pg-card">
         <h2>API key</h2>
-        <p style="color:var(--fg-mu);font-size:13px;line-height:1.5;margin:-4px 0 0">
-          Use this key in the <code style="background:var(--bg-3);padding:1px 5px;border-radius:3px;font-size:12px">X-API-Key</code> header from your bot.
+        <p class="pg-card-hint">
+          Use this key in the <code class="inline-code">X-API-Key</code> header from your bot.
           Regenerating will issue a new value and the old one stops working immediately.
         </p>
 
@@ -210,7 +90,7 @@
         </div>
       </section>
 
-      <a href="/dashboard" style="text-align:center;color:var(--fg-mu);font-size:13px;margin-top:8px">← Back to dashboard</a>
+      <a href="/dashboard" class="pg-back-link">← Back to dashboard</a>
     </div>
   </main>
 

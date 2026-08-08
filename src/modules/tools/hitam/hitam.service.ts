@@ -77,18 +77,18 @@ async function hitamFromBase64(imgsJson: string, seed?: number): Promise<HitamRe
       }
       const msg = String(err?.message ?? '').toLowerCase();
       if (msg.includes('queue') || msg.includes('timeout')) {
-        throw new AppError(503, 'HITAM_QUEUE_TIMEOUT', 'HF Space queue timeout', null, 'Server sedang sibuk, coba lagi dalam beberapa saat.');
+        throw new AppError(503, 'HITAM_QUEUE_TIMEOUT', 'HF Space queue timeout', null, 'The server is busy right now. Please try again shortly.');
       }
-      throw new AppError(502, 'HITAM_INFERENCE_FAILED', `Gagal generate gambar: ${err?.message ?? 'unknown error'}`, null, 'Gagal memproses gambar. Coba dengan gambar lain.');
+      throw new AppError(502, 'HITAM_INFERENCE_FAILED', `Image generation failed: ${err?.message ?? 'unknown error'}`, null, 'Could not process this image. Try a different one.');
     }
 
     const output = Array.isArray(result?.data) ? result.data[0] : result?.data;
     const outputUrl: string | undefined = typeof output === 'string' ? output : output?.url ?? output?.path ?? undefined;
 
-    if (!outputUrl) throw new AppError(502, 'HITAM_NO_OUTPUT', 'HF Space tidak menghasilkan gambar', null, 'Gagal memproses gambar. Coba lagi dengan gambar yang berbeda.');
+    if (!outputUrl) throw new AppError(502, 'HITAM_NO_OUTPUT', 'HF Space returned no output', null, 'Could not process this image. Try again with a different one.');
 
     const dlRes = await fetch(outputUrl);
-    if (!dlRes.ok) throw new AppError(502, 'HITAM_DOWNLOAD_FAILED', `Gagal download hasil: ${dlRes.status}`, null, 'Gagal mengambil hasil gambar. Coba lagi.');
+    if (!dlRes.ok) throw new AppError(502, 'HITAM_DOWNLOAD_FAILED', `Failed to download result: ${dlRes.status}`, null, 'Could not retrieve the result image. Please try again.');
 
     const buffer = Buffer.from(await dlRes.arrayBuffer());
     const mimeType = dlRes.headers.get('content-type') ?? 'image/jpeg';
@@ -99,9 +99,9 @@ async function hitamFromBase64(imgsJson: string, seed?: number): Promise<HitamRe
   throw new AppError(
     503,
     'HITAM_QUOTA_EXHAUSTED',
-    `Semua HuggingFace token kena quota ZeroGPU (${attempts} token)`, // → log internal
+    `All HuggingFace tokens hit ZeroGPU quota (${attempts} tokens tried)`, // → internal log
     null,
-    'Fitur hitam sedang sibuk, coba lagi dalam beberapa menit.' // → response ke user
+    'The hitam feature is busy right now. Please try again in a few minutes.' // → response to user
   );
 }
 
@@ -114,7 +114,7 @@ export async function hitamFromUrl(imageUrl: string, seed?: number): Promise<Hit
   await assertPublicUrl(imageUrl);
   
   const imgRes = await fetch(imageUrl);
-  if (!imgRes.ok) throw new AppError(400, 'HITAM_FETCH_FAILED', `Gagal fetch gambar: ${imgRes.status}`, null, 'URL gambar tidak bisa diakses. Pastikan URL valid dan publik.');
+  if (!imgRes.ok) throw new AppError(400, 'HITAM_FETCH_FAILED', `Failed to fetch image: ${imgRes.status}`, null, 'Could not access that image URL. Make sure it is valid and publicly accessible.');
   
   const imgBuf = Buffer.from(await imgRes.arrayBuffer());
   const imgsJson = JSON.stringify([imgBuf.toString('base64')]);

@@ -23,17 +23,17 @@ export class AppError extends Error {
   }
 }
 
-/** Default user-facing messages berdasarkan status code */
+/** Default user-facing messages, keyed by status code. */
 function defaultUserMessage(statusCode: number): string {
-  if (statusCode === 400) return 'Request tidak valid. Periksa kembali parameter yang dikirim.';
-  if (statusCode === 401) return 'Autentikasi diperlukan.';
-  if (statusCode === 403) return 'Akses ditolak.';
-  if (statusCode === 404) return 'Resource tidak ditemukan.';
-  if (statusCode === 409) return 'Konflik dengan data yang sudah ada.';
-  if (statusCode === 413) return 'Ukuran file terlalu besar.';
-  if (statusCode === 429) return 'Terlalu banyak request. Coba lagi dalam beberapa saat.';
-  if (statusCode === 503) return 'Layanan sedang tidak tersedia. Coba lagi nanti.';
-  return 'Terjadi kesalahan. Coba lagi nanti.';
+  if (statusCode === 400) return 'Invalid request. Check the parameters you sent.';
+  if (statusCode === 401) return 'Authentication required.';
+  if (statusCode === 403) return 'Access denied.';
+  if (statusCode === 404) return 'Resource not found.';
+  if (statusCode === 409) return 'Conflicts with existing data.';
+  if (statusCode === 413) return 'File is too large.';
+  if (statusCode === 429) return 'Too many requests. Please try again shortly.';
+  if (statusCode === 503) return 'Service temporarily unavailable. Please try again later.';
+  return 'Something went wrong. Please try again later.';
 }
 
 export function getPublicMessage(err: AppError): string {

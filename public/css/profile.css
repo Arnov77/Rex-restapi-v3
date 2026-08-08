@@ -1,0 +1,159 @@
+/*
+  Rex API — profile page styles.
+
+  Layered on top of dashboard.css so colour tokens, font stacks, and base
+  typography stay aligned with the rest of the app (same pattern as
+  admin.css / login.css). Profile is a single-column document, not the
+  dashboard's sidebar/main grid, so it gets its own small file instead of
+  being folded into dashboard.css.
+*/
+
+body { background: var(--bg-0); }
+.page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 20px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.pg-top { display: flex; align-items: center; gap: 12px; }
+.pg-top .brand { flex: 1; color: var(--fg); text-decoration: none; }
+
+/* Page title ("Profile") */
+.pg-h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+
+.pg-card {
+  background: var(--bg-2);
+  border: 1px solid var(--b-1);
+  border-radius: var(--r-lg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.pg-card h2 {
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--fg-mu);
+}
+.pg-card-hint {
+  color: var(--fg-mu);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: -4px 0 0;
+}
+.pg-id-row { display: flex; align-items: center; gap: 14px; }
+.pg-id-row .me-avatar { width: 48px; height: 48px; flex: 0 0 48px; font-size: 18px; }
+.pg-id-meta { flex: 1; min-width: 0; }
+.pg-id-name { font-size: 18px; font-weight: 600; }
+.pg-id-email { color: var(--fg-mu); font-size: 13px; }
+.pg-tier {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 999px;
+}
+
+/* State container that holds the identity/usage/key cards once loaded */
+.pg-ready { display: flex; flex-direction: column; gap: 18px; }
+
+/* "← Back to dashboard" link at the bottom of the page */
+.pg-back-link {
+  text-align: center;
+  color: var(--fg-mu);
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.quota-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  text-align: center;
+}
+.quota-stat {
+  background: var(--bg-3);
+  border: 1px solid var(--b-1);
+  border-radius: var(--r);
+  padding: 14px 8px;
+}
+.quota-stat .num { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+.quota-stat .lbl {
+  color: var(--fg-mu);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: 4px;
+}
+
+/* Daily-quota usage line + bar, and the UTC-date meta row beneath it */
+.usage-line-top { margin-bottom: 6px; }
+.usage-line-bottom { margin-top: 6px; }
+.usage-line-bottom .mono { color: var(--fg-dim); font-size: 11px; }
+.usage-line-bottom .label-dim { color: var(--fg-dim); }
+
+.key-mono {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  background: var(--bg-3);
+  border: 1px solid var(--b-1);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  color: var(--fg-mu);
+  word-break: break-all;
+  user-select: all;
+}
+
+/* Inline <code> used inside the API-key card hint text */
+.inline-code {
+  background: var(--bg-3);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.row-split { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.pg-loading, .pg-error { text-align: center; color: var(--fg-mu); padding: 40px; }
+.pg-error { color: var(--err); }
+
+/*
+  Modal-form sizing tweak — the dashboard's .modal is sized for the
+  try-it form (max-width: 720px). For a confirmation we want a more
+  compact shell.
+*/
+.modal-compact { max-width: 420px; }
+.modal-compact .modal-body { padding: 18px 20px; }
+.modal-message { color: var(--fg-mu); font-size: 13.5px; line-height: 1.55; }
+.modal-error {
+  color: var(--err);
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: var(--r-sm);
+  padding: 8px 10px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  margin-top: 10px;
+}
+.reveal-key {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--bg-3);
+  border: 1px solid var(--b-1);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  color: var(--fg);
+  word-break: break-all;
+  user-select: all;
+}
+
+[hidden] { display: none !important; }

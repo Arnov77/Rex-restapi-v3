@@ -13,7 +13,7 @@ const ocrRoutes: FastifyPluginAsyncZod = async (app) => {
     windowSec: 60,
     max: 10,
     keyGenerator: (req) => req.apiKey?.id ?? req.ip,
-    message: 'Terlalu banyak request OCR, coba lagi dalam 1 menit',
+    message: 'Too many OCR requests. Try again in a minute.',
   });
 
   app.post(

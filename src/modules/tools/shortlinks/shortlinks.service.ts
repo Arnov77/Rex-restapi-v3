@@ -27,7 +27,7 @@ export function shortlinksService(db: SupabaseClient) {
             ? repo.findByApiKeyId(opts.apiKeyId)
             : []);
         if (existing.length >= 10) {
-          throw BadRequest('Maksimal 10 shortlinks untuk free tier');
+          throw BadRequest('Free tier shortlink limit reached', null, 'You can have up to 10 shortlinks on the free tier.');
         }
       }
 
@@ -35,9 +35,11 @@ export function shortlinksService(db: SupabaseClient) {
       const existing = await repo.findById(slug);
       if (existing) {
         throw BadRequest(
+          body.slug ? `Slug "${slug}" is already taken` : 'Slug collision, please retry',
+          null,
           body.slug
-            ? `Slug "${slug}" tidak tersedia, coba slug lain`
-            : 'Slug tidak tersedia, coba lagi',
+            ? `The slug "${slug}" is already taken. Try a different one.`
+            : 'Could not generate a unique slug. Please try again.',
         );
       }
 

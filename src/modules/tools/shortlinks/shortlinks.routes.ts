@@ -52,7 +52,7 @@ const shortlinksRoutes: FastifyPluginAsyncZod = async (app) => {
     }
   }
 
-  // POST /api/shortlink — buat shortlink
+  // POST /api/tools/shortlink — create a shortlink
   app.post(
     '/',
     {
@@ -78,7 +78,7 @@ const shortlinksRoutes: FastifyPluginAsyncZod = async (app) => {
     },
   );
 
-  // GET /api/shortlink — list milik caller
+  // GET /api/tools/shortlink — list the caller's shortlinks
   app.get(
     '/',
     {
@@ -104,7 +104,7 @@ const shortlinksRoutes: FastifyPluginAsyncZod = async (app) => {
     },
   );
 
-  // DELETE /api/shortlink/:id
+  // DELETE /api/tools/shortlink/:id
   app.delete(
     '/:id',
     {
@@ -119,7 +119,7 @@ const shortlinksRoutes: FastifyPluginAsyncZod = async (app) => {
     },
   );
 
-  // GET /api/shortlink/:id — redirect (di bawah prefix /api/shortlink)
+  // GET /api/tools/shortlink/:id — redirect (mounted under the /api/tools/shortlink prefix)
   app.get(
     '/:id',
     { schema: { hide: true } },

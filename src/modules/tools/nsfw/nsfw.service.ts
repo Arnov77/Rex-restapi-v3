@@ -29,7 +29,7 @@ function getCredentials(): { apiUser: string; apiSecret: string } {
   const apiUser = env.SIGHTENGINE_API_USER;
   const apiSecret = env.SIGHTENGINE_API_SECRET;
   if (!apiUser || !apiSecret) {
-    throw new AppError(503, 'NSFW_NOT_CONFIGURED', 'SIGHTENGINE_API_USER/SECRET belum di-set', null, 'Fitur NSFW detection belum dikonfigurasi.');
+    throw new AppError(503, 'NSFW_NOT_CONFIGURED', 'SIGHTENGINE_API_USER/SECRET not set', null, 'NSFW detection is not configured on this server.');
   }
   return { apiUser, apiSecret };
 }
@@ -65,7 +65,7 @@ function parseResult(data: SightEngineResponse): NsfwResult {
       'NSFW_API_ERROR',
       data.error?.message ?? 'SightEngine error',
       null,
-      'Gagal menganalisis gambar.'
+      'Could not analyze this image.'
     );
   }
 
@@ -169,7 +169,7 @@ export async function detectNsfwFromUrl(imageUrl: string): Promise<NsfwResult> {
 }
 
 export async function detectNsfwFromBuffer(buffer: Buffer, mimeType: string): Promise<NsfwResult> {
-  if (!buffer.length) throw new AppError(400, 'NSFW_EMPTY_FILE', 'File kosong', null, 'File yang diupload kosong.');
+  if (!buffer.length) throw new AppError(400, 'NSFW_EMPTY_FILE', 'Empty file', null, 'The uploaded file is empty.');
   if (buffer.length > 50 * 1024 * 1024) throw new AppError(413, 'NSFW_FILE_TOO_LARGE', 'File > 50MB', null, 'Ukuran file terlalu besar, maksimal 50 MB.');
 
   const { apiUser, apiSecret } = getCredentials();

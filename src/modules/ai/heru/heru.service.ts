@@ -107,7 +107,7 @@ export async function chatWithHeru(
     });
 
     const content = completion.choices[0]?.message?.content;
-    if (!content) throw new AppError(502, 'HERU_EMPTY_RESPONSE', 'Groq tidak menghasilkan respons', null, 'Gagal mendapatkan balasan. Coba lagi.');
+    if (!content) throw new AppError(502, 'HERU_EMPTY_RESPONSE', 'Groq returned no response', null, 'Could not get a reply. Please try again.');
     return content.trim();
   });
 

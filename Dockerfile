@@ -52,6 +52,10 @@ WORKDIR /app
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
+# Maker fonts read from disk at runtime (readFileSync, not bundled by tsc) —
+# without these, POST /api/maker/brat and /api/maker/smeme throw ENOENT.
+COPY src/modules/makers/brat/assets ./dist/modules/makers/brat/assets
+COPY src/modules/makers/smeme/assets ./dist/modules/makers/smeme/assets
 # Static landing page is served by Fastify at runtime.
 COPY public ./public
 # Schema kept for ops (run once via Supabase SQL editor on first deploy).

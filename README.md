@@ -1,14 +1,161 @@
-# Rex API — v3 (Fastify + TypeScript)
+# Rex API
 
-REST API untuk aplikasi, bot WhatsApp, dan automation tools. Repository-Service-Routes layering, Supabase sebagai persistence layer, Swagger docs di `/docs`.
+A single REST API for media downloaders, AI tools, image generators, games,
+and web utilities — built for bots, apps, and automations. Fastify +
+TypeScript, Supabase for persistence, and a live Swagger UI at `/docs` for
+every endpoint below.
 
-## Quick Start
+- **Live docs / try it out:** `/docs`
+- **Dashboard (sign up, get a key, test endpoints):** `/dashboard`
+- **Stack:** Fastify · TypeScript · Zod · Supabase
+
+This README has three parts:
+
+1. **[Using the API](#using-the-api)** — for anyone calling the hosted API.
+2. **[Self-hosting](#self-hosting)** — for running your own instance.
+3. **[Development](#development)** — for working on this codebase.
+
+---
+
+## Using the API
+
+### Authentication
+
+Every request is authenticated with an API key, sent as a header:
+
+```
+X-API-Key: rex_xxxxxxxxxxxxxxxxxxxx
+```
+
+Get a key by registering an account through `/dashboard` (or `/api/auth/register`).
+Unauthenticated requests are allowed on most endpoints too, at a lower,
+IP-based daily quota — good for quick testing, not for production traffic.
+
+### Quick example
+
+```bash
+curl "https://your-host/api/downloader/youtube?url=https://youtu.be/dQw4w9WgXcQ" \
+  -H "X-API-Key: rex_xxxxxxxxxxxxxxxxxxxx"
+```
+
+Every endpoint follows the same response shape:
+
+```json
+{ "ok": true, "data": { ... } }
+```
+
+or, on error:
+
+```json
+{ "ok": false, "error": { "message": "..." } }
+```
+
+### Endpoint categories
+
+The full, always-current list — with request/response schemas you can run
+directly from the browser — lives at `/docs`. Here's the map of what's
+available, grouped by base path:
+
+| Base path | What's there |
+|---|---|
+| `/api/downloader/*` | YouTube, TikTok, Instagram, Facebook, Twitter/X, Pinterest, SoundCloud, Spotify, MediaFire — video/audio downloads and MP3 extraction |
+| `/api/ai/*` | AI chat assistant, Islamic-knowledge assistant, image generation, speech-to-text |
+| `/api/maker/*` | Image generators — quote cards, caption cards, meme stickers, Telegram stickers, achievement cards |
+| `/api/tools/*` | Web utilities — screenshots, OCR, translation, text-to-speech, QR codes, EXIF metadata, background removal, IP lookup, shortlinks, NSFW detection |
+| `/api/search/*` | Manga and Pinterest search |
+| `/api/games/*` | Trivia and word-game endpoints (Indonesian-language content) |
+| `/api/fun/*` | Novelty endpoints (Indonesian-language content) |
+| `/api/me/*` | Self-service: your profile, API key, and daily usage |
+| `/api/auth/*` | Register and sign in |
+
+Operator-only endpoints (`/api/keys/*`, `/api/admin/*`) require a master key
+and are documented in `/docs` as well, but aren't meant for public callers.
+
+### Rate limits and quotas
+
+| Tier | Rate limit | Daily quota |
+|---|---|---|
+| Anonymous (no key) | Shared per-IP budget | `ANON_DAILY_QUOTA` per IP |
+| Registered user key | Per-endpoint | Enforced, per your plan |
+| Master key (operator) | None | Unlimited |
+
+Check your current usage anytime at `/api/me/usage` or on the `/profile` page.
+
+---
+
+## Self-hosting
+
+Everything below is for running your own instance. If you're just calling
+the hosted API, you don't need any of this.
+
+### Prerequisites
+
+```bash
+apt update && apt install -y \
+  nodejs ffmpeg deno \
+  python3.11 python3.11-venv curl git
+```
+
+> Node.js v22+ is recommended. Check with `node --version`.
+
+**Docker is optional.** The app runs fine directly on Node — `npm install`
++ `npm run dev`/`npm start`, no Docker involved. You only need Docker for
+either of these two specific, unrelated things (the Chromium note further
+below is the one thing on this page you likely do need, regardless):
+
+- Running the app itself inside a container instead of directly with
+  Node (see [Docker](#docker)) — purely a deployment preference.
+- The bgutil PO Token provider, if you set up more resilient YouTube
+  downloads later (see [YouTube downloads](#optional-youtube-downloads-yt-dlp)).
+
+If you do need it, install with the official convenience script:
+
+```bash
+curl -fsSL https://get.docker.com | sh
+systemctl enable --now docker
+docker --version   # verify
+```
+
+If you'd rather not run the install script as root, follow Docker's own
+[install guide](https://docs.docker.com/engine/install/) for your
+distribution instead — the script above is just the fastest path on a
+fresh Debian/Ubuntu VPS.
+
+**Chromium (for Playwright).** `screenshot`, `brat`, and `quote` render
+pages headlessly via `playwright-core`, which — unlike the full `playwright`
+package — does **not** download a browser for you. If you're running via
+Docker, skip this entirely — the image already bundles Chromium. Running
+directly on Node, pick one:
+
+- **Option A — system Chromium (matches what the Dockerfile does):**
+  ```bash
+  apt install -y chromium fonts-liberation fonts-noto-color-emoji \
+    libnss3 libxss1 libasound2
+  ```
+  Then point the app at it in `.env`:
+  ```env
+  CHROME_BIN=/usr/bin/chromium
+  ```
+
+- **Option B — let Playwright download its own build:**
+  ```bash
+  npx playwright-core install --with-deps chromium
+  ```
+  Leave `CHROME_BIN` unset in `.env` — `playwright-core` will find the
+  browser it just downloaded on its own.
+
+Either works; Option A is what the Docker image uses, so it's the one to
+match if you want dev and prod to behave identically. Whichever you pick,
+skip it only if you don't need `screenshot`/`brat`/`quote` — every other
+endpoint works fine without a browser installed.
+
+### Quick start
 
 ```bash
 cp env.example .env
 # Generate API_KEY_ENC_KEY:
 openssl rand -hex 32
-# Isi SUPABASE_URL & SUPABASE_SERVICE_ROLE_KEY
+# Fill in SUPABASE_URL & SUPABASE_SERVICE_ROLE_KEY
 npm install
 npm run dev
 ```
@@ -18,136 +165,53 @@ npm run dev
 - Admin console: http://localhost:3000/admin
 - Swagger docs: http://localhost:3000/docs
 
----
+See [Environment variables](#environment-variables) below for what else the
+app expects, and [Database](#database) to provision Supabase.
 
-## Server Setup (Fresh Deploy)
+### Docker
 
-### 1. System Dependencies
+An alternative to the Quick start above — build and run the whole thing as
+a container instead of with `npm`. Requires Docker (see
+[Prerequisites](#prerequisites)). The image already bundles Chromium, so
+you can skip the Playwright setup entirely if you're only running this way:
 
 ```bash
-apt update && apt install -y \
-  nodejs ffmpeg deno \
-  python3.11 python3.11-venv curl git
+docker build -t rex-api .
+docker run --rm -p 3000:3000 --env-file .env rex-api
 ```
 
-> **Node.js v22+** disarankan. Cek dengan `node --version`.
+### Optional: YouTube downloads (yt-dlp)
 
-### 2. yt-dlp
+The `/api/downloader/youtube` endpoint shells out to `yt-dlp`. It works
+without any of this setup for a while, but YouTube eventually rate-limits or
+flags server IPs, at which point you'll need cookies, a proxy, and a PO
+Token provider — the PO Token provider (bgutil, step 2 below) runs as a
+Docker container, so make sure Docker is installed first (see
+[Prerequisites](#prerequisites)). Skip this section entirely if you don't
+need YouTube downloads, or come back to it once you see failures.
 
-Install yt-dlp via pip Python 3.11 (harus sama dengan Python yang dipakai):
+<details>
+<summary>Full yt-dlp setup (cookies, proxy, PO Token, troubleshooting)</summary>
+
+#### 1. Install yt-dlp
+
+Install via pip on Python 3.11 (must match the Python used elsewhere on the box):
 
 ```bash
-# Install pip untuk Python 3.11
 curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11
-
-# Install yt-dlp
 python3.11 -m pip install yt-dlp
-
-# Install bgutil plugin (PO Token provider untuk YouTube)
 python3.11 -m pip install bgutil-ytdlp-pot-provider
 
-# Verifikasi
+# Verify
 yt-dlp --version
-which yt-dlp   # harus /usr/local/bin/yt-dlp
-head -1 $(which yt-dlp)  # harus #!/usr/bin/python3.11
+which yt-dlp   # should be /usr/local/bin/yt-dlp
+head -1 $(which yt-dlp)  # should be #!/usr/bin/python3.11
 ```
 
-### 3. DeezLoad (Spotify Downloader)
+#### 2. bgutil Docker (YouTube PO Token)
 
-Rex API menggunakan integrasi **DeezLoad** untuk mengunduh lagu Spotify melalui Telegram Userbot. Seluruh environment Python menggunakan **Python 3.11**.
-
-Masuk ke folder DeezLoad:
-
-```bash
-cd /root/rex-api/python/deezload
-```
-
-Buat virtual environment:
-
-```bash
-python3.11 -m venv venv
-```
-
-Aktifkan virtual environment:
-
-```bash
-source venv/bin/activate
-```
-
-Install dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
-Setelah selesai:
-
-```bash
-deactivate
-```
-
-> **Catatan:** Jalankan DeezLoad menggunakan virtual environment tersebut agar dependency tidak bercampur dengan instalasi Python sistem.
-
-### 4. Telegram API Setup
-
-DeezLoad menggunakan Telegram Userbot sehingga membutuhkan **API ID** dan **API Hash**.
-
-Cara mendapatkannya:
-
-1. Login ke https://my.telegram.org
-2. Pilih **API Development Tools**
-3. Buat aplikasi baru.
-4. Salin:
-   - API ID
-   - API Hash
-
-Isi file `.env` pada folder `python/deezload`:
-
-```env
-TG_API_ID=
-TG_API_HASH=
-```
-
-### 5. Generate Telegram Session
-
-Sebelum menjalankan DeezLoad sebagai service, session Telegram harus dibuat terlebih dahulu.
-
-Masuk ke folder DeezLoad dan aktifkan virtual environment:
-
-```bash
-cd /root/rex-api/python/deezload
-source venv/bin/activate
-```
-
-Jalankan service secara manual:
-
-```bash
-uvicorn deezload_service:app --host 127.0.0.1 --port 8001
-```
-
-Saat pertama kali dijalankan, Telethon akan meminta login ke akun Telegram.
-
-Masukkan:
-
-- Nomor telepon
-- Kode verifikasi (OTP)
-- Password 2FA (jika ada)
-
-Setelah login berhasil, file berikut akan dibuat otomatis:
-
-```
-sesi_scraper.session
-```
-
-Tekan `Ctrl + C` untuk menghentikan service setelah session berhasil dibuat.
-
-> File `sesi_scraper.session` berisi autentikasi Telegram Userbot. Jangan dihapus atau dibagikan kepada siapa pun.
-
-> Jangan membagikan API Hash kepada siapa pun.
-
-### 6. bgutil Docker (YouTube PO Token)
-
-YouTube membutuhkan PO Token yang valid untuk bypass bot detection. Jalankan bgutil sebagai Docker container:
+YouTube requires a valid PO Token to avoid bot detection. Run bgutil as a
+Docker container:
 
 ```bash
 docker run -d \
@@ -157,18 +221,16 @@ docker run -d \
   brainicism/bgutil-ytdlp-pot-provider
 ```
 
-Verifikasi server jalan:
+Verify it's running:
 
 ```bash
 curl -X POST http://127.0.0.1:4416/get_pot \
   -H "Content-Type: application/json" \
   -d '{"videoId": "dQw4w9WgXcQ", "clientName": "WEB"}'
-# Harus return JSON dengan poToken terisi
+# Should return JSON with a populated poToken
 ```
 
-### 7. yt-dlp Config
-
-Buat config global yt-dlp supaya semua flag aktif otomatis:
+#### 3. yt-dlp global config
 
 ```bash
 mkdir -p ~/.config/yt-dlp
@@ -180,49 +242,47 @@ cat > ~/.config/yt-dlp/config << 'EOF'
 EOF
 ```
 
-> **Kenapa perlu ini semua?**
-> - `po_token=web+fetch_pot` — perintahkan yt-dlp untuk fetch PO Token via bgutil
-> - `getpot_bgutil_url` — arahkan ke bgutil Docker yang jalan di port 4416
-> - `--js-runtimes node` — aktifkan Node.js sebagai JS runtime (defaultnya hanya Deno)
-> - `--remote-components ejs:github` — download JS challenge solver script dari GitHub (cached setelah pertama kali)
+> **Why each flag:**
+> - `po_token=web+fetch_pot` — tells yt-dlp to fetch a PO Token via bgutil
+> - `getpot_bgutil_url` — points to the bgutil Docker container on port 4416
+> - `--js-runtimes node` — enables Node.js as a JS runtime (default is Deno only)
+> - `--remote-components ejs:github` — downloads the JS challenge-solver script from GitHub (cached after first run)
 
-> **Catatan Node.js:** yt-dlp mencari binary bernama `node`, tapi di beberapa distro binary-nya bernama `nodejs`. Buat symlink jika perlu:
+> **Node.js binary name:** yt-dlp looks for a binary named `node`, but some
+> distros name it `nodejs`. Symlink if needed:
 > ```bash
 > ln -sf /usr/bin/nodejs /usr/local/bin/node
-> # atau
-> ln -sf /usr/bin/node /usr/local/bin/node
 > ```
 
-### 8. YouTube Cookies
+#### 4. YouTube cookies
 
-IP server VPS biasanya kena flag YouTube dan perlu cookies untuk bypass. Export cookies dari browser yang sudah login YouTube:
+Server IPs are often flagged by YouTube and need cookies to bypass it.
+Export cookies from a browser that's logged into YouTube:
 
-1. Install extension **"Get cookies.txt LOCALLY"** di Chrome/Firefox
-2. Buka `youtube.com` → pastikan sudah login
-3. Klik extension → Export cookies untuk `youtube.com`
-4. Upload ke server:
+1. Install the **"Get cookies.txt LOCALLY"** extension (Chrome/Firefox)
+2. Visit `youtube.com` and make sure you're logged in
+3. Use the extension to export cookies for `youtube.com`
+4. Upload to the server:
+   ```bash
+   scp cookies.txt root@<server-ip>:/root/rex-api/cookies.txt
+   ```
+5. Point to it in `.env`:
+   ```env
+   YTDLP_COOKIES_PATH=./cookies.txt
+   ```
 
-```bash
-scp cookies.txt root@<server-ip>:/root/rex-api/cookies.txt
-```
+> Refresh cookies every 2–4 weeks. Use an account that's actively used
+> (not a fresh/empty one) — it holds up longer.
 
-Set path di `.env`:
+#### 5. Proxy (optional, recommended)
 
-```env
-YTDLP_COOKIES_PATH=./cookies.txt
-```
-
-> **Tips:** Refresh cookies setiap 2–4 minggu. Pakai akun Google yang aktif dipakai (bukan akun baru/kosong) agar lebih tahan lama.
-
-### 9. Proxy (Opsional tapi Disarankan)
-
-Jika IP server sudah kena flag YouTube (muncul captcha/bot error), tambahkan proxy HTTP:
+If the server IP is already flagged (captcha/bot errors), add an HTTP proxy:
 
 ```env
 YTDLP_PROXY_URL=http://username:password@ip:port
 ```
 
-Cek proxy yang bekerja dengan yt-dlp:
+Verify it works:
 
 ```bash
 yt-dlp --proxy "http://user:pass@ip:port" \
@@ -230,46 +290,215 @@ yt-dlp --proxy "http://user:pass@ip:port" \
   "ytsearch1:test" --list-formats
 ```
 
-Format audio/video harus muncul (bukan cuma storyboard).
+You should see real audio/video formats, not just a storyboard track.
 
-### 10. Test yt-dlp End-to-End
+#### 6. End-to-end test
 
 ```bash
 yt-dlp --cookies /root/rex-api/cookies.txt \
   "ytsearch1:despacito" --list-formats
 ```
 
-Output yang benar akan menampilkan format seperti `140 m4a audio only`, `137 mp4 1920x1080`, dsb. Jika hanya muncul `sb0/sb1/sb2 mhtml storyboard`, ada masalah di cookies atau bgutil.
+A working setup lists formats like `140 m4a audio only` or `137 mp4
+1920x1080`. If you only see `sb0/sb1/sb2 mhtml storyboard`, something in
+cookies or bgutil isn't working — see [Troubleshooting](#troubleshooting-yt-dlp) below.
 
----
+</details>
 
-## Docker
+### Optional: Spotify downloads (DeezLoad)
+
+`/api/downloader/spotify` uses a separate Python service, **DeezLoad**, which
+downloads tracks via a Telegram userbot. Skip this if you don't need Spotify
+downloads.
+
+<details>
+<summary>DeezLoad setup</summary>
+
+All of this uses **Python 3.11**.
 
 ```bash
-docker build -t rex-api .
-docker run --rm -p 3000:3000 --env-file .env rex-api
+cd /root/rex-api/python/deezload
+python3.11 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+deactivate
 ```
+
+> Always run DeezLoad inside this virtual environment so its dependencies
+> don't mix with the system Python install.
+
+**Telegram API credentials** — DeezLoad needs a Telegram userbot, which
+needs an API ID and API Hash:
+
+1. Log in at https://my.telegram.org
+2. Go to **API Development Tools**
+3. Create a new application
+4. Copy the API ID and API Hash into `python/deezload/.env`:
+   ```env
+   TG_API_ID=
+   TG_API_HASH=
+   ```
+
+**Generate a Telegram session** — do this once, before running DeezLoad as a
+background service:
+
+```bash
+cd /root/rex-api/python/deezload
+source venv/bin/activate
+uvicorn deezload_service:app --host 127.0.0.1 --port 8001
+```
+
+On first run, Telethon will prompt for phone number, OTP, and 2FA password
+(if set). Once logged in, `sesi_scraper.session` is created automatically.
+Press `Ctrl+C` once that file exists.
+
+> `sesi_scraper.session` holds live Telegram userbot credentials — don't
+> delete or share it. Same goes for the API Hash.
+
+</details>
+
+### Environment variables
+
+Full documentation is in `env.example`. The essentials:
+
+| Variable | Required | Notes |
+|---|---|---|
+| `JWT_SECRET` | Yes | Min 32 chars |
+| `API_KEY_ENC_KEY` | Yes | 64 hex chars (`openssl rand -hex 32`) |
+| `SUPABASE_URL` | Yes | |
+| `SUPABASE_SERVICE_ROLE_KEY` | Yes | |
+| `MASTER_API_KEY_BOOTSTRAP` | First run only | Format: `rex_<base64url>` |
+| `YTDLP_COOKIES_PATH` | YouTube | Path to `cookies.txt` (Netscape format) |
+| `YTDLP_PROXY_URL` | YouTube | `http://user:pass@ip:port` — use if the server IP gets flagged |
+| `GEMINI_API_KEYS` | OCR | Comma-separated |
+| `HF_TOKENS` | Skin filter, to-anime, to-figure | Comma-separated, from huggingface.co/settings/tokens |
+| `REMOVEBG_API_KEY` | Remove/change background | API key from proof.bg |
+| `GROQ_API_KEYS` | STT, translate, imagegen | Comma-separated |
+| `CF_WORKER_URL` / `CF_WORKER_API_KEY` | Imagegen | Your Cloudflare Worker |
+| `GEOIP_CITY_DB` / `GEOIP_ASN_DB` | IP lookup | Paths to GeoLite2 `.mmdb` files |
+| `COBALT_API_URL` | Downloaders | Defaults to a public instance |
+
+### External services
+
+| Service | Used for |
+|---|---|
+| **Supabase** | Database & auth |
+| **Groq** | Whisper STT, translation, imagegen prompts, AI chat |
+| **Gemini** | OCR (text extraction from images) |
+| **Hugging Face** | Skin filter, to-anime, to-figure (AI image transforms) |
+| **proof.bg** | Background removal / replacement |
+| **Cloudflare Workers AI** | Image generation (self-deployed worker) |
+| **MaxMind GeoLite2** | IP geolocation (offline `.mmdb`, manual download) |
+| **Cobalt** | Media downloading (self-hosting recommended) |
+| **yt-dlp** | YouTube downloads (+ bgutil Docker for PO Tokens) |
+| **Playwright/Chromium** | Screenshots, image rendering |
+| **ffmpeg** | Audio/video processing, loudness normalization |
+| **Deno** | JS runtime for the yt-dlp challenge solver (fallback) |
+
+### Database
+
+Run `supabase/schema.sql` once in the Supabase SQL editor, then apply
+migrations in order:
+
+```bash
+# In the Supabase SQL editor, run one at a time:
+supabase/migrations/001_audit_log.sql
+supabase/migrations/002_muslim_ai_sessions.sql
+supabase/migrations/003_meme_sticker_packs.sql
+```
+
+### Bootstrap (first run)
+
+Generate a master key:
+
+```bash
+node -e "console.log('rex_' + require('crypto').randomBytes(32).toString('base64url'))"
+```
+
+Set it in `.env`:
+
+```env
+MASTER_API_KEY_BOOTSTRAP=rex_xxxxxxxxxxxx
+```
+
+Start the server. Once you see the log line `"provisioned master API key"`,
+**remove** `MASTER_API_KEY_BOOTSTRAP` from `.env` and restart.
+
+### Troubleshooting yt-dlp
+
+**Only storyboard formats (sb0/sb1/sb2), no audio/video** — check in order:
+
+1. **Is bgutil running?**
+   ```bash
+   curl -X POST http://127.0.0.1:4416/get_pot \
+     -H "Content-Type: application/json" \
+     -d '{"videoId": "dQw4w9WgXcQ", "clientName": "WEB"}'
+   ```
+   Should return a populated `poToken`.
+
+2. **Is the yt-dlp config in place?**
+   ```bash
+   cat ~/.config/yt-dlp/config
+   ```
+   Should have 4 lines (po_token, getpot_bgutil_url, js-runtimes, remote-components).
+
+3. **Does yt-dlp detect Node.js?**
+   ```bash
+   yt-dlp -v "https://www.youtube.com/watch?v=dQw4w9WgXcQ" --simulate 2>&1 | grep "JS runtimes"
+   # Should show: [debug] JS runtimes: deno-x.x.x, node-xx.xx.x
+   ```
+   If `node` is missing: `ln -sf /usr/bin/nodejs /usr/local/bin/node`
+
+4. **Are cookies still valid?**
+   ```bash
+   yt-dlp --cookies /root/rex-api/cookies.txt \
+     "https://www.youtube.com/feed/subscriptions" --simulate 2>&1 | grep -i "account\|login"
+   ```
+   Should show `Found YouTube account cookies`. If not, re-export cookies from the browser.
+
+5. **Is the server IP flagged?**
+   ```bash
+   yt-dlp --cookies /root/rex-api/cookies.txt "ytsearch1:test" --list-formats 2>&1 | grep -i "captcha\|bot\|sign in"
+   ```
+   If you see a captcha/bot error, set `YTDLP_PROXY_URL` in `.env`.
+
+**`Signature solving failed`** — download the remote components:
+
+```bash
+yt-dlp --remote-components ejs:github \
+  --cookies /root/rex-api/cookies.txt \
+  "https://www.youtube.com/watch?v=dQw4w9WgXcQ" --list-formats
+```
+
+Make sure `--remote-components ejs:github` is in `~/.config/yt-dlp/config`.
+
+**YouTube forcing SABR streaming** — don't pass `player_client=web`. Let
+`~/.config/yt-dlp/config` handle it; don't override it in code with
+`--extractor-args youtube:player_client=web`.
 
 ---
 
-## Scripts
+## Development
+
+### Scripts
 
 | Command | Description |
 |---|---|
 | `npm run dev` | Hot reload via `tsx watch` |
-| `npm run build` | Compile ke `dist/` via `tsc` + copy assets |
-| `npm start` | Jalankan `dist/server.js` |
+| `npm run build` | Compile to `dist/` via `tsc` |
+| `npm run copy-assets` | Copy maker font assets + `data/` into `dist/` — only needed for a manual (non-Docker) production run; the Dockerfile copies the maker assets itself |
+| `npm start` | Run `dist/server.js` |
 | `npm test` | Run vitest |
 | `npm run typecheck` | TypeScript check only |
+| `npm run lint` | ESLint |
+| `npm run format` | Prettier, writes in place |
 
----
-
-## Project Layout
+### Project layout
 
 ```
 src/
 ├── server.ts
-├── app.ts                    # buildApp() — register plugins + routes
+├── app.ts                    # buildApp() — registers plugins + routes
 ├── bootstrap.ts              # first-start master API key provisioning
 ├── config/env.ts             # zod-validated env loader
 ├── plugins/                  # cross-cutting Fastify plugins
@@ -298,7 +527,7 @@ src/
     ├── ai/
     │   ├── heru/             # AI chat (Groq)
     │   ├── imagegen/         # Image generation (Cloudflare Workers AI)
-    │   ├── muslim/           # Muslim AI assistant
+    │   ├── muslim/           # Islamic-knowledge AI assistant
     │   └── stt/              # Speech-to-text (Groq Whisper)
     ├── downloaders/
     │   ├── youtube/          # yt-dlp wrapper
@@ -323,7 +552,7 @@ src/
     ├── fun/
     │   ├── cek-kodam/
     │   └── primbon/
-    ├── games/                # Tebak-tebakan, asah otak, dll
+    ├── games/                # Trivia, word games, and similar (Indonesian content)
     ├── search/
     │   ├── manga/
     │   └── pinterest/
@@ -361,232 +590,31 @@ supabase/migrations/
 data/                         # MaxMind .mmdb files (gitignored)
 ```
 
----
+### Conventions
 
-## Environment Variables
+- **Routes** — declare Zod schemas; Swagger docs are generated from them automatically. Route paths are mounted under a module-specific prefix in `src/app.ts` — check there for the canonical path, since a route file's own path comments can drift.
+- **Services** — business logic, throw `AppError`.
+- **Repositories** — the only layer that touches `app.supabase`.
+- **Plugins** — use `fastify-plugin` (`fp`) so decorators are visible to the parent scope.
+- **User-facing text is English.** Error messages, Swagger descriptions, and UI copy are all English so the API and dashboard are usable outside Indonesia. Code comments can be in either language. The one deliberate exception is `games/*` and `fun/*` content — those endpoints serve Indonesian-language trivia and novelty content by design, and translating the content itself would defeat their purpose.
 
-Lihat `env.example` untuk dokumentasi lengkap. Variabel penting:
+### Errors
 
-| Variable | Required | Notes |
-|---|---|---|
-| `JWT_SECRET` | ✅ | Min 32 chars |
-| `API_KEY_ENC_KEY` | ✅ | 64 hex chars (`openssl rand -hex 32`) |
-| `SUPABASE_URL` | ✅ | |
-| `SUPABASE_SERVICE_ROLE_KEY` | ✅ | |
-| `MASTER_API_KEY_BOOTSTRAP` | First run | Format: `rex_<base64url>` |
-| `YTDLP_COOKIES_PATH` | YouTube | Path ke cookies.txt (Netscape format) |
-| `YTDLP_PROXY_URL` | YouTube | `http://user:pass@ip:port` — pakai jika IP server kena flag |
-| `GEMINI_API_KEYS` | OCR | Comma-separated |
-| `HF_TOKENS` | Skin filter, to-anime, to-figure | Comma-separated, dari huggingface.co/settings/tokens |
-| `REMOVEBG_API_KEY` | Remove bg & change bg (proof.bg) | API key dari proof.bg |
-| `GROQ_API_KEYS` | STT, Translate, Imagegen | Comma-separated |
-| `CF_WORKER_URL` | Imagegen | URL Cloudflare Worker |
-| `CF_WORKER_API_KEY` | Imagegen | |
-| `GEOIP_CITY_DB` | IP Lookup | Path ke GeoLite2-City.mmdb |
-| `GEOIP_ASN_DB` | IP Lookup | Path ke GeoLite2-ASN.mmdb |
-| `COBALT_API_URL` | Downloaders | Default: public instance |
+`AppError(statusCode, code, message, details?, userMessage?)` — `message` is
+logged internally and never sent to the client; `userMessage` (if provided)
+is what the caller actually sees. If you don't pass `userMessage`, the
+caller gets a generic message for that status code (see
+`defaultUserMessage` in `src/shared/errors.ts`). When a specific reason is
+useful to the caller (e.g. "this slug is taken"), pass it explicitly as
+`userMessage` — don't rely on `message` reaching them, because it won't.
 
 ---
 
-## External Dependencies
-
-| Service | Dipakai untuk |
-|---|---|
-| **Supabase** | Database & auth |
-| **Groq** | Whisper STT, translate, imagegen prompt, AI chat |
-| **Gemini** | OCR (ekstrak teks dari gambar) |
-| **Hugging Face** | Skin filter, to-anime, to-figure (AI image transformation) |
-| **proof.bg** | Remove background & change background gambar |
-| **Cloudflare Workers AI** | Image generation (self-deployed worker) |
-| **MaxMind GeoLite2** | IP geolocation (offline .mmdb, download manual) |
-| **Cobalt** | Media downloader (self-host disarankan) |
-| **yt-dlp** | YouTube downloader (+ bgutil Docker untuk PO Token) |
-| **Playwright/Chromium** | Screenshot, render image |
-| **ffmpeg** | Audio/video processing, loudness normalization |
-| **Deno** | JS runtime untuk yt-dlp challenge solver (fallback) |
-
----
-
-## Endpoints
-
-### Auth
-| Path | Method | Auth | Notes |
-|---|---|---|---|
-| `/api/health`, `/api/ready` | GET | none | Liveness/readiness |
-| `/api/auth/register`, `/api/auth/login` | POST | none | Returns JWT |
-
-### Me (self-service)
-| Path | Method | Auth | Notes |
-|---|---|---|---|
-| `/api/me` | GET | JWT | Profile |
-| `/api/me/key` | GET | JWT | API key info |
-| `/api/me/key/reveal` | POST | JWT + password | Reveal plaintext key |
-| `/api/me/key/regenerate` | POST | JWT + password | Rotate key |
-| `/api/me/usage` | GET | JWT | Daily usage |
-
-### Admin
-| Path | Method | Auth | Notes |
-|---|---|---|---|
-| `/api/keys` | GET/POST/PATCH/DELETE | master key | CRUD API keys |
-| `/api/keys/:id/regenerate` | POST | master key | Rotate key |
-| `/api/keys/:id/activate` | POST | master key | Un-revoke key |
-| `/api/keys/:id/reveal` | GET | master key | Reveal plaintext |
-| `/api/keys/pool-stats` | GET | master key | Chromium pool metrics |
-| `/api/keys/audit-log` | GET | master key | Admin action log |
-| `/api/admin/users` | GET | master key | User list |
-
-### Downloaders
-| Path | Method | Notes |
-|---|---|---|
-| `/api/download/youtube` | GET | Download YouTube video/audio via yt-dlp |
-| `/api/download/tiktok` | GET | Download TikTok video |
-| `/api/download/instagram` | GET | Download Instagram photo/video/reels |
-| `/api/download/facebook` | GET | Download Facebook video |
-| `/api/download/pinterest` | GET | Download Pinterest image/video |
-| `/api/download/soundcloud` | GET | Download SoundCloud audio |
-| `/api/download/spotify` | GET | Download Spotify (via yt-dlp search) |
-| `/api/download/mediafire` | GET | Download MediaFire file |
-| `/api/download/twitter` | GET | Download Twitter/X video |
-
-### Makers
-| Path | Method | Notes |
-|---|---|---|
-| `/api/brat` | GET | Generate brat-style image |
-| `/api/quote` | GET | Generate quote card |
-| `/api/smeme` | GET | Generate stiker meme |
-| `/api/miq` | GET | Maker IQ card |
-| `/api/iqc` | GET | IQ certificate |
-| `/api/qc` | GET | Quote card |
-| `/api/lq` | GET | Lyric quote card |
-| `/api/vc` | GET | Voice card |
-
-### Tools
-| Path | Method | Notes |
-|---|---|---|
-| `/api/screenshot` | GET | Screenshot halaman web |
-| `/api/exif` | POST | Extract EXIF metadata dari gambar |
-| `/api/shortlinks` | GET/POST/DELETE | URL shortener |
-| `/api/qr` | GET | Generate QR code (PNG/SVG) |
-| `/api/translate` | GET | Translate teks (Groq LLM) |
-| `/api/tts` | GET | Text-to-speech |
-| `/api/ocr` | POST | OCR dari gambar |
-| `/api/iplookup` | GET | IP geolocation lookup |
-| `/api/removebg` | POST | Remove background gambar |
-| `/api/tgsticker` | POST | Convert ke Telegram sticker |
-
-### AI
-| Path | Method | Notes |
-|---|---|---|
-| `/api/ai/imagegen` | GET | Generate gambar dari prompt |
-| `/api/ai/stt` | POST | Speech-to-text via Groq Whisper |
-| `/api/ai/heru` | POST | AI chat assistant |
-| `/api/ai/muslim` | POST | Muslim AI assistant |
-
----
-
-## Database
-
-Jalankan `supabase/schema.sql` sekali di Supabase SQL editor. Setelah itu apply migrations secara berurutan:
-
-```bash
-# Di Supabase SQL editor, jalankan satu per satu:
-supabase/migrations/001_audit_log.sql
-supabase/migrations/002_muslim_ai_sessions.sql
-supabase/migrations/003_meme_sticker_packs.sql
-```
-
----
-
-## Bootstrap (First Run)
-
-Generate master key dulu:
-
-```bash
-node -e "console.log('rex_' + require('crypto').randomBytes(32).toString('base64url'))"
-```
-
-Set di `.env`:
-
-```env
-MASTER_API_KEY_BOOTSTRAP=rex_xxxxxxxxxxxx
-```
-
-Start server. Setelah log `"provisioned master API key"` muncul, **hapus** `MASTER_API_KEY_BOOTSTRAP` dari `.env` dan restart.
-
----
-
-## Tier Policy
+## Tier policy
 
 | Tier | Rate limit | Daily quota |
 |---|---|---|
-| master key | none | unlimited |
-| user key (`dailyLimit: null`) | per-endpoint | unlimited |
-| user key (numeric `dailyLimit`) | per-endpoint | enforced |
-| anon (no key) | base budget | `ANON_DAILY_QUOTA` per IP |
-
----
-
-## Conventions
-
-- **Routes** — declare Zod schemas; Swagger auto-generate docs
-- **Services** — business logic, throw `AppError`
-- **Repositories** — satu-satunya yang akses `app.supabase`
-- **Plugins** — pakai `fastify-plugin` (`fp`) agar decorators leak ke parent scope
-
----
-
-## Troubleshooting yt-dlp
-
-### Hanya muncul storyboard (sb0/sb1/sb2), tidak ada format audio/video
-
-Cek secara berurutan:
-
-1. **bgutil jalan?**
-   ```bash
-   curl -X POST http://127.0.0.1:4416/get_pot \
-     -H "Content-Type: application/json" \
-     -d '{"videoId": "dQw4w9WgXcQ", "clientName": "WEB"}'
-   ```
-   Harus return `poToken` yang terisi.
-
-2. **Config yt-dlp sudah ada?**
-   ```bash
-   cat ~/.config/yt-dlp/config
-   ```
-   Harus ada 4 baris (po_token, getpot_bgutil_url, js-runtimes, remote-components).
-
-3. **Node.js terdeteksi yt-dlp?**
-   ```bash
-   yt-dlp -v "https://www.youtube.com/watch?v=dQw4w9WgXcQ" --simulate 2>&1 | grep "JS runtimes"
-   # Harus muncul: [debug] JS runtimes: deno-x.x.x, node-xx.xx.x
-   ```
-   Jika node tidak muncul: `ln -sf /usr/bin/nodejs /usr/local/bin/node`
-
-4. **Cookies masih valid?**
-   ```bash
-   yt-dlp --cookies /root/rex-api/cookies.txt \
-     "https://www.youtube.com/feed/subscriptions" --simulate 2>&1 | grep -i "account\|login"
-   ```
-   Harus muncul `Found YouTube account cookies`. Jika tidak, export ulang cookies dari browser.
-
-5. **IP server kena flag?**
-   ```bash
-   yt-dlp --cookies /root/rex-api/cookies.txt "ytsearch1:test" --list-formats 2>&1 | grep -i "captcha\|bot\|sign in"
-   ```
-   Jika muncul error captcha/bot, set `YTDLP_PROXY_URL` di `.env`.
-
-### `Signature solving failed`
-
-Download remote components:
-
-```bash
-yt-dlp --remote-components ejs:github \
-  --cookies /root/rex-api/cookies.txt \
-  "https://www.youtube.com/watch?v=dQw4w9WgXcQ" --list-formats
-```
-
-Pastikan `--remote-components ejs:github` ada di `~/.config/yt-dlp/config`.
-
-### YouTube forcing SABR streaming
-
-Jangan pakai `player_client=web`. Biarkan config `~/.config/yt-dlp/config` yang handle — jangan override di kode dengan `--extractor-args youtube:player_client=web`.
+| Master key | None | Unlimited |
+| User key (`dailyLimit: null`) | Per-endpoint | Unlimited |
+| User key (numeric `dailyLimit`) | Per-endpoint | Enforced |
+| Anonymous (no key) | Shared budget | `ANON_DAILY_QUOTA` per IP |

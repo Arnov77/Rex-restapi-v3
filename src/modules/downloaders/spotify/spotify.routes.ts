@@ -44,14 +44,14 @@ const spotifyRoutes: FastifyPluginAsyncZod = async (app) => {
     async (req, reply) => {
       const entry = getSpotifyFile(req.params.id);
       if (!entry) {
-        return reply.code(404).send({ ok: false, error: { message: 'File tidak ditemukan atau sudah expired' } });
+        return reply.code(404).send({ ok: false, error: { message: 'File not found or has expired.' } });
       }
 
       let stat: ReturnType<typeof statSync>;
       try {
         stat = statSync(entry.filePath);
       } catch {
-        return reply.code(404).send({ ok: false, error: { message: 'File tidak ditemukan di disk' } });
+        return reply.code(404).send({ ok: false, error: { message: 'File not found on disk.' } });
       }
 
       const fileSize = stat.size;

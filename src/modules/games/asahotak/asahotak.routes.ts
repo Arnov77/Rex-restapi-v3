@@ -8,8 +8,7 @@ const asahotakRoutes: FastifyPluginAsyncZod = async (_app) => {
     {
       schema: {
         tags: ['games'],
-        summary: 'Asah otak acak',
-        description: 'Mengembalikan satu soal asah otak secara acak.',
+        summary: 'Get a random brain-teaser question.',
         response: { 200: AsahotakResponse },
       },
     },

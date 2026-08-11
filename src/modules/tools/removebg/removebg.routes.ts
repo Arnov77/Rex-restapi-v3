@@ -21,9 +21,7 @@ const removebgRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [quota, limit],
       schema: {
         tags: ['tools'],
-        summary: 'Remove Background',
-        description:
-          'Hapus background gambar dan hasilkan background transparan. Kirim URL gambar via query `?image_url=...` atau upload file image via multipart/form-data field `file`. Max 10MB.',
+        summary: "Remove an image's background.",
         querystring: RemoveBgQuery,
       },
     },

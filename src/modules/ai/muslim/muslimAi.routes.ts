@@ -19,12 +19,10 @@ const muslimAiRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [quota, limit],
       schema: {
         tags: ['ai'],
-        summary: 'Muslim AI — Chat dengan Udin',
+        summary: 'Udin — Islamic-knowledge AI chatbot',
         description:
-          'Chat santai dengan Udin, AI yang paham seputar Islam tapi ngobrolnya kayak temen, bukan ceramah formal. ' +
-          'Session percakapan disimpan selama 24 jam dari pesan terakhir — kirim `?session=` ' +
-          'yang sama untuk lanjutkan percakapan, atau kosongkan untuk mulai session baru ' +
-          '(session ID baru akan di-return di response, simpan untuk request berikutnya).',
+          'Sessions persist for 24 hours. Send the same `session` id to continue a ' +
+          'conversation, or omit it to start a new one — the new id is returned in the response.',
         querystring: MuslimAiQuery,
         response: { 200: MuslimAiResponse },
       },

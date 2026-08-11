@@ -17,8 +17,7 @@ const iplookupRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [limit],
       schema: {
         tags: ['tools'],
-        summary: 'IP Lookup',
-        description: 'Lookup detail informasi dari sebuah IP address — lokasi, kota, negara, timezone, ISP/ASN. Menggunakan database MaxMind GeoLite2 (offline, tidak ada request ke server eksternal).',
+        summary: 'Look up details for an IP address.',
         querystring: IpLookupQuery,
         response: { 200: IpLookupResponse },
       },

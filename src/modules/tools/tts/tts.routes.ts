@@ -47,8 +47,7 @@ const ttsRoutes: FastifyPluginAsyncZod = async (app) => {
       schema: {
         tags: ['tools'],
         hide: true,
-        summary: 'Daftar voice TTS',
-        description: 'Mengembalikan daftar voice yang tersedia untuk endpoint TTS.',
+        summary: 'List available TTS voices.',
         response: {
           200: z.object({
             ok: z.literal(true),
@@ -67,8 +66,7 @@ const ttsRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [limit],
       schema: {
         tags: ['tools'],
-        summary: 'Text to Speech',
-        description: 'Ubah teks menjadi audio.',
+        summary: 'Convert text to speech.',
         querystring: TtsQuery,
         response: {
           200: TtsResponse,

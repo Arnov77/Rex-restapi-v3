@@ -17,8 +17,7 @@ const imagegenRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [limit],
       schema: {
         tags: ['ai'],
-        summary: 'AI Image Generator',
-        description: 'Generate gambar dari teks menggunakan AI (Stable Diffusion XL via Cloudflare Workers AI). Rate limit: 5 request/menit.',
+        summary: 'Generate an image from a text prompt.',
         querystring: ImagegenQuery,
       },
     },

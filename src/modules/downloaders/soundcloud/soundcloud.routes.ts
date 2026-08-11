@@ -18,8 +18,7 @@ const soundcloudRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [limit],
       schema: {
         tags: ['download'],
-        summary: 'Download SoundCloud track',
-        description: 'Mengembalikan metadata + URL audio (mp3) dari sebuah track SoundCloud. Support URL snd.sc.',
+        summary: 'Download a SoundCloud track.',
         querystring: SoundcloudQuery,
         response: { 200: SoundcloudResponse },
       },

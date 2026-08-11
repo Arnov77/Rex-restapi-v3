@@ -20,9 +20,7 @@ const tofigureRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [quota, limit],
       schema: {
         tags: ['tools'],
-        summary: 'to figure',
-        description:
-          'Ubah foto menjadi style figur',
+        summary: 'Convert a photo to figure style.',
         querystring: TofigureQuery,
       },
     },

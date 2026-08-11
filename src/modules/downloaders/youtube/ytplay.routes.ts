@@ -32,9 +32,8 @@ const ytplayRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       schema: {
         tags: ['download'],
-        summary: 'YouTube Play MP3',
-        description:
-          'Cari YouTube dari judul atau gunakan link YouTube langsung, lalu convert hasilnya ke MP3. Returns metadata + short proxy URL.',
+        summary: 'Search YouTube and convert the result to MP3.',
+        description: 'Accepts a search query or a direct YouTube URL.',
         querystring: YtPlayQuery,
       },
     },

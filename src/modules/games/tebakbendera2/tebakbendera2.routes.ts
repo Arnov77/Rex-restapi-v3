@@ -8,8 +8,8 @@ const tebakbendera2Routes: FastifyPluginAsyncZod = async (_app) => {
     {
       schema: {
         tags: ['games'],
-        summary: 'Tebak bendera acak (v2)',
-        description: 'Mengembalikan satu soal tebak bendera negara (versi 2, gambar resolusi lebih tinggi) secara acak.',
+        summary: 'Get a random flag-guessing question.',
+        description: 'Higher-resolution images than `tebakbendera`.',
         response: { 200: Tebakbendera2Response },
       },
     },

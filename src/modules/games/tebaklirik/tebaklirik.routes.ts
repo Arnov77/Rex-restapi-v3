@@ -8,8 +8,7 @@ const tebaklirikRoutes: FastifyPluginAsyncZod = async (_app) => {
     {
       schema: {
         tags: ['games'],
-        summary: 'Tebak lirik acak',
-        description: 'Mengembalikan satu soal tebak lirik lagu secara acak.',
+        summary: 'Get a random song-lyric-guessing question.',
         response: { 200: TebaklirikResponse },
       },
     },

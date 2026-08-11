@@ -17,8 +17,7 @@ const translateRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [limit],
       schema: {
         tags: ['tools'],
-        summary: 'Translate teks',
-        description: 'Terjemahkan teks ke bahasa apapun menggunakan Groq LLM. Mendukung auto-detect bahasa sumber. Hasilnya lebih natural dibanding translate konvensional karena memahami konteks.',
+        summary: 'Translate text into another language.',
         querystring: TranslateQuery,
         response: { 200: TranslateResponse },
       },

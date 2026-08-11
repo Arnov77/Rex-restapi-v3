@@ -19,9 +19,7 @@ const combineRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [quota, limit],
       schema: {
         tags: ['tools'],
-        summary: 'Combine multiple images with a rotated caption banner',
-        description:
-          'Menyusun 2-6 gambar secara vertikal jadi satu gambar, lalu overlay `caption_text` sebagai banner miring di atasnya (gaya repost rekomendasi film/konten). Tiap item di `images` boleh URL publik atau base64.',
+        summary: 'Combine multiple images into one with a caption banner.',
         body: CombineBody,
         response: { 200: CombineResponse },
       },

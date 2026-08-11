@@ -9,8 +9,7 @@ const twitterRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       schema: {
         tags: ['download'],
-        summary: 'Download Twitter/X media',
-        description: 'Returns metadata + proxy URLs for videos, images, and GIFs from tweets.',
+        summary: 'Download media from a Twitter/X post.',
         querystring: TwitterQuery,
         response: { 200: TwitterResponse },
       },

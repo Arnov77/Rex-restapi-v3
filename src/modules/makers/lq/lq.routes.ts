@@ -19,8 +19,7 @@ const lqRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [quota, limit],
       schema: {
         tags: ['maker'],
-        summary:
-          'Degrade an image into blurry low quality meme aesthetic. Params: image, level, format, quality',
+        summary: 'Degrade an image into a low-quality meme aesthetic.',
         querystring: LqQuery,
       },
     },

@@ -20,7 +20,7 @@ const primbonRoutes: FastifyPluginAsyncZod = async (app) => {
     preHandler: [limit],
     schema: {
       tags: ['fun'],
-      summary: 'Hitung Weton (hari + pasaran Jawa)',
+      summary: 'Calculate Javanese weton (day and market-day pairing).',
       querystring: WetonQuery,
       response: { 200: WetonResponse },
     },
@@ -30,7 +30,7 @@ const primbonRoutes: FastifyPluginAsyncZod = async (app) => {
     preHandler: [limit],
     schema: {
       tags: ['fun'],
-      summary: 'Cek kecocokan jodoh berdasarkan nama (Primbon Jawa)',
+      summary: 'Check name-based compatibility (primbon).',
       querystring: JodohQuery,
       response: { 200: JodohResponse },
     },
@@ -40,7 +40,7 @@ const primbonRoutes: FastifyPluginAsyncZod = async (app) => {
     preHandler: [limit],
     schema: {
       tags: ['fun'],
-      summary: 'Cari arti nama + sifat + keberuntungan',
+      summary: "Look up a name's meaning and traits.",
       querystring: ArtiNamaQuery,
       response: { 200: ArtiNamaResponse },
     },
@@ -50,7 +50,7 @@ const primbonRoutes: FastifyPluginAsyncZod = async (app) => {
     preHandler: [limit],
     schema: {
       tags: ['fun'],
-      summary: 'Cek shio berdasarkan tahun lahir',
+      summary: 'Look up Chinese zodiac by birth year.',
       querystring: ShioQuery,
       response: { 200: ShioResponse },
     },

@@ -17,8 +17,7 @@ const pinterestSearchRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [limit],
       schema: {
         tags: ['search'],
-        summary: 'Cari gambar di Pinterest',
-        description: 'Cari pin/gambar di Pinterest berdasarkan kata kunci.',
+        summary: 'Search Pinterest by keyword.',
         querystring: PinterestSearchQuery,
         response: { 200: PinterestSearchResponse },
       },

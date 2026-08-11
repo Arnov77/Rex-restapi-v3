@@ -20,11 +20,7 @@ const nsfwRoutes: FastifyPluginAsyncZod = async (app) => {
     preHandler: [quota, limit],
     schema: {
       tags: ['tools'],
-      summary: 'NSFW Detector — Deteksi konten tidak aman dalam gambar',
-      description:
-        'Deteksi konten NSFW menggunakan SightEngine API (nudity-2.1). ' +
-        'Support gambar JPEG, PNG, WebP, GIF, dan video. Max 50 MB. ' +
-        'Kirim via `?image=<url>` atau upload file multipart/form-data field `file`.',
+      summary: 'Detect unsafe (NSFW) content in an image.',
       querystring: NsfwQuery,
       response: { 200: NsfwResponse },
     },

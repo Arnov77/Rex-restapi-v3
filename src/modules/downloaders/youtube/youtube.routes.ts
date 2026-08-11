@@ -21,8 +21,7 @@ const youtubeRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       schema: {
         tags: ['download'],
-        summary: 'Download YouTube video (merged mp4 with audio)',
-        description: 'Downloads and merges video+audio into a single streamable mp4. Returns metadata + short proxy URL.',
+        summary: 'Download a YouTube video.',
         querystring: YoutubeQuery,
       },
     },

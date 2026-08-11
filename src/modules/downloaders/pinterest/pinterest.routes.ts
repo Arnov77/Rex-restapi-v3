@@ -18,8 +18,7 @@ const pinterestRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [limit],
       schema: {
         tags: ['download'],
-        summary: 'Download Pinterest image/video',
-        description: 'Mengembalikan metadata + URL media dari sebuah Pinterest pin (gambar atau video). Support URL pin.it.',
+        summary: 'Download a Pinterest image or video.',
         querystring: PinterestQuery,
         response: { 200: PinterestResponse },
       },

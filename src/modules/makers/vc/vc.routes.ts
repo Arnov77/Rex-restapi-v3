@@ -23,7 +23,7 @@ const vcRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [quota, limit],
       schema: {
         tags: ['maker'],
-        summary: 'Apply voice/audio effects. Returns JSON with short proxy URL.',
+        summary: 'Apply an audio effect to an audio file.',
         querystring: VcQuery,
       },
     },

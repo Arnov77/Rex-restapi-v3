@@ -22,11 +22,7 @@ const ocrRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [quota, limit],
       schema: {
         tags: ['tools'],
-        summary: 'OCR — Ekstrak teks dari gambar',
-        description:
-          'toola untuk mengekstrak teks dari gambar secara akurat. ' +
-          'Kirim gambar via `?image=<url>` atau upload file multipart/form-data dengan field `file`. ' +
-          'Mendukung JPEG, PNG, WebP, GIF, BMP, TIFF, HEIC. Max 20 MB.',
+        summary: 'Extract text from an image.',
         querystring: OcrQuery,
         response: { 200: OcrResponse },
       },

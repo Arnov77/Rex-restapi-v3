@@ -8,8 +8,7 @@ const family100Routes: FastifyPluginAsyncZod = async (_app) => {
     {
       schema: {
         tags: ['games'],
-        summary: 'Family 100 acak',
-        description: 'Mengembalikan satu soal family 100 secara acak. Jawaban berupa array string.',
+        summary: 'Get a random Family Feud-style question.',
         response: { 200: Family100Response },
       },
     },

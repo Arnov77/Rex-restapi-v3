@@ -20,8 +20,7 @@ const sttRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [limit],
       schema: {
         tags: ['ai'],
-        summary: 'Speech to Text',
-        description: 'Transkripsi audio ke teks pakai Groq Whisper. Kirim URL audio via query `?url=...` atau upload file audio via multipart/form-data field `file`. Mendukung mp3, mp4, ogg, wav, webm, m4a. Max 25MB.',
+        summary: 'Transcribe audio to text.',
         querystring: SttQuery,
         response: { 200: SttResponse },
       },

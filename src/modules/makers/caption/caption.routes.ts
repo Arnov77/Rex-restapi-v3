@@ -21,9 +21,7 @@ const captionRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [quota, limit],
       schema: {
         tags: ['maker'],
-        summary: 'Overlay caption text on an image',
-        description:
-          'Render `caption_text` di atas gambar dengan gaya teks putih bergaris tepi hitam (bisa diatur). Kirim gambar via SALAH SATU: multipart/form-data field `file`, `image_url`, atau `image_base64` di JSON body. Max 10MB.',
+        summary: 'Overlay caption text on an image.',
         body: CaptionBody,
         response: {
           200: z.object({

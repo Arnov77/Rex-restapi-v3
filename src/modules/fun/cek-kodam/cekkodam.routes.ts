@@ -17,9 +17,8 @@ const cekkodamRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [limit],
       schema: {
         tags: ['fun'],
-        summary: 'Cek Khodam',
-        description:
-          'Cek khodam berdasarkan nama. Hasil deterministik (konsisten per nama) kecuali `random=true`.',
+        summary: 'Check "khodam" by name.',
+        description: 'Deterministic per name unless `random=true`.',
         querystring: CekKodamQuery,
         response: {
           200: CekKodamResponse,

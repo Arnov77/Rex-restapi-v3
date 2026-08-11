@@ -20,9 +20,7 @@ const hitamRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [quota, limit],
       schema: {
         tags: ['tools'],
-        summary: 'Penghitaman masal',
-        description:
-          'Menghitamkan anime waifu kalian',
+        summary: "Change a character's skin tone in an image.",
         querystring: HitamQuery,
       },
     },

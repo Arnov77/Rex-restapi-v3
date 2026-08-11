@@ -19,7 +19,7 @@ const smemeRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [quota, limit],
       schema: {
         tags: ['maker'],
-        summary: 'Render a classic meme with top/bottom Impact text. Params: image, top, bottom, format, quality',
+        summary: 'Render a classic top/bottom-text meme.',
         querystring: SmemeQuery,
       },
     },

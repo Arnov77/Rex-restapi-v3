@@ -22,10 +22,7 @@ const spotifyRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [limit],
       schema: {
         tags: ['download'],
-        summary: 'Download Spotify track / album / playlist',
-        description:
-          'Download lagu dari Spotify sebagai MP3. Support track, album, dan playlist. ' +
-          'URL yang dikembalikan adalah short proxy URL yang bisa di-stream langsung.',
+        summary: 'Download a Spotify track, album, or playlist.',
         querystring: SpotifyQuery,
         response: { 200: SpotifyResponse },
       },

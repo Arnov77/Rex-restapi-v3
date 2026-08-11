@@ -8,8 +8,7 @@ const caklontongRoutes: FastifyPluginAsyncZod = async (_app) => {
     {
       schema: {
         tags: ['games'],
-        summary: 'Cak lontong acak',
-        description: 'Mengembalikan satu soal cak lontong (tebak-tebakan logika) secara acak.',
+        summary: 'Get a random logic riddle (cak lontong).',
         response: { 200: CaklontongResponse },
       },
     },

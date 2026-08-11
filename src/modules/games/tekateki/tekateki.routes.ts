@@ -8,8 +8,7 @@ const tekatekiRoutes: FastifyPluginAsyncZod = async (_app) => {
     {
       schema: {
         tags: ['games'],
-        summary: 'Teka-teki acak',
-        description: 'Mengembalikan satu soal teka-teki secara acak.',
+        summary: 'Get a random puzzle question.',
         response: { 200: TekatekiResponse },
       },
     },

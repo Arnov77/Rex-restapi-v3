@@ -9,8 +9,7 @@ const facebookRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       schema: {
         tags: ['download'],
-        summary: 'Download Facebook video/post',
-        description: 'Returns metadata + proxy URLs for videos and images from Facebook posts and reels.',
+        summary: 'Download a Facebook video or post.',
         querystring: FacebookQuery,
         response: { 200: FacebookResponse },
       },

@@ -9,8 +9,7 @@ const tiktokRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       schema: {
         tags: ['download'],
-        summary: 'Download TikTok video/slideshow',
-        description: 'Returns metadata + proxy URLs for media (video without watermark, audio, images for slideshows).',
+        summary: 'Download a TikTok video or slideshow.',
         querystring: TiktokQuery,
         response: { 200: TiktokResponse },
       },

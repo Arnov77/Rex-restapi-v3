@@ -9,8 +9,7 @@ const instagramRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       schema: {
         tags: ['download'],
-        summary: 'Download Instagram post/reel',
-        description: 'Returns metadata + proxy URLs for videos and images from Instagram posts, reels, and carousels.',
+        summary: 'Download an Instagram post or reel.',
         querystring: InstagramQuery,
         response: { 200: InstagramResponse },
       },

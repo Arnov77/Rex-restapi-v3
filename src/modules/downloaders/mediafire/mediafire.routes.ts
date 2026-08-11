@@ -8,8 +8,7 @@ const mediafireRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       schema: {
         tags: ['download'],
-        summary: 'Download file dari MediaFire',
-        description: 'Mengekstrak direct download link dari URL MediaFire tanpa perlu login.',
+        summary: 'Download a file from MediaFire.',
         querystring: MediafireQuery,
         response: { 200: MediafireResponse },
       },

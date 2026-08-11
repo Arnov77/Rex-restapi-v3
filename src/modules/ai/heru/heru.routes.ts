@@ -17,11 +17,10 @@ const heruRoutes: FastifyPluginAsyncZod = async (app) => {
     preHandler: [quota, limit],
     schema: {
       tags: ['ai'],
-      summary: 'Heru — AI Chatbot temen ngobrol',
+      summary: 'Heru — casual AI chatbot',
       description:
-        'Chat santai sama Heru, AI dengan personality anak tongkrongan — asik, humble, ga kaku. ' +
-        'Session disimpan 24 jam dari pesan terakhir. Kosongkan `session` untuk mulai chat baru, ' +
-        'kirim session ID yang sama untuk lanjut percakapan.',
+        'Sessions persist for 24 hours. Leave `session` empty to start a new chat, ' +
+        'or reuse the same id to continue one.',
       querystring: HeruQuery,
       response: { 200: HeruResponse },
     },

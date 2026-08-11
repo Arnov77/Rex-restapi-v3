@@ -49,7 +49,7 @@ const stickerRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [quota, limit],
       schema: {
         tags: ['maker'],
-        summary: 'Fetch & convert a single Telegram sticker. Params: input, format, quality',
+        summary: 'Fetch and convert a Telegram sticker.',
         querystring: StickerSingleQuery,
       },
     },
@@ -77,7 +77,7 @@ const stickerRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [quota, limit],
       schema: {
         tags: ['maker'],
-        summary: 'Fetch & convert a Telegram sticker pack. Returns JSON with short proxy URL. Params: input, format, image_format, quality',
+        summary: 'Fetch and convert a Telegram sticker pack.',
         querystring: StickerPackQuery,
       },
     },

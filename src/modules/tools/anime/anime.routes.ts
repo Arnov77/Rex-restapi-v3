@@ -20,9 +20,7 @@ const animeRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [quota, limit],
       schema: {
         tags: ['tools'],
-        summary: 'Anime Style Transfer',
-        description:
-          'Ubah foto menjadi style anime',
+        summary: 'Convert a photo to anime style.',
         querystring: AnimeQuery,
       },
     },

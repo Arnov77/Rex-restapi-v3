@@ -8,8 +8,7 @@ const tebakgambarRoutes: FastifyPluginAsyncZod = async (_app) => {
     {
       schema: {
         tags: ['games'],
-        summary: 'Tebak gambar acak',
-        description: 'Mengembalikan satu soal tebak gambar secara acak.',
+        summary: 'Get a random picture-guessing question.',
         response: { 200: TebakgambarResponse },
       },
     },

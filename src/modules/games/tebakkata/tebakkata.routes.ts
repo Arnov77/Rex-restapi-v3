@@ -8,8 +8,7 @@ const tebakkataRoutes: FastifyPluginAsyncZod = async (_app) => {
     {
       schema: {
         tags: ['games'],
-        summary: 'Tebak kata acak',
-        description: 'Mengembalikan satu soal tebak kata secara acak.',
+        summary: 'Get a random word-guessing question.',
         response: { 200: TebakkataResponse },
       },
     },

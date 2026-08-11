@@ -8,8 +8,9 @@
  *   requestBody: application/json → primitive properties become FormField,
  *                                    everything else is rendered as a JSON
  *                                    textarea pre-filled with a sample.
- *   requestBody: multipart/form-data → not yet rendered (architecture is
- *                                       in place; see comment below).
+ *   requestBody: multipart/form-data → rendered as file pickers (for
+ *                                       string+binary properties) plus a
+ *                                       FormField for every other property.
  *
  * Why we accept a JSON textarea fallback instead of fully recursing into
  * objects/arrays: the spec gets ugly fast, and developers reading the
@@ -57,11 +58,29 @@ function jsonBodySchema(requestBody) {
 }
 
 /**
- * Multipart hook — when the day comes, content['multipart/form-data']
- * gets its own schema-driven form (file pickers + text fields). We
- * detect it here so the modal can show "this endpoint needs multipart;
- * upload not yet supported in the playground" without crashing.
+ * Multipart hook — content['multipart/form-data'] gets its own
+ * schema-driven form: a file picker for each string+binary property, a
+ * plain FormField for everything else. This just extracts the schema;
+ * the actual inputs are built further down from multipartFiles /
+ * multipartFields.
  */
+/**
+ * Best-effort `accept` attribute for a file input, derived from the
+ * extension list already shown in the field's own description (e.g.
+ * "Audio file (mp3, mp4, ogg, wav, webm, m4a) — max 25MB."). Falls back
+ * to no restriction if the description doesn't have one — better an
+ * unfiltered picker than silently filtering out the right file type.
+ */
+function inferAccept(description) {
+  const match = description && description.match(/\(([^)]+)\)/);
+  if (!match) return undefined;
+  const exts = match[1]
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter((s) => /^[a-z0-9]{2,5}$/.test(s));
+  return exts.length ? exts.map((e) => `.${e}`).join(',') : undefined;
+}
+
 function multipartBodySchema(requestBody) {
   if (!requestBody) return null;
   const m = requestBody.content?.['multipart/form-data'];
@@ -330,20 +349,45 @@ export default {
             const isFile = sch?.type === 'string' && sch?.format === 'binary';
       
             if (isFile) {
-              return h('label', { class: 'field' }, [
+              const accept = inferAccept(sch.description);
+              const selected = multipartFiles.value[name];
+              return h('div', { class: 'field' }, [
                 h('span', { class: 'field-label' }, [
                   name,
                   required.has(name) && h('b', { style: 'color:var(--danger);margin-left:4px' }, '*'),
                 ]),
                 sch.description && h('span', { class: 'field-desc' }, sch.description),
-                h('input', {
-                  type: 'file',
-                  class: 'input',
-                  accept: 'image/jpeg,image/png,image/webp,image/tiff,image/heic,image/heif',
-                  onChange: (e) => {
-                    multipartFiles.value[name] = e.target.files?.[0] ?? null;
-                  },
-                }),
+                h('label', { class: 'file-picker' }, [
+                  h('input', {
+                    type: 'file',
+                    class: 'file-picker-input',
+                    accept,
+                    onChange: (e) => {
+                      multipartFiles.value[name] = e.target.files?.[0] ?? null;
+                    },
+                  }),
+                  h('span', { class: 'btn sm file-picker-btn' }, 'Choose file'),
+                  h(
+                    'span',
+                    { class: selected ? 'file-picker-name' : 'file-picker-name empty' },
+                    selected ? selected.name : 'No file chosen',
+                  ),
+                  selected &&
+                    h(
+                      'button',
+                      {
+                        type: 'button',
+                        class: 'file-picker-clear',
+                        title: 'Remove file',
+                        onClick: (e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          multipartFiles.value[name] = null;
+                        },
+                      },
+                      '×',
+                    ),
+                ]),
               ]);
             }
       

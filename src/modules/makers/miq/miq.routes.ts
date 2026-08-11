@@ -19,7 +19,7 @@ const miqRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [quota, limit],
       schema: {
         tags: ['maker'],
-        summary: 'Render a Make It Quote card. Params: text, name, username, image, orientation, image_filter, format, quality',
+        summary: 'Render a "Make It Quote" card.',
         querystring: MiqQuery,
       },
     },

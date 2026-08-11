@@ -8,8 +8,7 @@ const susunkataRoutes: FastifyPluginAsyncZod = async (_app) => {
     {
       schema: {
         tags: ['games'],
-        summary: 'Susun kata acak',
-        description: 'Mengembalikan satu soal susun kata secara acak beserta tipe kategorinya.',
+        summary: 'Get a random word-scramble question.',
         response: { 200: SusunkataResponse },
       },
     },

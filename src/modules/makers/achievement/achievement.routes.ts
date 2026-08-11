@@ -19,8 +19,7 @@ const achievementRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [quota, limit],
       schema: {
         tags: ['maker'],
-        summary: 'Minecraft Achievement',
-        description: 'Buat gambar achievement bergaya Minecraft.',
+        summary: 'Generate a Minecraft-style achievement image.',
         querystring: AchievementQuery,
       },
     },

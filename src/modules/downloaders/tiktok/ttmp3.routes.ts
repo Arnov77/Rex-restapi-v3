@@ -107,8 +107,8 @@ const ttmp3Routes: FastifyPluginAsyncZod = async (app) => {
     {
       schema: {
         tags: ['download'],
-        summary: 'TikTok to MP3',
-        description: 'Extract audio from TikTok video as MP3 (loudness-normalized). Returns a streamable proxy URL.',
+        summary: 'Extract audio from a TikTok video as MP3.',
+        description: 'Audio is loudness-normalized.',
         querystring: Ttmp3Query,
         response: { 200: Ttmp3Response },
       },

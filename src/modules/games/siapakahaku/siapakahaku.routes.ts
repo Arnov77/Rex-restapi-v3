@@ -8,8 +8,7 @@ const siapakahakuRoutes: FastifyPluginAsyncZod = async (_app) => {
     {
       schema: {
         tags: ['games'],
-        summary: 'Siapakah aku acak',
-        description: 'Mengembalikan satu soal tebak "siapakah aku" secara acak.',
+        summary: 'Get a random "who am I" riddle.',
         response: { 200: SiapakahakuResponse },
       },
     },

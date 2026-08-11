@@ -23,7 +23,7 @@ const quoteRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [quota, limit],
       schema: {
         tags: ['maker'],
-        summary: 'Render a Twitter-style quote card (PNG/JPEG/WebP)',
+        summary: 'Render a Twitter-style quote card.',
         querystring: QuoteQuery,
       },
     },

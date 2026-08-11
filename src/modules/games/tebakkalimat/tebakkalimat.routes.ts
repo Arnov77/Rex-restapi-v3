@@ -8,8 +8,7 @@ const tebakkalimatRoutes: FastifyPluginAsyncZod = async (_app) => {
     {
       schema: {
         tags: ['games'],
-        summary: 'Tebak kalimat acak',
-        description: 'Mengembalikan satu soal tebak kalimat (peribahasa/idiom rumpang) secara acak.',
+        summary: 'Get a random fill-in-the-blank proverb/idiom question.',
         response: { 200: TebakkalimatResponse },
       },
     },

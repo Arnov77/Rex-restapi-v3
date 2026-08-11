@@ -21,9 +21,7 @@ const changebgRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [quota, limit],
       schema: {
         tags: ['tools'],
-        summary: 'Change Background',
-        description:
-          'Hapus background gambar lalu ganti ke warna baru. Kirim URL gambar via query `?image_url=...` atau upload file image via multipart/form-data field `file`. Max 10MB.',
+        summary: "Replace an image's background with a solid color.",
         querystring: ChangeBgQuery,
       },
     },

@@ -70,8 +70,7 @@ const igmp3Routes: FastifyPluginAsyncZod = async (app) => {
     {
       schema: {
         tags: ['download'],
-        summary: 'Instagram to MP3',
-        description: 'Extract audio from Instagram reel/video as MP3. Returns a streamable proxy URL.',
+        summary: 'Extract audio from an Instagram reel or video as MP3.',
         querystring: Igmp3Query,
         response: { 200: Igmp3Response },
       },

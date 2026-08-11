@@ -19,7 +19,7 @@ const qcRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [quota, limit],
       schema: {
         tags: ['maker'],
-        summary: 'Render a WhatsApp Quoted Chat bubble. Params: text, quoted_name, quoted_text, avatar, time',
+        summary: 'Render a WhatsApp-style quoted chat bubble.',
         querystring: QcQuery,
       },
     },

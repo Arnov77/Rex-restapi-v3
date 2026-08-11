@@ -45,8 +45,8 @@ const deezloadRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [limit],
       schema: {
         tags: ['download'],
-        summary: 'Download music from DeezLoad (FLAC)',
-        description: 'Download lossless FLAC music using internal DeezLoad Telegram service. Format query: "Judul Lagu" atau "Judul Lagu - Artist".',
+        summary: 'Download music from DeezLoad (FLAC).',
+        description: 'Accepts a song title, or "title - artist" for better matching.',
         querystring: DeezloadQuery,
         response: { 200: DeezloadResponse },
       },

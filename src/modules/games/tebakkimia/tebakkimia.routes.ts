@@ -8,8 +8,7 @@ const tebakkimiaRoutes: FastifyPluginAsyncZod = async (_app) => {
     {
       schema: {
         tags: ['games'],
-        summary: 'Tebak kimia acak',
-        description: 'Mengembalikan satu soal tebak unsur kimia secara acak.',
+        summary: 'Get a random chemical-element-guessing question.',
         response: { 200: TebakkimiaResponse },
       },
     },

@@ -19,7 +19,7 @@ const iqcRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [quota, limit],
       schema: {
         tags: ['maker'],
-        summary: 'Render an iPhone Quote Chat image. Params: type, text, media',
+        summary: 'Render an iPhone-style quote chat image.',
         querystring: IqcQuery,
       },
     },

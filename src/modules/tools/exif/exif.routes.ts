@@ -34,9 +34,7 @@ const exifRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [quota, limit],
       schema: {
         tags: ['tools'],
-        summary: 'Extract EXIF metadata from image URL or file upload',
-        description:
-          'Ambil metadata EXIF dari public image URL lewat query `?image=...` atau upload file dengan multipart/form-data field `file`.',
+        summary: 'Extract metadata from an image.',
         querystring: ExifPostQuery,
 
         /**

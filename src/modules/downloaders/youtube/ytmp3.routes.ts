@@ -19,8 +19,7 @@ const ytmp3Routes: FastifyPluginAsyncZod = async (app) => {
     {
       schema: {
         tags: ['download'],
-        summary: 'YouTube to MP3',
-        description: 'Extract and convert audio from YouTube video to MP3. Returns metadata + short proxy URL.',
+        summary: 'Extract audio from a YouTube video as MP3.',
         querystring: Ytmp3Query,
       },
     },

@@ -176,7 +176,7 @@
         var method = (btn.querySelector('.method') || { textContent: 'GET' }).textContent.trim();
         var snippet = '# Rex API — ' + endpoint + '\ncurl -H "Authorization: Bearer rex_YOUR_KEY" ' +
           (method === 'POST' ? '-X POST ' : '') +
-          'https://rex-api.com' + endpoint;
+          'https://rexapi.my.id' + endpoint;
 
         var original = btn.innerHTML;
         var copied = function () {

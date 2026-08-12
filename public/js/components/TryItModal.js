@@ -1,29 +1,8 @@
-/**
- * TryItModal — fill a form derived from an OpenAPI operation, fire the
- * request, render the response.
- *
- * Schema → form mapping:
- *   parameters: query/path  → FormField for each (primitives) OR JSON
- *                              textarea fallback when schema is complex.
- *   requestBody: application/json → primitive properties become FormField,
- *                                    everything else is rendered as a JSON
- *                                    textarea pre-filled with a sample.
- *   requestBody: multipart/form-data → rendered as file pickers (for
- *                                       string+binary properties) plus a
- *                                       FormField for every other property.
- *
- * Why we accept a JSON textarea fallback instead of fully recursing into
- * objects/arrays: the spec gets ugly fast, and developers reading the
- * playground are happy to author a small JSON blob. We trade a little
- * ergonomics for a much smaller surface to maintain.
- */
-
 import { h, ref, computed, watch } from 'vue';
 import FormField from './FormField.js';
 import ResultPane from './ResultPane.js';
 import { useAuth } from '../auth.js';
 
-// Property types we know how to render with FormField directly.
 const PRIMITIVE_TYPES = new Set(['string', 'integer', 'number', 'boolean']);
 
 function isPrimitiveSchema(s) {
@@ -32,7 +11,6 @@ function isPrimitiveSchema(s) {
   return PRIMITIVE_TYPES.has(s.type);
 }
 
-/** Build a default-aware sample object from a properties map. */
 function sampleFromProperties(props) {
   const out = {};
   for (const [name, sch] of Object.entries(props ?? {})) {
@@ -46,10 +24,6 @@ function sampleFromProperties(props) {
   return out;
 }
 
-/**
- * Resolve the application/json schema (if any) of a requestBody.
- * Returns { schema, required } or null. Already deref'd by useOpenApi.
- */
 function jsonBodySchema(requestBody) {
   if (!requestBody) return null;
   const json = requestBody.content?.['application/json'];
@@ -57,20 +31,6 @@ function jsonBodySchema(requestBody) {
   return { schema: json.schema, required: !!requestBody.required };
 }
 
-/**
- * Multipart hook — content['multipart/form-data'] gets its own
- * schema-driven form: a file picker for each string+binary property, a
- * plain FormField for everything else. This just extracts the schema;
- * the actual inputs are built further down from multipartFiles /
- * multipartFields.
- */
-/**
- * Best-effort `accept` attribute for a file input, derived from the
- * extension list already shown in the field's own description (e.g.
- * "Audio file (mp3, mp4, ogg, wav, webm, m4a) — max 25MB."). Falls back
- * to no restriction if the description doesn't have one — better an
- * unfiltered picker than silently filtering out the right file type.
- */
 function inferAccept(description) {
   const match = description && description.match(/\(([^)]+)\)/);
   if (!match) return undefined;
@@ -99,13 +59,6 @@ export default {
   setup(props, { emit }) {
     const auth = useAuth();
 
-    // Reactive form state. Keys mirror the operation:
-    //   queryValues:  per-name primitive values for `parameters` of `in: query`
-    //   pathValues:   same, for `in: path` (rare on our backend but supported)
-    //   bodyMode:     'fields' | 'json'
-    //   bodyFields:   per-property values when mode === 'fields'
-    //   bodyJsonText: raw JSON when mode === 'json' (or the body has no
-    //                 application/json content type)
     const queryValues = ref({});
     const pathValues = ref({});
     const bodyMode = ref('fields');
@@ -119,9 +72,6 @@ export default {
     const fetchError = ref(null);
     const loading = ref(false);
 
-    // Build initial form state from the op. Run on mount + whenever op
-    // changes (not strictly needed since the parent re-mounts the modal
-    // per click, but cheap insurance).
     function initFromOp() {
       queryValues.value = {};
       pathValues.value = {};
@@ -142,9 +92,6 @@ export default {
       const json = jsonBodySchema(props.op.requestBody);
       if (json) {
         const s = json.schema;
-        // Only attempt fields-mode for plain object schemas with primitive
-        // properties. Anything else (oneOf, allOf, array root, deep nested)
-        // gets the textarea.
         if (s.type === 'object' && s.properties && Object.values(s.properties).every(isPrimitiveSchema)) {
           bodyMode.value = 'fields';
           bodyFields.value = sampleFromProperties(s.properties);
@@ -168,8 +115,6 @@ export default {
       return p;
     });
 
-    // Build the actual request body from form state. Returns:
-    //   { jsonBody: object } | { error: string } | { jsonBody: undefined }
     function buildBody() {
       const json = jsonBodySchema(props.op.requestBody);
       const multipart = multipartBodySchema(props.op.requestBody);
@@ -247,8 +192,6 @@ export default {
         return;
       }
 
-      // Strip empty query strings for cleaner URLs (and to let the server
-      // apply its zod defaults).
       const queryClean = {};
       for (const [k, v] of Object.entries(queryValues.value)) {
         if (v !== '' && v !== undefined && v !== null) queryClean[k] = v;
@@ -266,10 +209,7 @@ export default {
           security: props.op.security,
           securitySchemes: props.securitySchemes,
         });
-        // Refresh sidebar usage if the endpoint counts against quota
-        // (anon/user). Cheap GET; ignore errors.
         if (auth.isAuthenticated.value) auth.refreshUsage().catch(() => {});
-        // Feed the Overview's Recent Requests log + onboarding checklist.
         emit('result', {
           method: props.op.method,
           path: resolvedPath.value,
@@ -283,13 +223,10 @@ export default {
       }
     }
 
-    // Auth-readiness hint. Block "Execute" with a clearer message when
-    // the operation needs auth and we don't have it.
     const authStatus = computed(() => {
       const sec = props.op.security || [];
       if (sec.length === 0) return { ok: true };
       const snap = auth.snapshot();
-      // OR: any matching scheme satisfies us.
       for (const req of sec) {
         for (const name of Object.keys(req)) {
           const scheme = props.securitySchemes?.[name];
@@ -464,19 +401,15 @@ export default {
       if (mode === bodyMode.value) return;
       const json = jsonBodySchema(props.op.requestBody);
       if (mode === 'json') {
-        // Serialize current fields → JSON so the user doesn't lose input.
         bodyJsonText.value = JSON.stringify(bodyFields.value, null, 2);
         bodyMode.value = 'json';
       } else {
-        // Try to parse current JSON back into fields. Fall back gracefully
-        // if it's malformed — devs can fix it manually.
         try {
           const parsed = JSON.parse(bodyJsonText.value || '{}');
           if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
             const required = json?.schema.required || [];
             const merged = sampleFromProperties(json?.schema.properties || {});
             for (const k of Object.keys(merged)) merged[k] = parsed[k] ?? merged[k];
-            // Preserve any user-added keys we don't know about.
             for (const [k, v] of Object.entries(parsed)) if (!(k in merged)) merged[k] = v;
             bodyFields.value = merged;
             void required;
@@ -513,17 +446,6 @@ export default {
                   h('strong', {}, 'Sign in to try this endpoint'),
                   h('div', {}, authStatus.value.hint),
                 ]),
-                // Direct sign-in CTA. Honours `next=` so the user lands
-                // back on this exact dashboard after login. We can't
-                // reopen the modal automatically (no modal-state in
-                // URL today), but at least the dashboard tab they were
-                // looking at is preserved.
-                //
-                // Strip trailing .html (and the bare /index special
-                // case) so the next= param uses our clean-URL form
-                // even when the user happens to be on the legacy
-                // /<page>.html path that @fastify/static still serves.
-                // See Sidebar.js#loginHref for the same logic.
                 h('a', {
                   class: 'btn primary sm',
                   href: (() => {
@@ -557,12 +479,6 @@ export default {
             h('button', { class: 'btn', onClick: () => emit('close') }, 'Close'),
             h('button', {
               class: 'btn primary',
-              // Disable Execute when:
-              //  - already in flight (loading)
-              //  - the endpoint requires auth and we have none (soft gate).
-              // We deliberately STILL render the form fields above so users
-              // can browse & understand what an endpoint accepts before
-              // committing to register — the gate is only on execution.
               disabled: loading.value || !authStatus.value.ok,
               title: !authStatus.value.ok ? 'Sign in via the sidebar to enable Execute' : '',
               onClick: execute,
@@ -573,7 +489,6 @@ export default {
   },
 };
 
-/** Pick a sensible default download filename from the operation path. */
 function filenameFromOp(op) {
   const last = op.path.split('/').filter(Boolean).pop() || 'response';
   return last.replace(/[^a-z0-9-_]/gi, '_').toLowerCase();

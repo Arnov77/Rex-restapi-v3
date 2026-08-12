@@ -7,8 +7,8 @@
   <meta name="description" content="Sign in to your Rex API account, or create a new one." />
   <link rel="icon" type="image/x-icon" href="/assets/image/favicon.ico" />
   <link rel="manifest" href="/site.webmanifest" />
-  <link rel="stylesheet" href="/css/dashboard.css" />
-  <link rel="stylesheet" href="/css/login.css" />
+  <link rel="stylesheet" href="./css/dashboard.css" />
+  <link rel="stylesheet" href="./css/login.css" />
 </head>
 <body>
   <main class="auth-page">
@@ -65,35 +65,16 @@
   </main>
 
   <script type="module">
-    /*
-      Vanilla auth flow. We intentionally don't import auth.js (the Vue
-      composable) here — this page is a sibling, not a child, so it
-      writes the same localStorage keys directly.
-    */
+
     const LS_JWT = 'rex.jwt';
     const LS_KEY = 'rex.apiKey';
 
-    // Where to land after a successful sign-in. Honour ?next=… if it's a
-    // same-origin path; otherwise fall back to /dashboard. We
-    // reject absolute URLs and any path that doesn't start with '/' so a
-    // forged link can't redirect through our auth screen to a phishing
-    // site.
-    //
-    // Defense-in-depth `.html` strip: every page-side caller (Sidebar,
-    // TryItModal) already produces a clean path, but stale bookmarks
-    // and externally-shared links from the pre-clean-URL era can still
-    // arrive as `?next=%2Fdashboard.html`. Normalising here means
-    // everyone — old links included — lands on /dashboard, /login,
-    // /profile in the address bar after sign-in.
     function resolveNextHref() {
       const raw = new URLSearchParams(location.search).get('next');
       if (!raw) return '/dashboard';
       try {
         const decoded = decodeURIComponent(raw);
         if (!decoded.startsWith('/') || decoded.startsWith('//')) return '/dashboard';
-        // Strip an `.html` suffix from the pathname portion only — never
-        // touch the query string or hash. URL.parse + a relative base
-        // makes the split safe without us reinventing query parsing.
         const u = new URL(decoded, location.origin);
         u.pathname = u.pathname.replace(/\.html$/i, '');
         if (u.pathname === '/index') u.pathname = '/';
@@ -136,7 +117,6 @@
       sub.textContent = isLogin
         ? 'Sign in to access the dashboard.'
         : 'Free 1,000 daily requests. Upgrade later if you need more.';
-      // Auto-focus the first field for keyboard users.
       const target = isLogin ? document.getElementById('login-id') : document.getElementById('reg-username');
       requestAnimationFrame(() => target.focus());
     }
@@ -167,12 +147,6 @@
     });
 
     // ── Register submit ──────────────────────────────────────────────
-    // Mirrors the dashboard's auth.register flow: after creating the
-    // account, immediately call /me/key/regenerate with the same
-    // password so the user has a working API key on this device. The
-    // backend's /auth/register doesn't return plaintext for user-tier
-    // keys (they're not stored encrypted), so this is the only way to
-    // give a brand-new user a usable key without a second prompt.
     const regErr = document.getElementById('reg-err');
     const btnRegister = document.getElementById('btn-register');
     formRegister.addEventListener('submit', async (e) => {
@@ -186,8 +160,6 @@
         const r = await postJson('/api/auth/register', { username, email, password });
         localStorage.setItem(LS_JWT, r.data.token);
 
-        // Best-effort key seed; failure here doesn't block the redirect
-        // (user can regenerate manually from /profile).
         try {
           const k = await fetch('/api/me/key/regenerate', {
             method: 'POST',
@@ -211,19 +183,11 @@
 
     // If user is already signed in, skip the form and go straight to next=.
     if (localStorage.getItem(LS_JWT)) {
-      // Cheap probe — if the JWT is still valid, redirect. If it's
-      // rejected (401), drop it and stay on the page so they can sign
-      // in again. Anything else (network blip), trust the local token
-      // and redirect anyway.
       fetch('/api/me', {
         headers: { Authorization: `Bearer ${localStorage.getItem(LS_JWT)}` },
       }).then((r) => {
         if (r.ok) location.href = resolveNextHref();
         else if (r.status === 401) {
-          // Token rejected → drop both credentials together. Leaving
-          // the cached apiKey behind would let the dashboard keep
-          // identifying the now-logged-out user via the api client's
-          // opportunistic X-API-Key header (see auth.js#doLogout).
           localStorage.removeItem(LS_JWT);
           localStorage.removeItem(LS_KEY);
         }

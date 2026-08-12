@@ -6,8 +6,8 @@
   <title>Profile · Rex API</title>
   <link rel="icon" type="image/x-icon" href="/assets/image/favicon.ico" />
   <link rel="manifest" href="/site.webmanifest" />
-  <link rel="stylesheet" href="/css/dashboard.css" />
-  <link rel="stylesheet" href="/css/profile.css" />
+  <link rel="stylesheet" href="./css/dashboard.css" />
+  <link rel="stylesheet" href="./css/profile.css" />
 </head>
 <body>
   <main class="page">
@@ -96,13 +96,8 @@
 
   <!--
     ─── Modals ──────────────────────────────────────────────────────
-    Two modals share the dashboard's .overlay/.modal styles so the look
-    is consistent with the try-it modal on the dashboard. Each is
-    `hidden` by default; the script toggles them on demand.
   -->
 
-  <!-- Regenerate password modal — markup mirrors the dashboard's Vue
-       PasswordModal exactly (pw-* classes) so both surfaces look identical. -->
   <div class="overlay" id="regen-modal" hidden>
     <div class="modal pw-modal" role="dialog" aria-labelledby="regen-title" aria-modal="true">
       <div class="modal-head">
@@ -194,15 +189,6 @@
   <div class="toasts" id="toasts" aria-live="polite"></div>
 
   <script type="module">
-    /*
-      Vanilla profile page — no Vue. Reads the same localStorage keys
-      as auth.js so it stays in sync with the dashboard.
-
-      All UI feedback uses in-page elements (modals + toasts). No
-      window.alert / window.prompt / window.confirm anywhere — those
-      look like a browser intrusion, leak the page origin in their
-      titles, and break the dark theme.
-    */
     const LS_JWT = 'rex.jwt';
     const LS_KEY = 'rex.apiKey';
     const $ = (id) => document.getElementById(id);
@@ -217,28 +203,8 @@
     }
 
     // ── Clipboard helper ────────────────────────────────────────────
-    /**
-     * Copy text with a graceful fallback for non-secure contexts.
-     *
-     * Why a fallback at all: `navigator.clipboard.writeText` is gated to
-     * secure contexts (HTTPS, localhost). When we serve the dashboard
-     * over plain HTTP — e.g. an internal IP or a self-host preview
-     * before TLS is wired up — the API is `undefined` and the call
-     * throws `TypeError`. Devs trying their key get a "Clipboard
-     * blocked by browser" toast and have to long-press to select.
-     *
-     * The legacy path uses `document.execCommand('copy')` against an
-     * off-screen `<textarea>`. It's deprecated but still works in every
-     * browser we care about (incl. iOS Safari and Firefox), and it
-     * doesn't require a secure context. We prefer the modern API when
-     * it's available because it's permission-aware and works with
-     * `await`; the legacy path is purely a safety net.
-     */
     async function copyText(text) {
       if (!text) throw new Error('Nothing to copy');
-      // Try modern API first when it's actually available. `navigator.clipboard`
-      // can be `undefined` on http: origins, so guard against the property
-      // access too — not just the function call.
       if (
         typeof navigator !== 'undefined' &&
         navigator.clipboard &&
@@ -249,21 +215,12 @@
           await navigator.clipboard.writeText(text);
           return true;
         } catch {
-          // Fall through to the legacy path. Some browsers throw even on
-          // https when the page lacks user activation; execCommand uses a
-          // synchronous user-gesture context that often succeeds where
-          // the async API doesn't.
         }
       }
 
-      // Legacy fallback — works on http:// origins (no secure-context
-      // requirement). The textarea sits off-screen, briefly receives
-      // focus + a full selection, and is removed immediately after.
       const ta = document.createElement('textarea');
       ta.value = text;
       ta.setAttribute('readonly', '');
-      // Position off-screen but keep it focusable; display:none breaks
-      // selection on some browsers.
       ta.style.position = 'fixed';
       ta.style.top = '0';
       ta.style.left = '0';
@@ -275,8 +232,6 @@
       ta.style.pointerEvents = 'none';
       document.body.appendChild(ta);
 
-      // iOS Safari needs the contenteditable + manual range trick to
-      // honour `select()` programmatically.
       const isIOS = /iP(hone|od|ad)/.test(navigator.platform);
       if (isIOS) {
         ta.contentEditable = 'true';
@@ -303,18 +258,6 @@
     }
 
     // ── Modal helpers ───────────────────────────────────────────────
-    /**
-     * Open a custom modal. Locks body scroll, gives the first input
-     * (or any [data-autofocus] / .primary button) keyboard focus, and
-     * wires three close paths: the X button, any `[data-close-<id>]`
-     * elements inside, Escape, and clicking the overlay outside the
-     * modal box. Returns a `close()` function.
-     *
-     * The data-attribute convention is `data-close-<base>` where <base>
-     * is the modal's id without the trailing `-modal` (e.g.
-     * `data-close-regen` for `#regen-modal`). Lets each modal carry
-     * its own close affordances without shared id collisions.
-     */
     function openModal(el, { onClose } = {}) {
       el.hidden = false;
       document.body.style.overflow = 'hidden';
@@ -366,9 +309,6 @@
       try { body = await res.json(); } catch { /* empty body */ }
       if (!res.ok) {
         if (res.status === 401) {
-          // Token rejected → wipe full credential state. Mirrors the
-          // explicit-logout path: see the apiKey leak comment on the
-          // 'Logout' click handler below.
           localStorage.removeItem(LS_JWT);
           localStorage.removeItem(LS_KEY);
           gotoLogin();
@@ -443,14 +383,6 @@
     }
 
     // ── Logout ──────────────────────────────────────────────────────
-    // Wipe both the JWT and the cached apiKey, mirroring auth.js's
-    // doLogout. See the comment block there for the full rationale —
-    // tl;dr the dashboard's api client opportunistically attaches the
-    // cached X-API-Key, so leaving it in localStorage means the user
-    // keeps being identified (and gets the user-tier 1000/day rather
-    // than anon 100/day) even after they hit Logout. We never want a
-    // visible "Logged out" UI to coexist with a still-credentialed
-    // request profile.
     $('btn-logout').addEventListener('click', () => {
       localStorage.removeItem(LS_JWT);
       localStorage.removeItem(LS_KEY);
@@ -458,13 +390,6 @@
     });
 
     // ── Copy key ────────────────────────────────────────────────────
-    /**
-     * One-tap copy with visual feedback. Replaces the button label for
-     * ~1.6s. No popup, no native alert. Uses the copyText helper which
-     * falls back to document.execCommand('copy') when the modern
-     * Clipboard API is unavailable (http origins) or refuses
-     * (no user-activation, locked-down kiosk, etc.).
-     */
     $('btn-copy').addEventListener('click', async () => {
       const k = localStorage.getItem(LS_KEY);
       const btn = $('btn-copy');
@@ -487,15 +412,6 @@
     });
 
     // ── Regenerate key ──────────────────────────────────────────────
-    /**
-     * Regenerate flow:
-     *   1. Open #regen-modal → password input.
-     *   2. POST /api/me/key/regenerate with the password.
-     *   3. On success, close the password modal and open #reveal-modal
-     *      with the freshly minted plaintext (visible exactly once).
-     *   4. On error, show the message inline inside the password modal
-     *      so the user can fix it without losing context.
-     */
     const regenModal = $('regen-modal');
     const revealModal = $('reveal-modal');
 
@@ -504,23 +420,12 @@
     let closeRevealPw = null;
 
     // ── Password-modal harmonization helpers ────────────────────────
-    /**
-     * Set the inline error banner inside a pw-* modal. The banner now
-     * carries the same markup as the dashboard's PasswordModal
-     * (red ! icon + message text) — the message text lives in
-     * `.pw-error-text` so we never overwrite the icon span.
-     */
     function setModalError(errEl, msg) {
       const text = errEl.querySelector('.pw-error-text');
       text.textContent = msg || '';
       errEl.hidden = !msg;
     }
 
-    /**
-     * Wire every eye-toggle button. [data-pw-toggle="<input-id>"] swaps
-     * the paired input between password/text and flips ◑/◐ — same
-     * affordance as the dashboard's Vue PasswordModal.
-     */
     document.querySelectorAll('[data-pw-toggle]').forEach((btn) => {
       const input = document.getElementById(btn.dataset.pwToggle);
       btn.addEventListener('click', () => {
@@ -565,7 +470,6 @@
         localStorage.setItem(LS_KEY, plaintext);
         $('key-display').textContent = maskedKey(plaintext);
 
-        // Close password modal, reveal new key in a second modal.
         closeRegen?.();
         $('reveal-title').textContent = 'Your new API key';
         $('reveal-message').textContent =

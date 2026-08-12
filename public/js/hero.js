@@ -59,7 +59,7 @@
     var el = document.getElementById('cpRequest');
     if (!el) return;
 
-    var FULL = 'curl -H "Authorization: Bearer rex_…" https://rex-api.com/api/ai/imagegen';
+    var FULL = 'curl -H "Authorization: Bearer rex_…" https://rexapi.my.id/api/ai/imagegen';
     el.textContent = '';
 
     if (prefersReducedMotion) { el.textContent = FULL; return; }

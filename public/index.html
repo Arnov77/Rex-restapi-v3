@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Primary SEO (redesign guide §4.2 — hardened from the original head) -->
+  <!-- Primary SEO -->
   <title>Rex API — Free REST API for Bots, Apps &amp; Automation</title>
   <meta
     name="description"
@@ -15,10 +15,7 @@
     content="REST API, bot API, app API, screenshot API, image tools API, quote card API, brat generator API, developer tools API, web utilities API"
   />
   <meta name="robots" content="index, follow, max-image-preview:large" />
-  <!-- FIX (redesign guide §4): canonical must be an absolute URL — replace
-       rex-api.com with your production domain. A relative "/" is invalid
-       for canonical and can be misinterpreted by Google. -->
-  <link rel="canonical" href="https://rex-api.com/" />
+  <link rel="canonical" href="https://rexapi.my.id/" />
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
@@ -28,9 +25,7 @@
     property="og:description"
     content="80+ documented endpoints: media downloaders, AI tools, image generators, and web utilities in one fast REST API."
   />
-  <!-- FIX (redesign guide §4): og:url must be absolute — "/" is unresolvable
-       by social crawlers. Replace with your production domain. -->
-  <meta property="og:url" content="https://rex-api.com/" />
+  <meta property="og:url" content="https://rexapi.my.id/" />
   <meta property="og:locale" content="en_US" />
 
   <!-- Twitter -->
@@ -44,27 +39,22 @@
     content="80+ endpoints for media downloaders, AI tools, image generators, and web utilities. Free API key, documented, JWT-secured."
   />
 
-  <!-- Favicons / manifest (original, kept) -->
+  <!-- Favicons / manifest -->
   <link rel="icon" type="image/x-icon" href="/assets/image/favicon.ico" />
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/image/apple-touch-icon.png" />
   <link rel="manifest" href="/site.webmanifest" />
   <meta name="theme-color" content="#07090c" />
 
-  <!-- Single stylesheet: the merged style.css (original tokens + redesign) -->
-  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="./css/style.css" />
+  <link rel="stylesheet" href="./css/icons.css" />
 
-  <!-- Structured data (redesign guide §4.4 — hardened SoftwareApplication
-       + Organization + FAQPage + BreadcrumbList. Replace rex-api.com with
-       your production domain everywhere. The FAQPage block is hydrated by
-       the landing-page script from the real <details> content so markup
-       and schema can never drift apart.) -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    "@id": "https://rex-api.com/#software",
+    "@id": "https://rexapi.my.id/#software",
     "name": "Rex API",
-    "url": "https://rex-api.com/",
+    "url": "https://rexapi.my.id/",
     "applicationCategory": "DeveloperApplication",
     "operatingSystem": "Web",
     "description": "A documented REST API for bots, apps, and automation offering media downloaders, AI tools, image generators, and web utilities.",
@@ -76,17 +66,17 @@
     ],
     "brand": { "@type": "Brand", "name": "Rex API" },
     "creator": { "@type": "Person", "name": "Rex API Team",
-                 "url": "https://rex-api.com/" }
+                 "url": "https://rexapi.my.id/" }
   }
   </script>
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "Organization",
-    "@id": "https://rex-api.com/#organization",
+    "@id": "https://rexapi.my.id/#organization",
     "name": "Rex API",
-    "url": "https://rex-api.com/",
-    "logo": "https://rex-api.com/assets/image/web-app-manifest-512x512.png",
+    "url": "https://rexapi.my.id/",
+    "logo": "https://rexapi.my.id/assets/image/web-app-manifest-512x512.png",
     "sameAs": [
       "https://github.com/Arnov77/Rex-restapi-v3"
     ]
@@ -105,17 +95,17 @@
     "@type": "BreadcrumbList",
     "itemListElement": [
       { "@type": "ListItem", "position": 1, "name": "Home",
-        "item": "https://rex-api.com/" }
+        "item": "https://rexapi.my.id/" }
     ]
   }
   </script>
 </head>
 
 <body>
-  <!-- Skip link (accessibility requirement; bonus crawl signal) -->
+  <!-- Skip link -->
   <a class="skip-link" href="#hero-title">Skip to content</a>
 
-  <!-- Top bar (original, kept) -->
+  <!-- Top bar -->
   <header class="topbar">
     <div class="topbar-inner">
       <a class="brand" href="/" aria-label="Rex API home">
@@ -129,13 +119,13 @@
         <a href="#tiers">Pricing</a>
         <a href="/docs">Docs</a>
         <a href="/login">Sign in</a>
-        <a class="btn primary" href="/dashboard">Open dashboard &rarr;</a>
+        <a class="btn primary" href="/dashboard">Open dashboard</a>
       </nav>
     </div>
   </header>
 
   <main>
-    <!-- Hero (redesigned: two-column layout with live code preview) -->
+    <!-- Hero -->
     <section class="hero" id="hero" aria-labelledby="hero-title">
       <div class="section-inner">
         <div class="hero-grid">
@@ -157,13 +147,11 @@
             </p>
 
             <div class="hero-ctas">
-              <a class="btn primary lg" href="/dashboard">Get your free API key &rarr;</a>
+              <a class="btn primary lg" href="/dashboard">Get your free API key <i class="bi bi-box-arrow-up-right"></i></a>
               <a class="btn lg" href="/docs">Explore the docs</a>
             </div>
           </div>
 
-          <!-- Code preview component (new): demo mode by default. To show
-               live data from your own API, set data-mode="live". -->
           <div class="code-preview" id="codePreview" data-mode="demo" role="region" aria-label="Live API preview">
             <div class="cp-head">
               <div class="cp-dots" aria-hidden="true"><span></span><span></span><span></span></div>
@@ -171,7 +159,7 @@
             </div>
             <div class="cp-request">
               <span class="cp-prompt" aria-hidden="true">$</span>
-              <pre id="cpRequest">curl -H "Authorization: Bearer rex_…" https://rex-api.com/api/ai/imagegen</pre>
+              <pre id="cpRequest">curl -H "Authorization: Bearer rex_…" https://rexapi.my.id/api/downloader/ytplay</pre>
             </div>
             <div class="cp-response">
               <button class="cp-copy" id="cpCopy" type="button" aria-label="Copy request and response">
@@ -182,15 +170,16 @@
                 Copy
               </button>
               <pre id="cpResponse">{
-  <span class="k">"success"</span>: <span class="b">true</span>,
+  <span class="k">"ok"</span>: <span class="b">true</span>,
   <span class="k">"data"</span>: {
-    <span class="k">"id"</span>: <span class="s">"img_01J2X6K8Q3J8Z9T6M5R7V2"</span>,
-    <span class="k">"url"</span>: <span class="s">"https://rex-api.com/files/img_…png"</span>,
-    <span class="k">"format"</span>: <span class="s">"png"</span>,
-    <span class="k">"width"</span>: <span class="n">1024</span>,
-    <span class="k">"height"</span>: <span class="n">1024</span>
-  },
-  <span class="k">"ms"</span>: <span class="n">312</span>
+    <span class="k">"title"</span>: <span class="s">"Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster)"</span>,
+    <span class="k">"author"</span>: <span class="s">"Rick Astley"</span>,
+    <span class="k">"thumbnail"</span>: <span class="s">"https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg"</span>,
+    <span class="k">"duration"</span>: <span class="n">213</span>,
+    <span class="k">"source"</span>: <span class="s">"search"</span>,
+    <span class="k">"url"</span>: <span class="s">"https://rexapi.my.id/p/05jmytci"</span>,
+    <span class="k">"format"</span>: <span class="s">"mp3"</span>
+  }
 }</pre>
               <span class="cp-cursor" aria-hidden="true"></span>
             </div>
@@ -206,11 +195,9 @@
       </div>
     </section>
 
-    <!-- Social proof (new) -->
+    <!-- Social proof -->
     <section class="proof" id="social-proof" aria-label="Usage statistics">
       <div class="section-inner">
-        <!-- visually-hidden h2 preserves the one-h1-per-page rule while
-             giving crawlers a section signal (redesign guide §4.1). -->
         <h2 class="visually-hidden">Trusted by developers</h2>
         <div class="proof-grid">
           <div class="stat" data-count="84">
@@ -250,7 +237,7 @@
       </div>
     </section>
 
-    <!-- Features (original content + redesigned cards with endpoint chips) -->
+    <!-- Features -->
     <section id="features" class="features" aria-labelledby="features-title">
       <div class="section-inner">
         <div class="section-label">What's included</div>
@@ -364,7 +351,7 @@
       </div>
     </section>
 
-    <!-- How it works (new) -->
+    <!-- How it works -->
     <section class="steps-section" id="how-it-works" aria-labelledby="steps-title">
       <div class="section-inner">
         <div class="section-label" style="text-align:center">How it works</div>
@@ -387,11 +374,11 @@
             <h3>Make your first request</h3>
             <p>Attach the key as a Bearer token and call any endpoint. Responses are JSON with <code>success</code>, <code>data</code>, and <code>ms</code>.</p>
             <pre>curl -H <span class="s">"Authorization: Bearer rex_…"</span> \
-  https://rex-api.com/api/ai/imagegen?q=cat</pre>
+  https://rexapi.my.id/api/ai/imagegen?q=cat</pre>
           </li>
           <li class="step">
             <h3>Build &amp; scale</h3>
-            <p>Wire it into your Discord or Telegram bot, track usage in the dashboard, and upgrade when you outgrow 150 requests/day.</p>
+            <p>Wire it into your Discord, WhatsApp or Telegram bot, track usage in the dashboard, and upgrade when you outgrow 150 requests/day.</p>
             <pre>const res = await fetch(
   <span class="s">"/api/downloader/youtube?q=URL"</span>, {
   headers: { <span class="s">"Authorization"</span>: <span class="s">"Bearer rex_…"</span> }
@@ -401,7 +388,7 @@
       </div>
     </section>
 
-    <!-- Tiers (original, kept — styling upgraded in style.css) -->
+    <!-- Tiers -->
     <section id="tiers" class="tiers" aria-labelledby="tiers-title">
       <div class="section-inner">
         <div class="section-label" style="text-align:center">Pricing</div>
@@ -463,7 +450,7 @@
       </div>
     </section>
 
-    <!-- FAQ (new — SEO lever for featured snippets) -->
+    <!-- FAQ -->
     <section class="faq-section" id="faq" aria-labelledby="faq-title">
       <div class="section-inner">
         <div class="section-label" style="text-align:center">FAQ</div>
@@ -484,7 +471,7 @@
             <div class="faq-answer">Rex API provides over 80 endpoints grouped into media downloaders (YouTube, TikTok, Instagram, Twitter/X), AI tools (chat, image generation, transcription), image makers, web utilities (screenshots, OCR, QR codes), search, games, and shortlinks with click tracking.</div>
           </details>
           <details class="faq-item">
-            <summary>Can I use Rex API with Discord or Telegram bots?</summary>
+            <summary>Can I use Rex API with Discord, WhatsApp or Telegram bots?</summary>
             <div class="faq-answer">Yes — that is exactly what it was built for. The JSON response shape (<code>success</code>, <code>data</code>, <code>ms</code>) maps cleanly onto Discord.js, Telegraf, and other bot frameworks, and most downloaders return direct media URLs you can forward immediately.</div>
           </details>
           <details class="faq-item">
@@ -504,7 +491,7 @@
       <div class="section-inner">
         <h2>Ship your next bot today</h2>
         <p>One key, 84+ endpoints, zero boilerplate. Your first request is a curl away.</p>
-        <a class="btn primary lg" href="/dashboard">Get your free API key &rarr;</a>
+        <a class="btn primary lg" href="/dashboard">Get your free API key <i class="bi bi-box-arrow-up-right"></i></a>
       </div>
     </section>
   </main>
@@ -526,6 +513,6 @@
   </footer>
 
   <!-- Landing-page behavior (vanilla, deferred — Core Web Vitals, guide §4.3) -->
-  <script src="/js/landing.js" defer></script>
+  <script src="./js/landing.js" defer></script>
 </body>
 </html>

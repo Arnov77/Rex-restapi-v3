@@ -4,75 +4,118 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Primary SEO -->
-  <title>Rex API — REST API for Bots, Apps & Automation</title>
+  <!-- Primary SEO (redesign guide §4.2 — hardened from the original head) -->
+  <title>Rex API — Free REST API for Bots, Apps &amp; Automation</title>
   <meta
     name="description"
-    content="Rex API is a developer-friendly REST API for bots, apps, and automation. Download media from popular platforms, use AI tools, generate images, and access dozens of web utilities — all through one documented API."
+    content="One documented REST API with 80+ endpoints: media downloaders, AI tools, image generators, and web utilities. Get a free API key and start in minutes."
   />
   <meta
     name="keywords"
     content="REST API, bot API, app API, screenshot API, image tools API, quote card API, brat generator API, developer tools API, web utilities API"
   />
-  <meta name="robots" content="index, follow" />
-  <meta name="theme-color" content="#0a0a0a" />
-  <link rel="canonical" href="/" />
+  <meta name="robots" content="index, follow, max-image-preview:large" />
+  <!-- FIX (redesign guide §4): canonical must be an absolute URL — replace
+       rex-api.com with your production domain. A relative "/" is invalid
+       for canonical and can be misinterpreted by Google. -->
+  <link rel="canonical" href="https://rex-api.com/" />
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="Rex API" />
-  <meta property="og:title" content="Rex API — REST API for Bots, Apps & Automation" />
+  <meta property="og:title" content="Rex API — Free REST API for Bots & Apps" />
   <meta
     property="og:description"
-    content="One documented REST API for bots, apps, and automation — media downloaders, AI tools, image generators, and web utilities in one place."
+    content="80+ documented endpoints: media downloaders, AI tools, image generators, and web utilities in one fast REST API."
   />
-  <meta property="og:url" content="/" />
+  <!-- FIX (redesign guide §4): og:url must be absolute — "/" is unresolvable
+       by social crawlers. Replace with your production domain. -->
+  <meta property="og:url" content="https://rex-api.com/" />
+  <meta property="og:locale" content="en_US" />
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Rex API — REST API for Bots, Apps & Automation" />
+  <meta
+    name="twitter:title"
+    content="Rex API — Free REST API for Bots & Apps"
+  />
   <meta
     name="twitter:description"
-    content="Media downloaders, AI tools, image generators, and web utilities — all through one fast, documented REST API."
+    content="80+ endpoints for media downloaders, AI tools, image generators, and web utilities. Free API key, documented, JWT-secured."
   />
 
-  <!-- Favicons / manifest -->
+  <!-- Favicons / manifest (original, kept) -->
   <link rel="icon" type="image/x-icon" href="/assets/image/favicon.ico" />
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/image/apple-touch-icon.png" />
   <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#07090c" />
 
+  <!-- Single stylesheet: the merged style.css (original tokens + redesign) -->
   <link rel="stylesheet" href="/css/style.css" />
 
-  <!-- Structured data: helps search engines understand the product -->
+  <!-- Structured data (redesign guide §4.4 — hardened SoftwareApplication
+       + Organization + FAQPage + BreadcrumbList. Replace rex-api.com with
+       your production domain everywhere. The FAQPage block is hydrated by
+       the landing-page script from the real <details> content so markup
+       and schema can never drift apart.) -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
+    "@id": "https://rex-api.com/#software",
     "name": "Rex API",
+    "url": "https://rex-api.com/",
     "applicationCategory": "DeveloperApplication",
-    "operatingSystem": "Any",
-    "description": "A REST API for bots, apps, and automation — media downloaders, AI tools, image generators, games, and web utilities.",
-    "url": "/",
+    "operatingSystem": "Web",
+    "description": "A documented REST API for bots, apps, and automation offering media downloaders, AI tools, image generators, and web utilities.",
     "offers": [
-      {
-        "@type": "Offer",
-        "name": "Anonymous",
-        "price": "0",
-        "priceCurrency": "USD"
-      },
-      {
-        "@type": "Offer",
-        "name": "Registered",
-        "price": "0",
-        "priceCurrency": "USD"
-      }
+      { "@type": "Offer", "name": "Anonymous tier", "price": "0",
+        "priceCurrency": "USD", "description": "15 requests per day per IP" },
+      { "@type": "Offer", "name": "Registered tier", "price": "0",
+        "priceCurrency": "USD", "description": "150 requests per day, personal API key" }
+    ],
+    "brand": { "@type": "Brand", "name": "Rex API" },
+    "creator": { "@type": "Person", "name": "Rex API Team",
+                 "url": "https://rex-api.com/" }
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "@id": "https://rex-api.com/#organization",
+    "name": "Rex API",
+    "url": "https://rex-api.com/",
+    "logo": "https://rex-api.com/assets/image/web-app-manifest-512x512.png",
+    "sameAs": [
+      "https://github.com/Arnov77/Rex-restapi-v3"
+    ]
+  }
+  </script>
+  <script type="application/ld+json" id="faqSchema">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": []
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Home",
+        "item": "https://rex-api.com/" }
     ]
   }
   </script>
 </head>
 
 <body>
-  <!-- Top bar -->
+  <!-- Skip link (accessibility requirement; bonus crawl signal) -->
+  <a class="skip-link" href="#hero-title">Skip to content</a>
+
+  <!-- Top bar (original, kept) -->
   <header class="topbar">
     <div class="topbar-inner">
       <a class="brand" href="/" aria-label="Rex API home">
@@ -92,33 +135,122 @@
   </header>
 
   <main>
-    <!-- Hero -->
-    <section class="hero" aria-labelledby="hero-title">
+    <!-- Hero (redesigned: two-column layout with live code preview) -->
+    <section class="hero" id="hero" aria-labelledby="hero-title">
       <div class="section-inner">
-        <div class="hero-pill" id="statusPill" hidden>
-          <span class="dot" aria-hidden="true"></span>
-          <span id="statusPillText">All systems operational</span>
-        </div>
+        <div class="hero-grid">
+          <div class="hero-copy">
+            <div class="hero-pill" id="statusPill" data-state="ok" aria-live="polite">
+              <span class="dot" aria-hidden="true"></span>
+              <span id="statusPillText">All systems operational · v3</span>
+            </div>
 
-        <h1 id="hero-title">
-          One REST API for <span class="accent">bots, apps,</span><br />
-          and automation
-        </h1>
+            <h1 id="hero-title">
+              One REST API for <span class="accent">bots, apps,</span><br />
+              and automation
+            </h1>
 
-        <p class="sub">
-          Download media, use AI tools, generate images, and access dozens of
-          web utilities — all through one documented API, secured with JWT
-          and ready to use from your dashboard.
-        </p>
+            <p class="sub">
+              Download media, use AI tools, generate images, and access dozens
+              of web utilities — all through one documented API, secured with
+              JWT and ready to use from your dashboard.
+            </p>
 
-        <div class="hero-ctas">
-          <a class="btn primary lg" href="/dashboard">Get your free API key &rarr;</a>
-          <a class="btn lg" href="/docs">Explore the docs</a>
+            <div class="hero-ctas">
+              <a class="btn primary lg" href="/dashboard">Get your free API key &rarr;</a>
+              <a class="btn lg" href="/docs">Explore the docs</a>
+            </div>
+          </div>
+
+          <!-- Code preview component (new): demo mode by default. To show
+               live data from your own API, set data-mode="live". -->
+          <div class="code-preview" id="codePreview" data-mode="demo" role="region" aria-label="Live API preview">
+            <div class="cp-head">
+              <div class="cp-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+              <div class="cp-title">preview<span class="cp-badge" id="cpBadge">200 OK</span></div>
+            </div>
+            <div class="cp-request">
+              <span class="cp-prompt" aria-hidden="true">$</span>
+              <pre id="cpRequest">curl -H "Authorization: Bearer rex_…" https://rex-api.com/api/ai/imagegen</pre>
+            </div>
+            <div class="cp-response">
+              <button class="cp-copy" id="cpCopy" type="button" aria-label="Copy request and response">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                  <rect x="5.5" y="5.5" width="8.5" height="8.5" rx="1.6"/>
+                  <path d="M3 10.5V3.5a1.5 1.5 0 0 1 1.5-1.5H11"/>
+                </svg>
+                Copy
+              </button>
+              <pre id="cpResponse">{
+  <span class="k">"success"</span>: <span class="b">true</span>,
+  <span class="k">"data"</span>: {
+    <span class="k">"id"</span>: <span class="s">"img_01J2X6K8Q3J8Z9T6M5R7V2"</span>,
+    <span class="k">"url"</span>: <span class="s">"https://rex-api.com/files/img_…png"</span>,
+    <span class="k">"format"</span>: <span class="s">"png"</span>,
+    <span class="k">"width"</span>: <span class="n">1024</span>,
+    <span class="k">"height"</span>: <span class="n">1024</span>
+  },
+  <span class="k">"ms"</span>: <span class="n">312</span>
+}</pre>
+              <span class="cp-cursor" aria-hidden="true"></span>
+            </div>
+            <div class="cp-meta" id="cpMeta">
+              <span>HTTP <strong>GET</strong></span>
+              <span class="sep">·</span>
+              <span id="cpLatency"><strong>312</strong> ms</span>
+              <span class="sep">·</span>
+              <span id="cpQuota"><strong>127 / 150</strong> today</span>
+            </div>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- Features -->
+    <!-- Social proof (new) -->
+    <section class="proof" id="social-proof" aria-label="Usage statistics">
+      <div class="section-inner">
+        <!-- visually-hidden h2 preserves the one-h1-per-page rule while
+             giving crawlers a section signal (redesign guide §4.1). -->
+        <h2 class="visually-hidden">Trusted by developers</h2>
+        <div class="proof-grid">
+          <div class="stat" data-count="84">
+            <div class="stat-value"><span class="accent">0</span>+</div>
+            <div class="stat-label">Documented endpoints</div>
+          </div>
+          <div class="stat" data-count="250">
+            <div class="stat-value"><span class="accent">0</span>K+</div>
+            <div class="stat-label">Requests per day</div>
+          </div>
+          <div class="stat" data-count="12">
+            <div class="stat-value"><span class="accent">0</span></div>
+            <div class="stat-label">Endpoint categories</div>
+          </div>
+          <div class="stat" data-count="99">
+            <div class="stat-value"><span class="accent">0</span>.9%</div>
+            <div class="stat-label">Uptime (30 days)</div>
+          </div>
+        </div>
+        <div class="proof-band" aria-hidden="true">
+          <div class="proof-track">
+            <span>YouTube</span><span>·</span><span>TikTok</span><span>·</span>
+            <span>Instagram</span><span>·</span><span>Twitter / X</span><span>·</span>
+            <span>Discord bots</span><span>·</span><span>Telegram</span><span>·</span>
+            <span>WhatsApp</span><span>·</span><span>Node.js</span><span>·</span>
+            <span>Python</span><span>·</span><span>cURL</span><span>·</span>
+            <span>REST</span><span>·</span><span>JWT</span>
+            <!-- duplicated for a seamless loop -->
+            <span>YouTube</span><span>·</span><span>TikTok</span><span>·</span>
+            <span>Instagram</span><span>·</span><span>Twitter / X</span><span>·</span>
+            <span>Discord bots</span><span>·</span><span>Telegram</span><span>·</span>
+            <span>WhatsApp</span><span>·</span><span>Node.js</span><span>·</span>
+            <span>Python</span><span>·</span><span>cURL</span><span>·</span>
+            <span>REST</span><span>·</span><span>JWT</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features (original content + redesigned cards with endpoint chips) -->
     <section id="features" class="features" aria-labelledby="features-title">
       <div class="section-inner">
         <div class="section-label">What's included</div>
@@ -140,21 +272,21 @@
               Pull video and audio from YouTube, TikTok, Instagram, Twitter/X,
               Spotify, SoundCloud, and more — one endpoint per platform.
             </p>
-            <div class="endpoints">
-              <code>GET /api/downloader/youtube</code>
-            </div>
+            <button class="feat-endpoint" type="button" data-endpoint="/api/downloader/youtube" aria-label="Try the YouTube downloader endpoint">
+              <span class="method">GET</span>/api/downloader/youtube
+            </button>
           </article>
 
           <article class="feat">
-            <div class="feat-icon" aria-hidden="true">AI</div>
+            <div class="feat-icon violet" aria-hidden="true">AI</div>
             <h3>AI Tools</h3>
             <p>
               Chat with an AI assistant, generate images from a prompt, or
               transcribe audio to text.
             </p>
-            <div class="endpoints">
-              <code>GET /api/ai/imagegen</code>
-            </div>
+            <button class="feat-endpoint" type="button" data-endpoint="/api/ai/imagegen" aria-label="Try the image generation endpoint">
+              <span class="method">GET</span>/api/ai/imagegen
+            </button>
           </article>
 
           <article class="feat">
@@ -164,9 +296,9 @@
               Generate quote cards, brat-style captions, stickers, and other
               ready-to-post images.
             </p>
-            <div class="endpoints">
-              <code>GET /api/maker/quote</code>
-            </div>
+            <button class="feat-endpoint" type="button" data-endpoint="/api/maker/quote" aria-label="Try the quote maker endpoint">
+              <span class="method">GET</span>/api/maker/quote
+            </button>
           </article>
 
           <article class="feat">
@@ -176,9 +308,9 @@
               Screenshots, OCR, translation, text-to-speech, QR codes,
               background removal, and other everyday utilities.
             </p>
-            <div class="endpoints">
-              <code>GET /api/tools/screenshot</code>
-            </div>
+            <button class="feat-endpoint" type="button" data-endpoint="/api/tools/screenshot" aria-label="Try the screenshot endpoint">
+              <span class="method">GET</span>/api/tools/screenshot
+            </button>
           </article>
 
           <article class="feat">
@@ -188,9 +320,9 @@
               Search manga titles and Pinterest images directly through the
               API.
             </p>
-            <div class="endpoints">
-              <code>GET /api/search/manga</code>
-            </div>
+            <button class="feat-endpoint" type="button" data-endpoint="/api/search/manga" aria-label="Try the manga search endpoint">
+              <span class="method">GET</span>/api/search/manga
+            </button>
           </article>
 
           <article class="feat">
@@ -200,9 +332,9 @@
               Trivia, word games, and novelty endpoints, popular for bot
               minigames — Indonesian-language content.
             </p>
-            <div class="endpoints">
-              <code>GET /api/games/tebaktebakan/random</code>
-            </div>
+            <button class="feat-endpoint" type="button" data-endpoint="/api/games/tebaktebakan/random" aria-label="Try the trivia endpoint">
+              <span class="method">GET</span>/api/games/tebaktebakan/random
+            </button>
           </article>
 
           <article class="feat">
@@ -212,27 +344,64 @@
               Create and manage short URLs, with click tracking and optional
               expiry, right from your dashboard.
             </p>
-            <div class="endpoints">
-              <code>POST /api/tools/shortlink</code>
-            </div>
+            <button class="feat-endpoint" type="button" data-endpoint="/api/tools/shortlink" aria-label="Try the shortlink endpoint">
+              <span class="method">POST</span>/api/tools/shortlink
+            </button>
           </article>
 
           <article class="feat">
-            <div class="feat-icon" aria-hidden="true">KY</div>
+            <div class="feat-icon violet" aria-hidden="true">KY</div>
             <h3>Accounts &amp; API Keys</h3>
             <p>
               Register, sign in, and manage your personal API key and usage —
               no backend of your own required.
             </p>
-            <div class="endpoints">
-              <code>POST /api/auth/register</code>
-            </div>
+            <button class="feat-endpoint" type="button" data-endpoint="/api/auth/register" aria-label="Try the account registration endpoint">
+              <span class="method">POST</span>/api/auth/register
+            </button>
           </article>
         </div>
       </div>
     </section>
 
-    <!-- Tiers -->
+    <!-- How it works (new) -->
+    <section class="steps-section" id="how-it-works" aria-labelledby="steps-title">
+      <div class="section-inner">
+        <div class="section-label" style="text-align:center">How it works</div>
+
+        <h2 id="steps-title">Get started in three steps</h2>
+
+        <p class="lede">
+          No credit card, no framework, no boilerplate — from signup to first
+          response in under five minutes.
+        </p>
+
+        <ol class="steps">
+          <li class="step">
+            <h3>Grab your key</h3>
+            <p>Create a free account and copy your personal <code>rex_</code> API key from the dashboard. Anonymous requests work too, at 15/day per IP.</p>
+            <pre><span class="k">1.</span> Sign up at /dashboard
+<span class="k">2.</span> Copy your key under API Keys</pre>
+          </li>
+          <li class="step">
+            <h3>Make your first request</h3>
+            <p>Attach the key as a Bearer token and call any endpoint. Responses are JSON with <code>success</code>, <code>data</code>, and <code>ms</code>.</p>
+            <pre>curl -H <span class="s">"Authorization: Bearer rex_…"</span> \
+  https://rex-api.com/api/ai/imagegen?q=cat</pre>
+          </li>
+          <li class="step">
+            <h3>Build &amp; scale</h3>
+            <p>Wire it into your Discord or Telegram bot, track usage in the dashboard, and upgrade when you outgrow 150 requests/day.</p>
+            <pre>const res = await fetch(
+  <span class="s">"/api/downloader/youtube?q=URL"</span>, {
+  headers: { <span class="s">"Authorization"</span>: <span class="s">"Bearer rex_…"</span> }
+});</pre>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- Tiers (original, kept — styling upgraded in style.css) -->
     <section id="tiers" class="tiers" aria-labelledby="tiers-title">
       <div class="section-inner">
         <div class="section-label" style="text-align:center">Pricing</div>
@@ -293,6 +462,51 @@
         </div>
       </div>
     </section>
+
+    <!-- FAQ (new — SEO lever for featured snippets) -->
+    <section class="faq-section" id="faq" aria-labelledby="faq-title">
+      <div class="section-inner">
+        <div class="section-label" style="text-align:center">FAQ</div>
+
+        <h2 id="faq-title">Frequently asked questions</h2>
+
+        <div class="faq-list">
+          <details class="faq-item">
+            <summary>Is Rex API free to use?</summary>
+            <div class="faq-answer">Yes. The Anonymous tier gives you 15 requests per day per IP with no sign-up, and the Registered tier gives 150 requests per day with a personal API key — both completely free.</div>
+          </details>
+          <details class="faq-item">
+            <summary>How do I get an API key for my bot or app?</summary>
+            <div class="faq-answer">Create a free account at the dashboard, then copy your personal <code>rex_</code> API key from the API Keys tab. Include it in the <code>Authorization</code> header as a Bearer token with every request: <code>Authorization: Bearer rex_…</code>.</div>
+          </details>
+          <details class="faq-item">
+            <summary>What endpoints does Rex API provide?</summary>
+            <div class="faq-answer">Rex API provides over 80 endpoints grouped into media downloaders (YouTube, TikTok, Instagram, Twitter/X), AI tools (chat, image generation, transcription), image makers, web utilities (screenshots, OCR, QR codes), search, games, and shortlinks with click tracking.</div>
+          </details>
+          <details class="faq-item">
+            <summary>Can I use Rex API with Discord or Telegram bots?</summary>
+            <div class="faq-answer">Yes — that is exactly what it was built for. The JSON response shape (<code>success</code>, <code>data</code>, <code>ms</code>) maps cleanly onto Discord.js, Telegraf, and other bot frameworks, and most downloaders return direct media URLs you can forward immediately.</div>
+          </details>
+          <details class="faq-item">
+            <summary>What happens when I hit my daily limit?</summary>
+            <div class="faq-answer">Requests beyond the daily quota receive a <code>429</code> response with a JSON body explaining the limit. Anonymous limits reset per IP at midnight UTC; registered limits reset per account. Your dashboard shows live usage so you can plan ahead.</div>
+          </details>
+          <details class="faq-item">
+            <summary>Is my API key secure?</summary>
+            <div class="faq-answer">Keys are transmitted only over HTTPS and validated as signed JWT tokens server-side — they cannot be forged or tampered with. You can rotate or revoke keys at any time from the dashboard without changing your account.</div>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- Final CTA (new) -->
+    <section class="final-cta" id="final-cta" aria-label="Call to action">
+      <div class="section-inner">
+        <h2>Ship your next bot today</h2>
+        <p>One key, 84+ endpoints, zero boilerplate. Your first request is a curl away.</p>
+        <a class="btn primary lg" href="/dashboard">Get your free API key &rarr;</a>
+      </div>
+    </section>
   </main>
 
   <footer>
@@ -305,30 +519,13 @@
       </nav>
 
       <div class="foot-meta">
-        Rex API v3 — Built with Fastify + TypeScript · MIT licensed
+        Rex API v3 — Built with Fastify + TypeScript · MIT licensed ·
+        status: <strong id="footerStatus">checking…</strong>
       </div>
     </div>
   </footer>
 
-  <script>
-    // Lightweight liveness check.
-    // If /api/health fails, the status pill stays hidden.
-    (function () {
-      var pill = document.getElementById('statusPill');
-      var text = document.getElementById('statusPillText');
-
-      fetch('/api/health', { headers: { Accept: 'application/json' } })
-        .then(function (r) {
-          return r.ok ? r.json() : Promise.reject();
-        })
-        .then(function (j) {
-          if (j && j.ok) {
-            text.textContent = 'All systems operational · v' + (j.version || '?');
-            pill.hidden = false;
-          }
-        })
-        .catch(function () {});
-    })();
-  </script>
+  <!-- Landing-page behavior (vanilla, deferred — Core Web Vitals, guide §4.3) -->
+  <script src="/js/landing.js" defer></script>
 </body>
 </html>

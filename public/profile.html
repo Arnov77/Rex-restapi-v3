@@ -101,54 +101,67 @@
     `hidden` by default; the script toggles them on demand.
   -->
 
-  <!-- Regenerate confirm modal -->
+  <!-- Regenerate password modal — markup mirrors the dashboard's Vue
+       PasswordModal exactly (pw-* classes) so both surfaces look identical. -->
   <div class="overlay" id="regen-modal" hidden>
-    <div class="modal modal-compact" role="dialog" aria-labelledby="regen-title" aria-modal="true">
+    <div class="modal pw-modal" role="dialog" aria-labelledby="regen-title" aria-modal="true">
       <div class="modal-head">
         <div class="title">
           <h2 id="regen-title">Regenerate API key</h2>
+          <div class="modal-meta">The current key stops working immediately and a new one is issued. Re-enter your password to confirm.</div>
         </div>
         <button class="modal-close" data-close-regen aria-label="Close">✕</button>
       </div>
       <div class="modal-body">
-        <p class="modal-message">
-          The current key stops working immediately and a new one is issued.
-          Re-enter your password to confirm.
-        </p>
         <form id="regen-form" autocomplete="off">
-          <div class="auth-row">
-            <label for="regen-password">Password</label>
-            <input class="input" type="password" id="regen-password" autocomplete="current-password" required />
+          <div class="pw-field">
+            <label class="pw-label" for="regen-password">Account password</label>
+            <div class="pw-input-wrap">
+              <input class="input pw-input" type="password" id="regen-password" placeholder="••••••••••••" autocomplete="current-password" required />
+              <button type="button" class="pw-show-toggle" data-pw-toggle="regen-password" aria-label="Show password">◑</button>
+            </div>
+            <div class="pw-error" id="regen-error" role="alert" hidden>
+              <span class="pw-error-icon">!</span>
+              <span class="pw-error-text"></span>
+            </div>
           </div>
-          <div class="modal-error" id="regen-error" hidden></div>
         </form>
       </div>
       <div class="modal-foot">
         <button class="btn" type="button" data-close-regen>Cancel</button>
-        <button class="btn primary" type="button" id="regen-confirm">Regenerate</button>
+        <button class="btn primary" type="button" id="regen-confirm">Regenerate key</button>
       </div>
     </div>
   </div>
-  
-    <div class="overlay" id="revealpw-modal" hidden>
-    <div class="modal modal-compact" role="dialog" aria-labelledby="revealpw-title" aria-modal="true">
+
+  <!-- Reveal password modal — same pw-* markup as the regenerate modal. -->
+  <div class="overlay" id="revealpw-modal" hidden>
+    <div class="modal pw-modal" role="dialog" aria-labelledby="revealpw-title" aria-modal="true">
       <div class="modal-head">
-        <div class="title"><h2 id="revealpw-title">Reveal API key</h2></div>
+        <div class="title">
+          <h2 id="revealpw-title">Reveal API key</h2>
+          <div class="modal-meta">Re-enter your password to view your current API key.</div>
+        </div>
         <button class="modal-close" data-close-revealpw aria-label="Close">✕</button>
       </div>
       <div class="modal-body">
-        <p class="modal-message">Re-enter your password to view your current API key.</p>
         <form id="revealpw-form" autocomplete="off">
-          <div class="auth-row">
-            <label for="revealpw-password">Password</label>
-            <input class="input" type="password" id="revealpw-password" autocomplete="current-password" required />
+          <div class="pw-field">
+            <label class="pw-label" for="revealpw-password">Account password</label>
+            <div class="pw-input-wrap">
+              <input class="input pw-input" type="password" id="revealpw-password" placeholder="••••••••••••" autocomplete="current-password" required />
+              <button type="button" class="pw-show-toggle" data-pw-toggle="revealpw-password" aria-label="Show password">◑</button>
+            </div>
+            <div class="pw-error" id="revealpw-error" role="alert" hidden>
+              <span class="pw-error-icon">!</span>
+              <span class="pw-error-text"></span>
+            </div>
           </div>
-          <div class="modal-error" id="revealpw-error" hidden></div>
         </form>
       </div>
       <div class="modal-foot">
         <button class="btn" type="button" data-close-revealpw>Cancel</button>
-        <button class="btn primary" type="button" id="revealpw-confirm">Reveal</button>
+        <button class="btn primary" type="button" id="revealpw-confirm">Reveal key</button>
       </div>
     </div>
   </div>
@@ -490,10 +503,38 @@
     let closeReveal = null;
     let closeRevealPw = null;
 
+    // ── Password-modal harmonization helpers ────────────────────────
+    /**
+     * Set the inline error banner inside a pw-* modal. The banner now
+     * carries the same markup as the dashboard's PasswordModal
+     * (red ! icon + message text) — the message text lives in
+     * `.pw-error-text` so we never overwrite the icon span.
+     */
+    function setModalError(errEl, msg) {
+      const text = errEl.querySelector('.pw-error-text');
+      text.textContent = msg || '';
+      errEl.hidden = !msg;
+    }
+
+    /**
+     * Wire every eye-toggle button. [data-pw-toggle="<input-id>"] swaps
+     * the paired input between password/text and flips ◑/◐ — same
+     * affordance as the dashboard's Vue PasswordModal.
+     */
+    document.querySelectorAll('[data-pw-toggle]').forEach((btn) => {
+      const input = document.getElementById(btn.dataset.pwToggle);
+      btn.addEventListener('click', () => {
+        const shown = input.type === 'text';
+        input.type = shown ? 'password' : 'text';
+        btn.textContent = shown ? '◑' : '◐';
+        btn.setAttribute('aria-label', shown ? 'Show password' : 'Hide password');
+        if (!shown) input.focus();
+      });
+    });
+
     $('btn-regen').addEventListener('click', () => {
       $('regen-password').value = '';
-      $('regen-error').hidden = true;
-      $('regen-error').textContent = '';
+      setModalError($('regen-error'), '');
       closeRegen = openModal(regenModal);
     });
 
@@ -508,14 +549,13 @@
       const errEl = $('regen-error');
       const confirmBtn = $('regen-confirm');
       if (!password) {
-        errEl.textContent = 'Password is required.';
-        errEl.hidden = false;
+        setModalError(errEl, 'Password is required.');
         pwInput.focus();
         return;
       }
-      errEl.hidden = true;
+      setModalError(errEl, '');
       confirmBtn.disabled = true;
-      confirmBtn.textContent = 'Regenerating…';
+      confirmBtn.innerHTML = '<span class="pw-spinner" aria-hidden="true"><i></i><i></i><i></i></span>Regenerating…';
       try {
         const r = await api('/api/me/key/regenerate', {
           method: 'POST',
@@ -535,11 +575,10 @@
         toast('API key regenerated.', 'ok');
       } catch (err) {
         if (err.message === 'redirecting') return;
-        errEl.textContent = err.message;
-        errEl.hidden = false;
+        setModalError(errEl, err.message);
       } finally {
         confirmBtn.disabled = false;
-        confirmBtn.textContent = 'Regenerate';
+        confirmBtn.textContent = 'Regenerate key';
       }
     });
 
@@ -558,8 +597,7 @@
 
     $('btn-reveal').addEventListener('click', () => {
       $('revealpw-password').value = '';
-      $('revealpw-error').hidden = true;
-      $('revealpw-error').textContent = '';
+      setModalError($('revealpw-error'), '');
       closeRevealPw = openModal(revealpwModal);
     });
 
@@ -574,14 +612,13 @@
       const errEl = $('revealpw-error');
       const confirmBtn = $('revealpw-confirm');
       if (!password) {
-        errEl.textContent = 'Password is required.';
-        errEl.hidden = false;
+        setModalError(errEl, 'Password is required.');
         pwInput.focus();
         return;
       }
-      errEl.hidden = true;
+      setModalError(errEl, '');
       confirmBtn.disabled = true;
-      confirmBtn.textContent = 'Revealing…';
+      confirmBtn.innerHTML = '<span class="pw-spinner" aria-hidden="true"><i></i><i></i><i></i></span>Revealing…';
       try {
         const r = await api('/api/me/key/reveal', {
           method: 'POST',
@@ -599,13 +636,15 @@
         closeReveal = openModal(revealModal);
       } catch (err) {
         if (err.message === 'redirecting') return;
-        errEl.textContent = /not stored|regenerate/i.test(err.message)
-          ? 'This key was created before reveal was enabled. Use “Regenerate key” to mint a fresh one.'
-          : err.message;
-        errEl.hidden = false;
+        setModalError(
+          errEl,
+          /not stored|regenerate/i.test(err.message)
+            ? 'This key was created before reveal was enabled. Use “Regenerate key” to mint a fresh one.'
+            : err.message,
+        );
       } finally {
         confirmBtn.disabled = false;
-        confirmBtn.textContent = 'Reveal';
+        confirmBtn.textContent = 'Reveal key';
       }
     });
 

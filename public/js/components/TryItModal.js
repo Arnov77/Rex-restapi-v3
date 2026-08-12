@@ -95,7 +95,7 @@ export default {
     securitySchemes: { type: Object, required: true },
     apiClient: { type: Object, required: true },
   },
-  emits: ['close'],
+  emits: ['close', 'result'],
   setup(props, { emit }) {
     const auth = useAuth();
 
@@ -269,6 +269,13 @@ export default {
         // Refresh sidebar usage if the endpoint counts against quota
         // (anon/user). Cheap GET; ignore errors.
         if (auth.isAuthenticated.value) auth.refreshUsage().catch(() => {});
+        // Feed the Overview's Recent Requests log + onboarding checklist.
+        emit('result', {
+          method: props.op.method,
+          path: resolvedPath.value,
+          status: result.value.status,
+          elapsedMs: result.value.elapsedMs,
+        });
       } catch (err) {
         fetchError.value = err;
       } finally {

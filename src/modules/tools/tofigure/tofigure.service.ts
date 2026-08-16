@@ -83,15 +83,19 @@ async function tofigureFromBase64(imgsJson: string, seed?: number): Promise<Tofi
     }
 
     const output = Array.isArray(result?.data) ? result.data[0] : result?.data;
-    const outputUrl: string | undefined = typeof output === 'string' ? output : output?.url ?? output?.path ?? undefined;
+    const imageDataUri: string | undefined = output?.image;
 
-    if (!outputUrl) throw new AppError(502, 'TOFIGURE_NO_OUTPUT', 'HF Space returned no output', null, 'Could not process this image. Try again with a different one.');
+    if (!imageDataUri) throw new AppError(502, 'TOFIGURE_NO_OUTPUT', 'HF Space returned no output', null, 'Could not process this image. Try again with a different one.');
 
-    const dlRes = await fetch(outputUrl);
-    if (!dlRes.ok) throw new AppError(502, 'TOFIGURE_DOWNLOAD_FAILED', `Failed to download result: ${dlRes.status}`, null, 'Could not retrieve the result image. Please try again.');
+    const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(imageDataUri);
+    if (!match) throw new AppError(502, 'TOFIGURE_BAD_OUTPUT_FORMAT', 'HF Space returned an unexpected image format', null, 'Could not process this image. Try again with a different one.');
 
-    const buffer = Buffer.from(await dlRes.arrayBuffer());
-    const mimeType = dlRes.headers.get('content-type') ?? 'image/jpeg';
+    const mimeType = match[1];
+    const base64Data = match[2];
+    if (!mimeType || !base64Data) {
+      throw new AppError(502, 'TOFIGURE_BAD_OUTPUT_FORMAT', 'HF Space returned an unexpected image format', null, 'Could not process this image. Try again with a different one.');
+    }
+    const buffer = Buffer.from(base64Data, 'base64');
 
     return { buffer, mimeType };
   }

@@ -46,6 +46,7 @@
     "minecraft-icon-items": "^0.4.5",
     "msedge-tts": "^2.0.5",
     "music-metadata": "^11.13.0",
+    "openai": "^7.4.0",
     "pino-pretty": "^11.3.0",
     "playwright-core": "^1.60.0",
     "pngjs": "^7.0.0",

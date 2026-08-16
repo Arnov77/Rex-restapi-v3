@@ -61,7 +61,7 @@ async function animeFromBase64(imgsJson: string, seed?: number): Promise<AnimeRe
     let result: any;
     try {
       // Parameter order: [images_json, prompt, lora_name, seed, randomize_seed, guidance_scale, steps]
-      result = await client.predict('/infer', [
+      result = await client.predict('/edit_image', [
         imgsJson,
         ANIME_PROMPT,
         ANIME_STYLE,

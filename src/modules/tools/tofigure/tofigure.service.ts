@@ -61,7 +61,7 @@ async function tofigureFromBase64(imgsJson: string, seed?: number): Promise<Tofi
     let result: any;
     try {
       // Parameter order: [images_json, prompt, lora_name, seed, randomize_seed, guidance_scale, steps]
-      result = await client.predict('/infer', [
+      result = await client.predict('/edit_image', [
         imgsJson,
         TOFIGURE_PROMPT,
         TOFIGURE_STYLE,

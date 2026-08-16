@@ -61,7 +61,7 @@ async function hitamFromBase64(imgsJson: string, seed?: number): Promise<HitamRe
     let result: any;
     try {
       // Parameter order: [images_json, prompt, lora_name, seed, randomize_seed, guidance_scale, steps]
-      result = await client.predict('/infer', [
+      result = await client.predict('/edit_image', [
         imgsJson,
         HITAM_PROMPT,
         HITAM_STYLE,

@@ -121,6 +121,7 @@ const schema = z.object({
   YTDLP_PROXY_URL: z.string().optional(),
   GEMINI_API_KEYS: z.string().optional(), // comma-separated, contoh: key1,key2,key3
   GROQ_API_KEYS: z.string().optional(),   // comma-separated, contoh: key1,key2,key3
+  TOKENROUTER_API_KEYS: z.string().optional(),
   GEOIP_CITY_DB: z.string().default('./GeoLite2-City.mmdb'),
   GEOIP_ASN_DB: z.string().default('./GeoLite2-ASN.mmdb'),
   SERPAPI_KEYS: z.string().optional(),

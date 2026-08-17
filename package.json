@@ -9,8 +9,8 @@
   },
   "scripts": {
     "dev": "tsx watch --clear-screen=false src/server.ts",
-    "build": "tsc -p tsconfig.json && tsc-alias -p tsconfig.json",
-    "copy-assets": "cp -r src/modules/makers/brat/assets dist/modules/makers/brat/ && cp -r src/modules/makers/smeme/assets dist/modules/makers/smeme/ && cp -r src/modules/makers/achievement/assets dist/modules/makers/achievement/ && cp -r src/modules/makers/miq/assets dist/modules/makers/miq/ && cp -r data/ dist/",
+    "build": "tsc -p tsconfig.json && tsc-alias -p tsconfig.json && npm run copy-assets",
+    "copy-assets": "cp -r src/modules/makers/brat/assets dist/modules/makers/brat/ && cp -r src/modules/makers/smeme/assets dist/modules/makers/smeme/ && cp -r src/modules/makers/achievement/assets dist/modules/makers/achievement/ && cp -r src/modules/makers/miq/assets dist/modules/makers/miq/ && (cp -r data/ dist/ 2>/dev/null || true)",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit -p tsconfig.test.json",
     "lint": "eslint .",

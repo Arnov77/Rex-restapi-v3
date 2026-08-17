@@ -56,6 +56,12 @@ COPY --from=builder /app/dist ./dist
 # without these, POST /api/maker/brat and /api/maker/smeme throw ENOENT.
 COPY src/modules/makers/brat/assets ./dist/modules/makers/brat/assets
 COPY src/modules/makers/smeme/assets ./dist/modules/makers/smeme/assets
+# Achievement renders via Chromium and embeds the bundled Minecraft font; the
+# TTF is read from disk at startup, so it must ship beside the compiled module.
+COPY src/modules/makers/achievement/assets ./dist/modules/makers/achievement/assets
+# MIQ embeds the bundled Lora woff2 files as @font-face data URIs (no Google
+# Fonts network fetch); they are read from disk at startup.
+COPY src/modules/makers/miq/assets ./dist/modules/makers/miq/assets
 # Static landing page is served by Fastify at runtime.
 COPY public ./public
 # Schema kept for ops (run once via Supabase SQL editor on first deploy).

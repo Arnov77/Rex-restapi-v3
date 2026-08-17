@@ -1,3 +1,7 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
 export interface MiqTemplateOptions {
   text: string;
   name: string;
@@ -14,10 +18,50 @@ const CANVAS = {
   portrait:  { width: 630,  height: 840  },
 } as const;
 
+// Load the bundled Lora woff2 files once at module init — no network fetch at
+// render time and no dependency on Google Fonts / a system-installed font.
+// Each entry is a base64 data URI read straight from disk in assets/.
+function loadFontDataUri(file: string): string {
+  try {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const woff2 = readFileSync(join(here, 'assets', file));
+    return `data:font/woff2;base64,${woff2.toString('base64')}`;
+  } catch {
+    return '';
+  }
+}
+
+const LORA_400       = loadFontDataUri('lora-latin-400-normal.woff2');
+const LORA_500       = loadFontDataUri('lora-latin-500-normal.woff2');
+const LORA_600       = loadFontDataUri('lora-latin-600-normal.woff2');
+const LORA_400_ITAL  = loadFontDataUri('lora-latin-400-italic.woff2');
+const LORA_500_ITAL  = loadFontDataUri('lora-latin-500-italic.woff2');
+
+function fontFace(weight: number, style: 'normal' | 'italic', uri: string): string {
+  if (!uri) return '';
+  return `@font-face{
+    font-family:"Lora";
+    src:url("${uri}") format("woff2");
+    font-weight:${weight};
+    font-style:${style};
+    font-display:block;
+    unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+  }`;
+}
+
+const FONT_FACES = [
+  fontFace(400, 'normal', LORA_400),
+  fontFace(500, 'normal', LORA_500),
+  fontFace(600, 'normal', LORA_600),
+  fontFace(400, 'italic', LORA_400_ITAL),
+  fontFace(500, 'italic', LORA_500_ITAL),
+].join('\n');
+
 function esc(s: string): string {
-  return s.replace(/[&<>"']/g, (c) =>
-    c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : c === '"' ? '&quot;' : '&#39;',
-  );
+  return s.replace(/[&<>"']/g, (c) => {
+    const cp = c.codePointAt(0);
+    return cp !== undefined ? `&#${cp};` : c;
+  });
 }
 
 export function renderMiqHtml(opts: MiqTemplateOptions): string {
@@ -29,10 +73,9 @@ export function renderMiqHtml(opts: MiqTemplateOptions): string {
 <html>
 <head>
 <meta charset="utf-8"/>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet"/>
 <style>
+  ${FONT_FACES}
+
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   html, body {
@@ -176,7 +219,7 @@ export function renderMiqHtml(opts: MiqTemplateOptions): string {
   </div>
 
   <div class="content">
-    ${!landscape ? `<div class="quote-marks">\u201C \u201D</div>` : ''}
+    ${!landscape ? `<div class="quote-marks">“ ”</div>` : ''}
     <p class="quote-text">${esc(opts.text)}</p>
     ${!landscape ? `<div class="divider"></div>` : ''}
     <p class="name">${landscape ? `- ${esc(opts.name)}` : esc(opts.name)}</p>
@@ -196,6 +239,8 @@ export function renderMiqHtml(opts: MiqTemplateOptions): string {
           img.addEventListener('error', resolve, { once: true });
         })
   ));
+  // Tunggu font Lora load dulu sebelum render, biar tidak pakai fallback Georgia
+  try { await document.fonts.ready; } catch (e) {}
   document.documentElement.dataset.ready = '1';
 })();
 </script>

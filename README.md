@@ -121,11 +121,11 @@ If you'd rather not run the install script as root, follow Docker's own
 distribution instead — the script above is just the fastest path on a
 fresh Debian/Ubuntu VPS.
 
-**Chromium (for Playwright).** `screenshot`, `brat`, and `quote` render
-pages headlessly via `playwright-core`, which — unlike the full `playwright`
-package — does **not** download a browser for you. If you're running via
-Docker, skip this entirely — the image already bundles Chromium. Running
-directly on Node, pick one:
+**Chromium (for Playwright).** `screenshot`, `brat`, `quote`, `miq`, and
+`achievement` render pages headlessly via `playwright-core`, which — unlike
+the full `playwright` package — does **not** download a browser for you. If
+you're running via Docker, skip this entirely — the image already bundles
+Chromium. Running directly on Node, pick one:
 
 - **Option A — system Chromium (matches what the Dockerfile does):**
   ```bash

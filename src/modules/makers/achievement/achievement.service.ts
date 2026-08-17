@@ -1,9 +1,11 @@
 import { createHash } from 'node:crypto';
 import sharp from 'sharp';
 import minecraftItems, { type MinecraftItem } from 'minecraft-icon-items';
+import { withPage } from '@shared/browser/browserManager.js';
 import { Internal } from '@shared/errors.js';
 import { LruCache } from '@shared/utils/lruCache.js';
 import type { AchievementQuery } from './achievement.schemas.js';
+import { renderAchievementHtml } from './achievement.template.js';
 
 export interface AchievementResult {
   buffer: Buffer;
@@ -38,15 +40,6 @@ function cacheKey(opts: AchievementQuery): string {
   );
 
   return createHash('sha1').update(JSON.stringify(sorted)).digest('hex');
-}
-
-function esc(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&apos;');
 }
 
 function normalizeIconName(icon: string): string {
@@ -153,98 +146,21 @@ function wrapText(text: string, maxChars: number, maxLines: number): string[] {
   return lines.length > 0 ? lines : [''];
 }
 
-function getFontCss(): string {
-  return `
-    .mc-title, .mc-body {
-      font-family: 'Minecraft', monospace;
-      font-weight: normal;
-    }
-  `;
-}
-
-async function renderAchievementSvg(opts: AchievementQuery): Promise<string> {
-  const colors = {
-    bgTop: '#3f3f3f',
-    bgBottom: '#202020',
-    outer1: '#787878',
-    innerShadow: '#2b2b2b',
-    title: '#fffb54',
-    text: '#ffffff',
-    flatten: '#111111',
-  };
+async function renderAchievementHtmlDoc(opts: AchievementQuery): Promise<string> {
   const titleLines = wrapText(opts.title, 22, 1);
   const textLines = wrapText(opts.text, 28, 2);
 
-  const title = esc(titleLines[0] ?? opts.title);
-  const text1 = esc(textLines[0] ?? '');
-  const text2 = esc(textLines[1] ?? '');
+  const title = titleLines[0] ?? opts.title;
+  const text1 = textLines[0] ?? '';
+  const text2 = textLines[1] ?? '';
   const iconData = await getMinecraftIconDataUri(opts.icon);
 
-  return `
-<svg xmlns="http://www.w3.org/2000/svg" width="900" height="260" viewBox="0 0 900 260">
-  <defs>
-    <linearGradient id="cardBg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="${colors.bgTop}" />
-      <stop offset="100%" stop-color="${colors.bgBottom}" />
-    </linearGradient>
-    <filter id="shadow" x="-10%" y="-20%" width="130%" height="160%">
-      <feDropShadow dx="0" dy="6" stdDeviation="4" flood-color="rgba(0,0,0,0.35)" />
-    </filter>
-    <style>
-      ${getFontCss()}
-    </style>
-  </defs>
-
-  <rect width="900" height="260" fill="transparent" />
-
-  <g filter="url(#shadow)">
-    <rect x="52" y="78" width="796" height="136" rx="2" fill="${colors.outer1}" />
-    <rect x="60" y="86" width="780" height="120" rx="2" fill="url(#cardBg)" />
-    <rect x="68" y="94" width="764" height="104" rx="1" fill="none" stroke="${colors.innerShadow}" stroke-width="3" opacity="0.65"/>
-
-    <image
-      href="${iconData}"
-      x="88"
-      y="103"
-      width="86"
-      height="86"
-      preserveAspectRatio="xMidYMid meet"
-      image-rendering="pixelated"
-    />
-
-    <text
-      x="196"
-      y="124"
-      class="mc-title"
-      fill="${colors.title}"
-      font-size="30"
-      lengthAdjust="spacingAndGlyphs"
-    >${title}</text>
-
-    <text
-      x="196"
-      y="168"
-      class="mc-body"
-      fill="${colors.text}"
-      font-size="28"
-      lengthAdjust="spacingAndGlyphs"
-    >${text1}</text>
-
-    ${
-      text2
-        ? `<text
-      x="196"
-      y="196"
-      class="mc-body"
-      fill="${colors.text}"
-      font-size="24"
-      opacity="0.95"
-      lengthAdjust="spacingAndGlyphs"
-    >${text2}</text>`
-        : ''
-    }
-  </g>
-</svg>`;
+  return renderAchievementHtml({
+    title,
+    text1,
+    text2,
+    iconDataUri: iconData,
+  });
 }
 
 export async function generate(
@@ -272,8 +188,29 @@ export async function generate(
 }
 
 async function renderOnce(opts: AchievementQuery): Promise<AchievementResult> {
-  const svg = await renderAchievementSvg(opts);
-  const input = Buffer.from(svg);
+  const html = await renderAchievementHtmlDoc(opts);
+  const viewport = { width: 900, height: 260 };
+
+  const png = await withPage(
+    async (page) => {
+      await page.setContent(html, { waitUntil: 'load', timeout: 15_000 });
+      // Wait for the embedded Minecraft font to be ready before measuring,
+      // matching the smeme/brat convention.
+      await page
+        .waitForFunction("document.documentElement.dataset['ready'] === '1'", undefined, { timeout: 5_000 })
+        .catch(() => {});
+
+      const el = await page.$('svg');
+      if (!el) throw Internal('Achievement SVG element not found');
+
+      return el.screenshot({ type: 'png', omitBackground: true });
+    },
+    { viewport },
+  );
+
+  if (!png || png.length === 0) throw Internal('Achievement produced an empty buffer');
+
+  const input: Buffer = Buffer.isBuffer(png) ? png : Buffer.from(png);
 
   let buffer: Buffer;
 

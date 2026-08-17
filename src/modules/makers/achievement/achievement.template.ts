@@ -30,14 +30,23 @@ function esc(value: string): string {
   });
 }
 
-// Wrap the existing SVG in a full HTML document so Chromium can load the
-// embedded @font-face before rasterising. The SVG markup itself is unchanged
-// from the previous sharp/rsvg path — only the renderer switched to Chromium,
-// which makes the bundled font actually resolve.
+// The card itself is the classic Minecraft toast: a wide, thin 780×136 bar.
+// Wrapping it in a square 900×900 canvas keeps the toast's identity but lets
+// downstream consumers (WhatsApp stickers, which square-crop to ~512px) show
+// the card at a readable size. The card is centred vertically via Y_OFFSET;
+// everything inside the <g> keeps the original toast-relative coordinates
+// shifted by that offset.
 export function renderAchievementHtml(opts: AchievementTemplateOptions): string {
   const fontFace = FONT_DATA_URI
     ? `@font-face{font-family:"Minecraft";src:url("${FONT_DATA_URI}") format("truetype");font-weight:normal;font-style:normal;font-display:block;}`
     : '';
+
+  const SIDE = 900;
+  // Original toast was 900×260 centred at y≈78..214; in a 900×900 canvas we
+  // centre it: card occupies the middle 260px, i.e. y from 320 to 580.
+  // The toast already had a top margin of 78 within the 260-row, so the inner
+  // group's origin shifts by 320 - 0 = 320 (card top at 78+320 = 398).
+  const Y_OFFSET = 320;
 
   const colors = {
     bgTop: '#3f3f3f',
@@ -58,20 +67,21 @@ export function renderAchievementHtml(opts: AchievementTemplateOptions): string 
 </style>
 </head>
 <body>
-<svg xmlns="http://www.w3.org/2000/svg" width="900" height="260" viewBox="0 0 900 260">
-  <defs>
-    <linearGradient id="cardBg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="${colors.bgTop}" />
-      <stop offset="100%" stop-color="${colors.bgBottom}" />
-    </linearGradient>
-    <filter id="shadow" x="-10%" y="-20%" width="130%" height="160%">
-      <feDropShadow dx="0" dy="6" stdDeviation="4" flood-color="rgba(0,0,0,0.35)" />
-    </filter>
-  </defs>
+<svg xmlns="http://www.w3.org/2000/svg" width="${SIDE}" height="${SIDE}" viewBox="0 0 ${SIDE} ${SIDE}">
+  <rect width="${SIDE}" height="${SIDE}" fill="transparent" />
+  <g transform="translate(0, ${Y_OFFSET})" filter="url(#shadow)">
+    <defs>
+      <linearGradient id="cardBg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${colors.bgTop}" />
+        <stop offset="100%" stop-color="${colors.bgBottom}" />
+      </linearGradient>
+      <filter id="shadow" x="-10%" y="-20%" width="130%" height="160%">
+        <feDropShadow dx="0" dy="6" stdDeviation="4" flood-color="rgba(0,0,0,0.35)" />
+      </filter>
+    </defs>
 
-  <rect width="900" height="260" fill="transparent" />
+    <rect width="${SIDE}" height="260" fill="transparent" />
 
-  <g filter="url(#shadow)">
     <rect x="52" y="78" width="796" height="136" rx="2" fill="${colors.outer1}" />
     <rect x="60" y="86" width="780" height="120" rx="2" fill="url(#cardBg)" />
     <rect x="68" y="94" width="764" height="104" rx="1" fill="none" stroke="${colors.innerShadow}" stroke-width="3" opacity="0.65"/>

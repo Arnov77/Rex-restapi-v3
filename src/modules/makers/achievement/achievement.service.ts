@@ -189,7 +189,12 @@ export async function generate(
 
 async function renderOnce(opts: AchievementQuery): Promise<AchievementResult> {
   const html = await renderAchievementHtmlDoc(opts);
-  const viewport = { width: 900, height: 260 };
+  // Square 900×900 canvas (the card sits centred inside it — see
+  // achievement.template.ts). A forced full-page clip keeps the output
+  // dimensions deterministic regardless of how Chromium lays out the inline
+  // SVG, and the square aspect lets WhatsApp-square-crop to ~512px without
+  // shrinking the card to an illegible sliver.
+  const SIDE = 900;
 
   const png = await withPage(
     async (page) => {
@@ -200,12 +205,13 @@ async function renderOnce(opts: AchievementQuery): Promise<AchievementResult> {
         .waitForFunction("document.documentElement.dataset['ready'] === '1'", undefined, { timeout: 5_000 })
         .catch(() => {});
 
-      const el = await page.$('svg');
-      if (!el) throw Internal('Achievement SVG element not found');
-
-      return el.screenshot({ type: 'png', omitBackground: true });
+      return page.screenshot({
+        type: 'png',
+        omitBackground: true,
+        clip: { x: 0, y: 0, width: SIDE, height: SIDE },
+      });
     },
-    { viewport },
+    { viewport: { width: SIDE, height: SIDE } },
   );
 
   if (!png || png.length === 0) throw Internal('Achievement produced an empty buffer');

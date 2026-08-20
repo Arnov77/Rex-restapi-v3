@@ -6,11 +6,12 @@ import { downloadDeezload } from './deezload.service.js';
 import { shortProxyUrl } from '@modules/downloaders/_proxy/proxy.token.js';
 import { cache, inflight, normalizeQuery, trackFile, type DeezloadEntry } from './deezload.store.js';
 
-const DOWNLOAD_DIR = process.env.DEEZLOAD_DOWNLOAD_DIR
-  ? resolve(process.env.DEEZLOAD_DOWNLOAD_DIR)
+import { loadEnv as _loadEnv } from '../../../config/env.js';
+const _env = _loadEnv();
+const DOWNLOAD_DIR = _env.DEEZLOAD_DOWNLOAD_DIR
+  ? resolve(_env.DEEZLOAD_DOWNLOAD_DIR)
   : resolve(process.cwd(), 'downloads');
 
-console.log(`[deezload] Serving files from: ${DOWNLOAD_DIR}`);
 
 function parseQuery(raw: string): { title: string; artist?: string } {
   const dashIdx = raw.indexOf(' - ');
@@ -113,11 +114,16 @@ const deezloadRoutes: FastifyPluginAsyncZod = async (app) => {
     async (req, reply) => {
       const { id } = req.params as { id: string };
 
-      if (!id || id.includes('/') || id.includes('..') || id.includes('\0')) {
+      // Allowlist: hanya izinkan karakter aman (hex + extension audio)
+      if (!id || !/^[a-zA-Z0-9._-]{1,128}$/.test(id)) {
         return reply.code(400).send({ ok: false, error: { message: 'Invalid file ID' } });
       }
 
-      const filePath = `${DOWNLOAD_DIR}/${id}`;
+      // Containment check — pastikan file benar-benar di dalam DOWNLOAD_DIR
+      const filePath = resolve(DOWNLOAD_DIR, basename(id));
+      if (!filePath.startsWith(DOWNLOAD_DIR + '/')) {
+        return reply.code(403).send({ ok: false, error: { message: 'Access denied' } });
+      }
 
       try {
         const stat = statSync(filePath);

@@ -136,12 +136,45 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(errorHandler);
   await app.register(import('@fastify/sensible'));
 
-  const corsWildcard = env.CORS_ORIGINS.trim() === '*';
+  const corsOrigins = env.CORS_ORIGINS.trim();
+  const corsWildcard = corsOrigins === '*';
+
+  if (corsWildcard && env.NODE_ENV === 'production') {
+    app.log.warn('WARNING: CORS_ORIGINS=* in production is a security risk! Set explicit origins.');
+  }
+
+  const resolvedOrigins = corsWildcard
+    ? true
+    : corsOrigins
+      ? corsOrigins.split(',').map((s) => s.trim()).filter(Boolean)
+      : false; // default kosong = tolak semua cross-origin request
+
   await app.register(import('@fastify/cors'), {
-    origin: corsWildcard ? '*' : env.CORS_ORIGINS.split(',').map((s) => s.trim()),
+    origin: resolvedOrigins,
     credentials: !corsWildcard,
   });
-  await app.register(import('@fastify/helmet'), { contentSecurityPolicy: false });
+  await app.register(import('@fastify/helmet'), {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: [
+          "'self'",
+          "'unsafe-inline'", // required for importmap + ld+json inline scripts
+          'https://esm.sh',
+        ],
+        scriptSrcAttr: ["'none'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
+        connectSrc: ["'self'", 'https://esm.sh'],
+        fontSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        frameSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+        upgradeInsecureRequests: [],
+      },
+    },
+    frameguard: { action: 'deny' },
+  });
 
   await app.register(import('@fastify/under-pressure'), {
     maxEventLoopDelay: 1000,

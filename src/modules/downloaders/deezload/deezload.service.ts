@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { BadRequest } from '@shared/errors.js';
+import { loadEnv } from '../../../config/env.js';
 
 export interface DeezloadResult {
   success: boolean;
@@ -16,7 +17,7 @@ export async function downloadDeezload(
 ): Promise<DeezloadResult> {
   try {
     const { data } = await axios.post<DeezloadResult>(
-      'http://127.0.0.1:8001/download',
+      loadEnv().DEEZLOAD_INTERNAL_URL ?? 'http://127.0.0.1:8001/download',
       {
         query,
         artist,
@@ -24,8 +25,7 @@ export async function downloadDeezload(
       {
         timeout: 180000,
         headers: {
-          'X-Internal-Secret':
-            process.env.DEEZLOAD_INTERNAL_SECRET,
+          'X-Internal-Secret': loadEnv().DEEZLOAD_INTERNAL_SECRET,
         },
       },
     );

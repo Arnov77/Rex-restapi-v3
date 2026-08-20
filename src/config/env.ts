@@ -35,7 +35,7 @@ const schema = z.object({
         .optional(),
     ),
 
-  CORS_ORIGINS: z.string().default('*'),
+  CORS_ORIGINS: z.string().default(''),
 
   // Trust proxy whitelist for X-Forwarded-* headers. Accepts:
   //   - "loopback,linklocal,uniquelocal" (default; safe for nginx/docker/CF in front)
@@ -100,6 +100,10 @@ const schema = z.object({
 
   // Download proxy: TTL for signed proxy tokens (seconds). Default 1 hour.
   DOWNLOAD_PROXY_TTL_SEC: z.coerce.number().int().min(60).default(3600),
+  DOWNLOAD_PROXY_SECRET: z
+    .string()
+    .min(32, 'DOWNLOAD_PROXY_SECRET must be at least 32 chars')
+    .optional(),
 
   // Download proxy: max bytes to stream. Default 100MB. Prevents abuse.
   DOWNLOAD_MAX_BYTES: z.coerce.number().int().min(1024).default(104_857_600),
@@ -140,6 +144,7 @@ const schema = z.object({
 
   DEEZLOAD_INTERNAL_URL: z.string().optional(),
   DEEZLOAD_INTERNAL_SECRET: z.string().optional(),
+  DEEZLOAD_DOWNLOAD_DIR: z.string().optional(),
     
   AUDIO_LOUDNESS_FILTER: z.string().default(''),
 });

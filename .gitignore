@@ -33,3 +33,4 @@ python/deezload/.env
 *.session-journal
 __pycache__/
 *.pyc
+*.bak

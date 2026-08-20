@@ -22,7 +22,9 @@ export interface ProxyPayload {
 }
 
 function getSecret(): string {
-  return loadEnv().JWT_SECRET; // Reuse existing secret — no new env needed
+  const env = loadEnv();
+  // Gunakan dedicated secret jika ada, fallback ke JWT_SECRET untuk backward compat
+  return env.DOWNLOAD_PROXY_SECRET ?? env.JWT_SECRET;
 }
 
 function encodePayload(payload: ProxyPayload): string {

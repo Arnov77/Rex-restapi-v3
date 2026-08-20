@@ -1,7 +1,22 @@
 import { z } from 'zod';
 
+const ALLOWED_PROTOCOLS = ['http:', 'https:'];
+
 export const CreateShortlinkBody = z.object({
-  url: z.string().url().max(2048),
+  url: z
+    .string()
+    .url()
+    .max(2048)
+    .refine(
+      (u) => {
+        try {
+          return ALLOWED_PROTOCOLS.includes(new URL(u).protocol);
+        } catch {
+          return false;
+        }
+      },
+      { message: 'URL harus menggunakan protokol http:// atau https://' },
+    ),
   slug: z
     .string()
     .trim()

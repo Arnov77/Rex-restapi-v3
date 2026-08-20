@@ -85,7 +85,7 @@ export default {
           h('i', { class: 'bi bi-arrow-up-right' }),
           h('span', { class: 'lbl' }, 'Docs'),
         ]),
-        h('a', { class: 'btn sm', href: 'https://github.com/Arnov77/Rex-restapi-v3', target: '_blank', rel: 'noopener', title: 'Source on GitHub' }, [
+        h('a', { class: 'btn sm', href: '#', target: '_blank', rel: 'noopener', title: 'Source on GitHub' }, [
           h('i', { class: 'bi bi-github' }),
           h('span', { class: 'lbl' }, 'GitHub'),
         ]),

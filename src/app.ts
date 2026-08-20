@@ -270,7 +270,11 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
     const svc = shortlinksService(app.supabase);
     try {
       const link = await svc.resolve(id);
-      return (reply as any).header('cache-control', 'no-store').redirect(link.url, 301);
+      const parsedUrl = new URL(link.url);
+      if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+        return (reply as any).code(400).send("Invalid redirect target");
+      }
+      return (reply as any).header("cache-control", "no-store").redirect(link.url, 302);
     } catch {
       return (reply as any).code(404).send('Shortlink not found or expired');
     }

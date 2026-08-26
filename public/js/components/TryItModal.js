@@ -2,6 +2,7 @@ import { h, ref, computed, watch } from 'vue';
 import FormField from './FormField.js';
 import ResultPane from './ResultPane.js';
 import { useAuth } from '../auth.js';
+import CodeExamples from './CodeExamples.js';
 
 const PRIMITIVE_TYPES = new Set(['string', 'integer', 'number', 'boolean']);
 
@@ -71,12 +72,14 @@ export default {
     const result = ref(null);
     const fetchError = ref(null);
     const loading = ref(false);
+    const activeTab = ref('try'); // 'try' | 'code'
 
     function initFromOp() {
       queryValues.value = {};
       pathValues.value = {};
       result.value = null;
       fetchError.value = null;
+      activeTab.value = 'try';
       bodyMode.value = 'fields';
       bodyFields.value = {};
       bodyJsonText.value = '';
@@ -301,7 +304,17 @@ export default {
                   required.has(name) && h('b', { style: 'color:var(--danger);margin-left:4px' }, '*'),
                 ]),
                 sch.description && h('span', { class: 'field-desc' }, sch.description),
-                h('label', { class: 'file-picker' }, [
+                h('label', {
+                  class: ['file-picker', 'file-picker-drop'],
+                  onDragover: (e) => { e.preventDefault(); e.currentTarget.classList.add('drag-over'); },
+                  onDragleave: (e) => { e.currentTarget.classList.remove('drag-over'); },
+                  onDrop: (e) => {
+                    e.preventDefault();
+                    e.currentTarget.classList.remove('drag-over');
+                    const file = e.dataTransfer?.files?.[0];
+                    if (file) multipartFiles.value[name] = file;
+                  },
+                }, [
                   h('input', {
                     type: 'file',
                     class: 'file-picker-input',
@@ -314,7 +327,7 @@ export default {
                   h(
                     'span',
                     { class: selected ? 'file-picker-name' : 'file-picker-name empty' },
-                    selected ? selected.name : 'No file chosen',
+                    selected ? selected.name : 'or drag & drop here',
                   ),
                   selected &&
                     h(
@@ -439,40 +452,73 @@ export default {
           ]),
 
           h('div', { class: 'modal-body' }, [
-            !authStatus.value.ok && h('div', { class: 'auth-gate' }, [
-              h('div', { class: 'auth-gate-row' }, [
-                h('span', { class: 'auth-gate-icon' }, '🔒'),
-                h('div', { class: 'auth-gate-text' }, [
-                  h('strong', {}, 'Sign in to try this endpoint'),
-                  h('div', {}, authStatus.value.hint),
-                ]),
-                h('a', {
-                  class: 'btn primary sm',
-                  href: (() => {
-                    let path = window.location.pathname.replace(/\.html$/i, '');
-                    if (path === '/index') path = '/';
-                    return (
-                      '/login?next=' +
-                      encodeURIComponent(
-                        path + window.location.search + window.location.hash,
-                      )
-                    );
-                  })(),
-                  style: 'flex:0 0 auto',
-                }, 'Sign in'),
-              ]),
+            // Tab switcher
+            h('div', { class: 'modal-tabs' }, [
+              h('button', {
+                class: 'modal-tab-btn' + (activeTab.value === 'try' ? ' active' : ''),
+                onClick: () => (activeTab.value = 'try'),
+              }, 'Try It'),
+              h('button', {
+                class: 'modal-tab-btn' + (activeTab.value === 'code' ? ' active' : ''),
+                onClick: () => (activeTab.value = 'code'),
+              }, 'Code Examples'),
             ]),
 
-            renderPathParams(),
-            renderQueryParams(),
-            renderBody(),
+            // Try It tab
+            activeTab.value === 'try' && h('div', { class: 'tab-panel' }, [
+              !authStatus.value.ok && h('div', { class: 'auth-gate' }, [
+                h('div', { class: 'auth-gate-row' }, [
+                  h('span', { class: 'auth-gate-icon' }, '🔒'),
+                  h('div', { class: 'auth-gate-text' }, [
+                    h('strong', {}, 'Sign in to try this endpoint'),
+                    h('div', {}, authStatus.value.hint),
+                  ]),
+                  h('a', {
+                    class: 'btn primary sm',
+                    href: (() => {
+                      let path = window.location.pathname.replace(/\.html$/i, '');
+                      if (path === '/index') path = '/';
+                      return (
+                        '/login?next=' +
+                        encodeURIComponent(
+                          path + window.location.search + window.location.hash,
+                        )
+                      );
+                    })(),
+                    style: 'flex:0 0 auto',
+                  }, 'Sign in'),
+                ]),
+              ]),
 
-            (loading.value || result.value || fetchError.value) && h(ResultPane, {
-              loading: loading.value,
-              error: fetchError.value,
-              result: result.value,
-              filename: filenameFromOp(props.op),
-            }),
+              renderPathParams(),
+              renderQueryParams(),
+              renderBody(),
+
+              (loading.value || result.value || fetchError.value) && h(ResultPane, {
+                loading: loading.value,
+                error: fetchError.value,
+                result: result.value,
+                filename: filenameFromOp(props.op),
+              }),
+            ]),
+
+            // Code Examples tab
+            activeTab.value === 'code' && h('div', { class: 'tab-panel' }, [
+              h(CodeExamples, {
+                op: props.op,
+                resolvedPath: resolvedPath.value,
+                query: (() => {
+                  const q = {};
+                  for (const [k, v] of Object.entries(queryValues.value)) {
+                    if (v !== '' && v !== null && v !== undefined) q[k] = v;
+                  }
+                  return q;
+                })(),
+                body: buildBody(),
+                apiKey: auth.snapshot().apiKey,
+                baseUrl: window.location.origin,
+              }),
+            ]),
           ]),
 
           h('div', { class: 'modal-foot' }, [

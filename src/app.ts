@@ -16,6 +16,7 @@ import quotaPlugin from './plugins/quota.js';
 import healthRoutes from './modules/health/health.routes.js';
 import authRoutes from './modules/auth/auth.routes.js';
 import apiKeyRoutes from './modules/apiKeys/apiKeys.routes.js';
+import { closeAllProxyDispatchers } from './shared/http/proxyDispatcher.js';
 
 //========[Tools]=======
 import screenshotRoutes from './modules/tools/screenshot/screenshot.routes.js';
@@ -32,6 +33,7 @@ import changebgRoutes from './modules/tools/removebg/changebg.routes.js';
 import ttsRoutes from './modules/tools/tts/tts.routes.js';
 import ocrRoutes from './modules/tools/ocr/ocr.routes.js';
 import animeRoutes from './modules/tools/anime/anime.routes.js';
+import upscalerRoutes from './modules/tools/upscaler/upscaler.routes.js';
 import hitamRoutes from './modules/tools/hitam/hitam.routes.js';
 import tofigureRoutes from './modules/tools/tofigure/tofigure.routes.js';
 import nsfwRoutes from './modules/tools/nsfw/nsfw.routes.js';
@@ -100,6 +102,10 @@ import tekatekiRoutes from './modules/games/tekateki/tekateki.routes.js';
 import cekkodamRoutes from './modules/fun/cek-kodam/cekkodam.routes.js';
 import cekprimbonRoutes from './modules/fun/primbon/primbon.routes.js';
 
+//============≠====[STALK]=======≠=======
+import instagramStalkRoutes from './modules/stalk/instagram/instagramStalk.routes.js';
+import tiktokStalkRoutes from './modules/stalk/tiktok/tiktokStalk.routes.js';
+
 //===============================================
 import meRoutes from './modules/me/me.routes.js';
 import auditLogRoutes from './modules/auditLog/auditLog.routes.js';
@@ -161,9 +167,10 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
           "'self'",
           "'unsafe-inline'", // required for importmap + ld+json inline scripts
           'https://esm.sh',
+          'https://static.cloudflareinsights.com',
         ],
         scriptSrcAttr: ["'none'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://esm.sh'],
         imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
         connectSrc: ["'self'", 'https://esm.sh'],
         fontSrc: ["'self'"],
@@ -220,6 +227,7 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(changebgRoutes, { prefix: '/api/tools/changebg' });
   await app.register(ocrRoutes, { prefix: '/api/tools/ocr' });
   await app.register(animeRoutes, { prefix: '/api/tools/anime' });
+  await app.register(upscalerRoutes, { prefix: '/api/tools/upscaler' });
   await app.register(hitamRoutes, { prefix: '/api/tools/hitam' });
   await app.register(tofigureRoutes, { prefix: '/api/tools/tofigure' });
   await app.register(nsfwRoutes, { prefix: '/api/tools/nsfw' });
@@ -289,6 +297,10 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(cekkodamRoutes, { prefix: '/api/fun/cek-kodam' });
   await app.register(cekprimbonRoutes, { prefix: '/api/fun/primbon' });
 
+  //============≠====[STALK]=======≠=======
+  await app.register(instagramStalkRoutes, { prefix: '/api/stalk/instagram-stalk' });
+  await app.register(tiktokStalkRoutes, { prefix: '/api/stalk/tiktok-stalk' });
+
   //============≠===========≠========
   await app.register(meRoutes, { prefix: '/api/me' });
   await app.register(auditLogRoutes, { prefix: '/api/keys/audit-log' });
@@ -344,6 +356,7 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
 
   app.addHook('onClose', async () => {
     await shutdownBrowser();
+    await closeAllProxyDispatchers();
   });
 
   return app;

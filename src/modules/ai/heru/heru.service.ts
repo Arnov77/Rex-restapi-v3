@@ -7,7 +7,7 @@ import { withTokenRouter } from '@shared/tokenRouterRotator.js';
 import { AppError } from '@shared/errors.js';
 
 const TOKENROUTER_MODEL = 'qwen/qwen3.8-max-free';
-const FALLBACK_MODEL = 'llama-3.3-70b-versatile';
+const FALLBACK_MODEL = 'qwen/qwen3.6-27b';
 
 const MAX_HISTORY_MESSAGES = 20;
 const SESSION_TTL_SECONDS = 24 * 60 * 60;
@@ -68,17 +68,26 @@ async function callTokenRouter(messages: any[]): Promise<string> {
   });
 }
 
+function stripThinking(content: string): string {
+  let cleaned = content.replace(/<think>[\s\S]*?<\/think>/gi, '');
+  cleaned = cleaned.replace(/<think>[\s\S]*$/gi, ''); // jaga-jaga tag kebuka tanpa penutup
+  return cleaned.trim();
+}
+
 async function callGroq(messages: any[]): Promise<string> {
   return withGroq(async (groq) => {
     const completion = await groq.chat.completions.create({
       model: FALLBACK_MODEL,
       messages,
       temperature: 0.85,
-      max_tokens: 512,
+      max_tokens: 1024,
+      reasoning_effort: 'default',
     });
     const content = completion.choices[0]?.message?.content;
     if (!content) throw new AppError(502, 'HERU_EMPTY_RESPONSE', 'Groq returned no response');
-    return content.trim();
+    const cleaned = stripThinking(content);
+    if (!cleaned) throw new AppError(502, 'HERU_EMPTY_RESPONSE', 'Groq returned only thinking content');
+    return cleaned;
   });
 }
 
@@ -153,7 +162,18 @@ export async function chatWithHeru(
   try {
     reply = await callTokenRouter(messages);
   } catch (err) {
-    if (err instanceof AppError && err.code === 'TOKENROUTER_ALL_KEYS_EXHAUSTED') {
+    // Fallback ke Groq untuk semua error TokenRouter:
+    // - TOKENROUTER_ALL_KEYS_EXHAUSTED (rate limit)
+    // - TOKENROUTER_NOT_CONFIGURED (env tidak di-set)
+    // - Network error, timeout, 5xx dari server
+    const isTokenRouterError =
+      err instanceof AppError &&
+      (err.code === 'TOKENROUTER_ALL_KEYS_EXHAUSTED' ||
+       err.code === 'TOKENROUTER_NOT_CONFIGURED');
+
+    const isNetworkError = !(err instanceof AppError);
+
+    if (isTokenRouterError || isNetworkError) {
       reply = await callGroq(messages);
     } else {
       throw err;

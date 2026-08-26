@@ -144,7 +144,7 @@ export default {
                 disabled: this.loading,
                 onClick: () => { this.showPw = !this.showPw; },
                 'aria-label': this.showPw ? 'Hide password' : 'Show password',
-              }, this.showPw ? '◐' : '◑'),
+              }, h('i', { class: this.showPw ? 'bi bi-eye-slash' : 'bi bi-eye' })),
             ]),
             this.error && create('div', { class: 'pw-error', role: 'alert' }, [
               create('span', { class: 'pw-error-icon' }, '!'),

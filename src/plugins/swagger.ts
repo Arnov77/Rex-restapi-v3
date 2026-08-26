@@ -52,151 +52,37 @@ export default fp(
       transform: (args) => {
         const transformed = jsonSchemaTransform(args);
 
-        const isExifRoute =
-          args.url === '/api/exif/' ||
-          args.url === '/api/exif' ||
-          args.url.endsWith('/exif/') ||
-          args.url.endsWith('/exif');
+        // ── Auto multipart/form-data injection ──────────────────────────────────
+        // Tambah route baru di sini tanpa perlu blok if terpisah.
+        const MULTIPART_ROUTES: Record<string, { description: string; required?: boolean }> = {
+          '/exif':      { description: 'Image file (jpeg, png, webp, tiff, heic)', required: true },
+          '/stt':       { description: 'Audio file (mp3, mp4, ogg, wav, webm, m4a) — max 25MB. Optional if ?url= is already set.' },
+          '/removebg':  { description: 'Image file (jpg, jpeg, png, webp) — max 10MB. Optional if ?image_url= is already set.' },
+          '/changebg':  { description: 'Image file (jpg, jpeg, png, webp) — max 10MB. Optional if ?image_url= is already set.' },
+          '/ocr':       { description: 'Image file (JPEG, PNG, WebP, GIF, BMP, TIFF, HEIC) — max 20MB. Optional if ?image= is already set.' },
+          '/anime':     { description: 'Image file (JPEG, PNG) — max 20MB. Optional if ?image= is already set.' },
+          '/hitam':     { description: 'Image file (JPEG, PNG) — max 20MB. Optional if ?image= is already set.' },
+          '/tofigure':  { description: 'Image file (JPEG, PNG) — max 20MB. Optional if ?image= is already set.' },
+          '/nsfw':      { description: 'Image or video file (JPEG, PNG, GIF, WebP, MP4) — max 20MB. Optional if ?image= is already set.' },
+          '/upscaler':  { description: 'Image file (JPEG, PNG, WebP) — max 10MB. Optional if ?image= is already set.' },
+        };
 
-        if (isExifRoute) {
-          transformed.schema = {
-            ...transformed.schema,
+        const matchedRoute = Object.entries(MULTIPART_ROUTES).find(([suffix]) => {
+          const url = args.url.replace(/\/$/, '');
+          return url === suffix || url.endsWith(suffix);
+        });
 
-            /**
-             * This is needed so @fastify/swagger marks the requestBody as
-             * multipart/form-data instead of application/json.
-             */
-            consumes: ['multipart/form-data'],
-
-            /**
-             * This raw JSON Schema is safe to set here because it's applied
-             * after jsonSchemaTransform, not directly on the Zod route schema.
-             */
-            body: {
-              type: 'object',
-              properties: {
-                file: {
-                  type: 'string',
-                  format: 'binary',
-                  description: 'Image file (jpeg, png, webp, tiff, heic)',
-                },
-              },
-              required: ['file'],
-            },
-          };
-        }
-
-        const isSttRoute =
-          args.url === '/api/ai/stt/' ||
-          args.url === '/api/ai/stt' ||
-          args.url.endsWith('/stt/') ||
-          args.url.endsWith('/stt');
-
-        if (isSttRoute) {
+        if (matchedRoute) {
+          const [, { description, required }] = matchedRoute;
           transformed.schema = {
             ...transformed.schema,
             consumes: ['multipart/form-data'],
             body: {
               type: 'object',
               properties: {
-                file: {
-                  type: 'string',
-                  format: 'binary',
-                  description: 'Audio file (mp3, mp4, ogg, wav, webm, m4a) — max 25MB. Optional if ?url= is already set.',
-                },
+                file: { type: 'string', format: 'binary', description },
               },
-            },
-          };
-        }
-        
-        const isRemoveBgRoute =
-          args.url === '/api/tools/removebg/' ||
-          args.url === '/api/tools/removebg' ||
-          args.url.endsWith('/removebg/') ||
-          args.url.endsWith('/removebg');
-        
-        if (isRemoveBgRoute) {
-          transformed.schema = {
-            ...transformed.schema,
-            consumes: ['multipart/form-data'],
-            body: {
-              type: 'object',
-              properties: {
-                file: {
-                  type: 'string',
-                  format: 'binary',
-                  description: 'Image file (jpg, jpeg, png, webp) — max 10MB. Optional if ?image_url= is already set.',
-                },
-              },
-            },
-          };
-        }
-        
-        const isChangeBgRoute =
-          args.url === '/api/tools/changebg/' ||
-          args.url === '/api/tools/changebg' ||
-          args.url.endsWith('/changebg/') ||
-          args.url.endsWith('/changebg');
-        
-        if (isChangeBgRoute) {
-          transformed.schema = {
-            ...transformed.schema,
-            consumes: ['multipart/form-data'],
-            body: {
-              type: 'object',
-              properties: {
-                file: {
-                  type: 'string',
-                  format: 'binary',
-                  description: 'Image file (jpg, jpeg, png, webp) — max 10MB. Optional if ?image_url= is already set.',
-                },
-              },
-            },
-          };
-        }
-
-        const isOcrRoute =
-          args.url === '/api/tools/ocr/' ||
-          args.url === '/api/tools/ocr' ||
-          args.url.endsWith('/ocr/') ||
-          args.url.endsWith('/ocr');
- 
-        if (isOcrRoute) {
-          transformed.schema = {
-            ...transformed.schema,
-            consumes: ['multipart/form-data'],
-            body: {
-              type: 'object',
-              properties: {
-                file: {
-                  type: 'string',
-                  format: 'binary',
-                  description: 'Image file (JPEG, PNG, WebP, GIF, BMP, TIFF, HEIC) — max 20MB. Optional if ?image= is already set.',
-                },
-              },
-            },
-          };
-        }
-        
-        const isAnimeRoute =
-          args.url === '/api/tools/anime/' ||
-          args.url === '/api/tools/anime' ||
-          args.url.endsWith('/anime/') ||
-          args.url.endsWith('/anime');
- 
-        if (isAnimeRoute) {
-          transformed.schema = {
-            ...transformed.schema,
-            consumes: ['multipart/form-data'],
-            body: {
-              type: 'object',
-              properties: {
-                file: {
-                  type: 'string',
-                  format: 'binary',
-                  description: 'Image file (JPEG, PNG) — max 20MB. Optional if ?image= is already set.',
-                },
-              },
+              ...(required ? { required: ['file'] } : {}),
             },
           };
         }

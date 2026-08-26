@@ -121,10 +121,28 @@ export function renderSmemeHtml(opts: SmemeTemplateOptions): string {
   if (document.fonts?.ready) await document.fonts.ready;
 
   const imgWidth = img.naturalWidth || img.offsetWidth || 500;
-  const fontSize = Math.max(40, Math.min(140, Math.round(imgWidth * 0.14)));
-  document.querySelectorAll('.meme-text').forEach((el) => {
-    el.style.fontSize = fontSize + 'px';
-  });
+  const baseFontSize = Math.max(40, Math.min(140, Math.round(imgWidth * 0.14)));
+
+  // Hitung font size berdasarkan panjang teks
+  function calcSize(len) {
+    let size;
+    if (len <= 4)       size = baseFontSize;         // 1 kata pendek
+    else if (len <= 8)  size = baseFontSize * 0.75;  // 1-2 kata
+    else if (len <= 14) size = baseFontSize * 0.60;  // 2-3 kata
+    else if (len <= 22) size = baseFontSize * 0.48;  // 3-4 kata
+    else if (len <= 35) size = baseFontSize * 0.38;  // 4-6 kata
+    else if (len <= 55) size = baseFontSize * 0.30;  // kalimat panjang
+    else                size = baseFontSize * 0.24;  // sangat panjang
+    return Math.max(20, Math.min(baseFontSize, Math.round(size)));
+  }
+
+  // Ambil semua elemen teks dan hitung ukuran masing-masing
+  const textEls = document.querySelectorAll('.meme-text');
+  const sizes = Array.from(textEls).map(el => calcSize((el.textContent || '').length));
+
+  // Pakai ukuran terkecil untuk semua elemen biar konsisten
+  const finalSize = Math.min(...sizes);
+  textEls.forEach(el => { el.style.fontSize = finalSize + 'px'; });
 
   document.documentElement.dataset.ready = '1';
 })();

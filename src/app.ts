@@ -197,6 +197,39 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
     reply.header('x-request-id', String(req.id));
   });
 
+  // Tambahkan ini setelah hook di atas
+  app.addHook('onSend', async (_req, reply, payload) => {
+    // Skip binary responses
+    const contentType = reply.getHeader('content-type') as string ?? '';
+    if (
+      !contentType.includes('application/json') ||
+      payload === null ||
+      payload === undefined
+    ) {
+      return payload;
+    }
+
+    // Parse payload
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(payload as string);
+    } catch {
+      return payload;
+    }
+
+    // Skip kalau sudah ada ok field (ok: true atau ok: false dari error handler)
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      'ok' in parsed
+    ) {
+      return payload;
+    }
+
+    // Wrap
+    return JSON.stringify({ ok: true, data: parsed });
+  });
+
   await app.register(supabasePlugin);
   await app.register(swaggerPlugin);
   await app.register(authPlugin);

@@ -12,15 +12,26 @@ export const TiktokStalkQuery = z.object({
 export type TiktokStalkQuery = z.infer<typeof TiktokStalkQuery>;
 
 export const TiktokStalkResponse = z.object({
+  id: z.string(),
   username: z.string(),
   nickname: z.string(),
   bio: z.string(),
+  bioLink: z.string().nullable(),
+  profileUrl: z.string(),
   avatarUrl: z.string().nullable(),
+  originalAvatarUrl: z.string().nullable(),
   isPrivate: z.boolean(),
   isVerified: z.boolean(),
+  isCommerceUser: z.boolean(),
+  isTtSeller: z.boolean(),
   followers: z.number().int(),
   following: z.number().int(),
+  friends: z.number().int(),
   likes: z.number().int(),
   videos: z.number().int(),
+  digg: z.number().int(),
+  roomId: z.string().nullable(),
+  accountCreateTime: z.number().int().nullable(),
+  accountCreateTimeISO: z.string().nullable(),
 });
 export type TiktokStalkResponse = z.infer<typeof TiktokStalkResponse>;

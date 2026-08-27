@@ -6,7 +6,7 @@ const tiktokStalkRoutes: FastifyPluginAsyncZod = async (app) => {
   const limit = app.rateLimit({
     prefix: 'tiktok-stalk',
     windowSec: 60,
-    max: 8,
+    max: 15,
     keyGenerator: (req) => req.apiKey?.id ?? req.ip,
     message: 'Too many TikTok stalk requests, try again shortly.',
   });

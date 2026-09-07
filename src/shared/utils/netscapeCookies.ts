@@ -3,21 +3,26 @@ import { resolve } from 'node:path';
 import { loadEnv } from '../../config/env.js';
 
 /**
- * Build a `Cookie` request-header value from the Netscape `cookies.txt` that
- * yt-dlp already uses (YTDLP_COOKIES_PATH), filtered to cookies whose domain
- * contains `domain` (e.g. "facebook.com", "instagram.com").
+ * Build a `Cookie` request-header value from a Netscape `cookies.txt` file,
+ * filtered to cookies whose domain contains `domain` (e.g. "facebook.com",
+ * "instagram.com").
  *
- * Lets the in-app scrapers reuse the SAME single cookie file as yt-dlp instead
- * of a second source. Returns '' when the file is missing or has no match, so
- * callers transparently fall back to anonymous requests.
+ * By default reads the same cookies.txt yt-dlp uses (YTDLP_COOKIES_PATH),
+ * so in-app scrapers can reuse it instead of needing a second source. Pass
+ * `pathOverride` to read a different file instead (e.g. a dedicated logged-in
+ * Instagram session separate from yt-dlp's YouTube cookies).
+ *
+ * Returns '' when the file is missing or has no match, so callers
+ * transparently fall back to anonymous requests.
  */
-export function cookieHeaderFor(domain: string): string {
+export function cookieHeaderFor(domain: string, pathOverride?: string): string {
   try {
-    const path = resolve(process.cwd(), loadEnv().YTDLP_COOKIES_PATH);
+    const configuredPath = pathOverride || loadEnv().YTDLP_COOKIES_PATH;
+    const path = resolve(process.cwd(), configuredPath);
     if (!existsSync(path)) return '';
 
     const pairs: string[] = [];
-    for (let line of readFileSync(path, 'utf8').split('')) {
+    for (let line of readFileSync(path, 'utf8').split(/\r?\n/)) {
       if (line.startsWith('#HttpOnly_')) line = line.slice('#HttpOnly_'.length);
       else if (line.startsWith('#') || !line.trim()) continue;
 

@@ -1,15 +1,10 @@
 import { z } from 'zod';
 
-/**
- * SMEME (Simple Meme)
- * Renders a classic meme with top/bottom Impact text over an image.
- */
 export const SmemeQuery = z
   .object({
-    image: z.string().url().max(2048),
+    url: z.string().url().max(2048).optional().describe('URL gambar/GIF/video publik — gunakan ini ATAU upload file'),
     top: z.string().trim().max(200).optional(),
     bottom: z.string().trim().max(200).optional(),
-    format: z.enum(['png', 'jpeg', 'webp']).default('jpeg'),
     quality: z.coerce.number().int().min(1).max(100).default(92),
   })
   .superRefine((val, ctx) => {
@@ -23,3 +18,6 @@ export const SmemeQuery = z
   });
 
 export type SmemeQuery = z.infer<typeof SmemeQuery>;
+
+// Format hasil berdasarkan input
+export type SmemeFormat = 'jpeg' | 'gif' | 'mp4';

@@ -122,6 +122,8 @@ const schema = z.object({
   // Path to yt-dlp cookies file (Netscape format). Used as fallback for
   // YouTube downloads when cobalt fails. Relative to cwd or absolute path.
   YTDLP_COOKIES_PATH: z.string().default('./cookies.txt'),
+  IG_COOKIES_PATH: z.string().optional(),
+  APIFY_API_TOKEN: z.string().optional(),
   YTDLP_PROXY_URL: z.string().optional(),
   GEMINI_API_KEYS: z.string().optional(), // comma-separated, contoh: key1,key2,key3
   GROQ_API_KEYS: z.string().optional(),   // comma-separated, contoh: key1,key2,key3
@@ -147,6 +149,8 @@ const schema = z.object({
   DEEZLOAD_DOWNLOAD_DIR: z.string().optional(),
     
   AUDIO_LOUDNESS_FILTER: z.string().default(''),
+
+  OUTBOUND_PROXY_URLS: z.string().optional(),
 });
 
 export type Env = z.infer<typeof schema>;

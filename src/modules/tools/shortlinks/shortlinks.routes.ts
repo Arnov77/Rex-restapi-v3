@@ -57,7 +57,7 @@ const shortlinksRoutes: FastifyPluginAsyncZod = async (app) => {
     '/',
     {
       preHandler: [limit, requireAuth],
-      schema: { tags: ['shortlink'], summary: 'Create a shortlink', body: CreateShortlinkBody },
+      schema: { hide: true, summary: 'Create a shortlink', body: CreateShortlinkBody },
     },
     async (req) => {
       const svc = shortlinksService(app.supabase);
@@ -83,7 +83,7 @@ const shortlinksRoutes: FastifyPluginAsyncZod = async (app) => {
     '/',
     {
       preHandler: [limit, requireAuth],
-      schema: { tags: ['shortlink'], summary: 'List your shortlinks' },
+      schema: { hide: true, summary: 'List your shortlinks' },
     },
     async (req) => {
       const svc = shortlinksService(app.supabase);
@@ -109,7 +109,7 @@ const shortlinksRoutes: FastifyPluginAsyncZod = async (app) => {
     '/:id',
     {
       preHandler: [limit, requireAuth],
-      schema: { tags: ['shortlink'], summary: 'Delete a shortlink', params: z.object({ id: z.string().min(1) }) },
+      schema: { hide: true, summary: 'Delete a shortlink', params: z.object({ id: z.string().min(1) }) },
     },
     async (req) => {
       const svc = shortlinksService(app.supabase);

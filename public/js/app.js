@@ -18,7 +18,7 @@
  *   '__apikeys__'              API Keys tab
  *
  * PERFORMANCE: the default view is Endpoints, so its components
- * (Sidebar, EndpointList, TryItModal) are static imports and load on
+ * (EndpointBrowser, TryItModal) are static imports and load on
  * page start. The three other tabs are lazy-loaded (dynamic import())
  * the first time they are opened — their code never hits the network
  * unless the user navigates there. A lazy component renders a small
@@ -27,7 +27,7 @@
  * Composables / child components:
  *   useAuth()          — login/logout/regenerate state, persisted in localStorage
  *   useOpenApi()       — fetches /docs/json once, exposes grouped operations
- *   Sidebar            — endpoint nav + footer links + auth widget (bottom)
+ *   UserMenu           — account menu in the topbar
  *   EndpointList       — searchable grid of operation cards
  *   TryItModal         — schema-driven form + result pane
  *   OverviewTab        — analytics cards + chart + recent log (lazy)
@@ -41,10 +41,11 @@
  * the composables / child components.
  */
 
-import { createApp, h, ref, computed, onMounted, watch, defineAsyncComponent } from 'vue';
-import Sidebar from './components/Sidebar.js';
+import { createApp, h, ref, computed, onMounted, onBeforeUnmount, watch, defineAsyncComponent } from 'vue';
+import UserMenu from './components/UserMenu.js';
 import EndpointList from './components/EndpointList.js';
 import TryItModal from './components/TryItModal.js';
+import EndpointBrowser from './components/EndpointBrowser.js';
 import { useAuth } from './auth.js';
 import { useOpenApi } from './openapi.js';
 import { ApiClient } from './api.js';
@@ -130,9 +131,16 @@ const App = {
     const openapi = useOpenApi();
     const client = new ApiClient(() => auth.snapshot());
 
-    const activeTag = ref('');
+    // Tab is addressable: /dashboard#overview links straight to it, which
+    // the avatar menu relies on. Endpoints stays the default.
+    const TAB_BY_HASH = {
+      '#overview': '__overview__',
+      '#endpoints': '',
+      '#keys': '__apikeys__',
+      '#shortlinks': '__shortlinks__',
+    };
+    const activeTag = ref(TAB_BY_HASH[window.location.hash] ?? '');
     const openOp = ref(null);
-    const drawerOpen = ref(false);
     const onboardingDismissed = ref(localStorage.getItem(LS_ONBOARDING) === '1');
     const recent = ref(loadRecent());
 
@@ -161,21 +169,30 @@ const App = {
       auth.init();
     });
 
-    // Mobile drawer state. Desktop ignores this — its sidebar is
-    // permanently visible because the CSS @media query overrides the
-    // off-canvas transform at viewports ≥861px.
-    watch(drawerOpen, (open) => {
-      const root = document.querySelector('.layout');
-      if (!root) return;
-      root.classList.toggle('sidebar-open', open);
-    });
 
-    function closeDrawer() { drawerOpen.value = false; }
+    const HASH_BY_TAB = {
+      '__overview__': '#overview',
+      '': '#endpoints',
+      '__apikeys__': '#keys',
+      '__shortlinks__': '#shortlinks',
+    };
 
     function onSelectTag(t) {
       activeTag.value = t;
-      closeDrawer();
+      const hash = HASH_BY_TAB[t];
+      if (hash && window.location.hash !== hash) {
+        history.replaceState(null, '', hash);
+      }
     }
+
+    // Clicking an in-page link like /dashboard#overview never reloads, so
+    // the tab has to react to the hash change itself.
+    function onHashChange() {
+      const t = TAB_BY_HASH[window.location.hash];
+      if (t !== undefined) activeTag.value = t;
+    }
+    onMounted(() => window.addEventListener('hashchange', onHashChange));
+    onBeforeUnmount(() => window.removeEventListener('hashchange', onHashChange));
 
     // --- Onboarding ---------------------------------------------------
 
@@ -202,17 +219,19 @@ const App = {
     // --- Render -------------------------------------------------------
 
     function renderTopbar() {
-      // Mobile-only header. CSS hides it on ≥861px viewports.
+      // Now shown at every width: it carries the account menu that used
+      // to live at the foot of the sidebar.
       return h('header', { class: 'topbar-mobile' }, [
-        h('button', {
-          class: 'hamburger',
-          'aria-label': 'Open menu',
-          onClick: () => (drawerOpen.value = true),
-        }, '☰'),
         h('a', { class: 'brand', href: '/', style: 'text-decoration:none' }, [
           h('span', { class: 'brand-mark' }, '//'),
           h('span', { class: 'brand-name' }, 'Rex API'),
-          h('span', { class: 'brand-ver', style: 'margin-left:auto' }, 'v3'),
+        ]),
+        h('div', { class: 'topbar-right' }, [
+          auth.isAuthenticated.value && auth.state.usage && h('span', { class: 'topbar-quota' }, [
+            h('span', { class: 'topbar-quota-dot' }),
+            (auth.state.usage.used ?? 0) + ' / ' + (auth.state.usage.limit ?? 0),
+          ]),
+          h(UserMenu),
         ]),
       ]);
     }
@@ -310,30 +329,26 @@ const App = {
           onToast: ({ kind, text }) => toast(kind, text),
         });
       }
-      return h(EndpointList, {
+      // Tree + inline detail replaces the card grid; the modal path is
+      // kept below but no longer reachable, so reverting is one line.
+      return h(EndpointBrowser, {
         groups: openapi.groups.value,
         activeTag: activeTag.value,
-        onSelect: (op) => (openOp.value = op),
+        securitySchemes: openapi.securitySchemes.value,
+        apiClient: client,
+        onResult: (entry) => recordRequest(entry),
       });
     }
 
+    // The endpoint tree already lists every category, so the nav sidebar
+    // would repeat it. Hide the sidebar on that tab only — the other tabs
+    // still need it for Shortlinks and the account card.
     return () =>
-      h('div', { class: 'layout' }, [
+      // Single-column everywhere: the topbar carries navigation and the
+      // account menu, so there is no sidebar left to lay out.
+      h('div', { class: 'layout layout-no-sidebar' }, [
         renderTopbar(),
 
-        h(Sidebar, {
-          groups: openapi.groups.value,
-          activeTag: activeTag.value,
-          totalEndpoints: openapi.totalEndpoints.value,
-          onSelectTag: onSelectTag,
-        }),
-
-        // Backdrop — only visually present when .sidebar-open is set on
-        // .layout. Tap-to-close is wired here.
-        h('div', {
-          class: 'sidebar-backdrop',
-          onClick: closeDrawer,
-        }),
 
         h('main', { class: 'main' }, [
           renderTabBar(),

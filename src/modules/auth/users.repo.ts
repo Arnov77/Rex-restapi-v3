@@ -27,29 +27,48 @@ export interface UserRecord {
   id: string;
   username: string;
   email: string;
-  passwordHash: string;
+  /** Null for accounts that only sign in through a provider. */
+  passwordHash: string | null;
   apiKeyId: string | null;
   createdAt: string;
   lastLoginAt: string | null;
+  /** 'password' | 'google' | 'github' */
+  provider: string;
+  /** Stable subject id from the provider; null for password-only accounts. */
+  providerId: string | null;
+  /** Human name for greetings — from the provider, or null to fall back to username. */
+  displayName: string | null;
 }
 
 export interface PublicUser {
   id: string;
   username: string;
+  displayName: string | null;
   email: string;
   apiKeyId: string | null;
   createdAt: string;
   lastLoginAt: string | null;
+  provider: string;
+  /**
+   * Whether a password is set. The dashboard needs this to know if key
+   * reveal/rotate will work — both gates demand a password confirmation,
+   * which a provider-only account cannot give.
+   */
+  hasPassword: boolean;
 }
 
 interface Row {
   id: string;
   username: string;
   email: string;
-  password_hash: string;
+  password_hash: string | null;
   api_key_id: string | null;
   created_at: string;
   last_login_at: string | null;
+  provider: string;
+  provider_id: string | null;
+  provider_linked_at: string | null;
+  display_name: string | null;
 }
 
 const toRecord = (row: Row | null): UserRecord | null =>
@@ -61,13 +80,17 @@ const toRecord = (row: Row | null): UserRecord | null =>
     apiKeyId: row.api_key_id,
     createdAt: row.created_at,
     lastLoginAt: row.last_login_at,
+    provider: row.provider,
+    providerId: row.provider_id,
+    displayName: row.display_name,
   };
 
 export function usersRepo(db: SupabaseClient) {
   return {
     publicView(record: UserRecord): PublicUser {
-      const { passwordHash: _h, ...rest } = record;
-      return rest;
+      // providerId is an internal identity key — no reason to ship it.
+      const { passwordHash, providerId: _p, ...rest } = record;
+      return { ...rest, hasPassword: passwordHash !== null };
     },
 
     async findById(id: string): Promise<UserRecord | null> {
@@ -97,11 +120,58 @@ export function usersRepo(db: SupabaseClient) {
           email: rec.email,
           password_hash: rec.passwordHash,
           api_key_id: rec.apiKeyId,
+          provider: rec.provider,
+          provider_id: rec.providerId,
+          display_name: rec.displayName,
+          provider_linked_at: rec.providerId ? new Date().toISOString() : null,
         })
         .select('*')
         .single<Row>();
       if (error || !data) throw Internal(`users.insert: ${error?.message ?? 'no data'}`);
       return toRecord(data)!;
+    },
+
+    /**
+     * Find by provider identity. Preferred over email because the subject
+     * id is stable even if the user later changes their provider email.
+     */
+    async findByProvider(provider: string, providerId: string): Promise<UserRecord | null> {
+      const { data, error } = await db
+        .from(TABLE)
+        .select('*')
+        .eq('provider', provider)
+        .eq('provider_id', providerId)
+        .maybeSingle<Row>();
+      if (error) throw Internal(`users.findByProvider: ${error.message}`);
+      return toRecord(data);
+    },
+
+    /**
+     * Attach a provider identity to an account that already exists —
+     * the password-user-signs-in-with-Google case. Leaves username,
+     * api_key_id and history untouched.
+     */
+    async linkProvider(id: string, provider: string, providerId: string): Promise<void> {
+      const { error } = await db
+        .from(TABLE)
+        .update({
+          provider,
+          provider_id: providerId,
+          provider_linked_at: new Date().toISOString(),
+        })
+        .eq('id', id);
+      if (error) throw Internal(`users.linkProvider: ${error.message}`);
+    },
+
+    /** Set or replace the password hash. */
+    async setPasswordHash(id: string, passwordHash: string): Promise<void> {
+      const { error } = await db.from(TABLE).update({ password_hash: passwordHash }).eq('id', id);
+      if (error) throw Internal(`users.setPasswordHash: ${error.message}`);
+    },
+
+    async remove(id: string): Promise<void> {
+      const { error } = await db.from(TABLE).delete().eq('id', id);
+      if (error) throw Internal(`users.remove: ${error.message}`);
     },
 
     async touchLogin(id: string): Promise<void> {

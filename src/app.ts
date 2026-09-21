@@ -52,6 +52,7 @@ import lqRoutes from './modules/makers/lq/lq.routes.js';
 import vcRoutes from './modules/makers/vc/vc.routes.js';
 import achievementRoutes from './modules/makers/achievement/achievement.routes.js';
 import captionRoutes from './modules/makers/caption/caption.routes.js';
+import fakeffRoutes from './modules/makers/fakeff/fakeff.routes.js';
 
 //=======[AI]=======
 import imagegenRoutes from './modules/ai/imagegen/imagegen.routes.js';
@@ -170,10 +171,10 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
           'https://static.cloudflareinsights.com',
         ],
         scriptSrcAttr: ["'none'"],
-        styleSrc: ["'self'", "'unsafe-inline'", 'https://esm.sh'],
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://esm.sh', 'https://fonts.googleapis.com'],
         imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
-        connectSrc: ["'self'", 'https://esm.sh'],
-        fontSrc: ["'self'"],
+        connectSrc: ["'self'", 'https://esm.sh', 'https://sahnaelftuqutevwoinj.supabase.co'],
+        fontSrc: ["'self'", 'https://fonts.gstatic.com'],
         objectSrc: ["'none'"],
         frameSrc: ["'none'"],
         frameAncestors: ["'none'"],
@@ -247,6 +248,7 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(achievementRoutes, { prefix: '/api/maker/achievement' });
   await app.register(vcRoutes, { prefix: '/api/maker/vc' });
   await app.register(captionRoutes, { prefix: '/api/maker/caption' });
+  await app.register(fakeffRoutes, { prefix: '/api/maker/fakeff' });
   
   //=======[AI]======
   await app.register(imagegenRoutes, { prefix: '/api/ai/imagegen' });
@@ -333,7 +335,7 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
     wildcard: false,
   });
 
-  const HTML_PAGES = ['dashboard', 'login', 'profile', 'admin'] as const;
+  const HTML_PAGES = ['dashboard', 'login', 'admin', 'privacy', 'terms', 'reset'] as const;
   for (const page of HTML_PAGES) {
     app.get(
       `/${page}`,

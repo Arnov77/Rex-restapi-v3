@@ -140,24 +140,20 @@ export default {
         // a long list scrolls independently of the (pinned-bottom)
         // footer block.
         h('div', { class: 'sidebar-nav-wrap' }, [
-          h('div', { class: 'section-label' }, 'Endpoints'),
+          // Category picking now lives in the endpoint tree, so the
+          // sidebar only opens the tab — no more duplicate tag list.
+          h('div', { class: 'section-label' }, 'Jelajah'),
           h('div', { class: 'nav' }, [
             h('button', {
               class: ['nav-item', props.activeTag === '' && 'active'],
               onClick: () => emit('selectTag', ''),
             }, [
-              h('span', {}, 'All'),
+              h('span', {}, [
+                h('i', { class: 'bi bi-code-slash' }),
+                ' Endpoint',
+              ]),
               h('span', { class: 'count' }, props.totalEndpoints),
             ]),
-            ...props.groups.map((g) =>
-              h('button', {
-                class: ['nav-item', props.activeTag === g.tag && 'active'],
-                onClick: () => emit('selectTag', g.tag),
-              }, [
-                h('span', { style: 'text-transform:capitalize' }, g.tag.replace(/-/g, ' ')),
-                h('span', { class: 'count' }, g.ops.length),
-              ]),
-            ),
           ]),
 
           h('div', { class: 'section-label', style: 'margin-top:16px' }, 'Tools'),

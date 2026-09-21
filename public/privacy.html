@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Kebijakan Privasi — Rex API</title>
+<meta name="description" content="Penjelasan tentang data yang Rex API kumpulkan, gunakan, dan simpan." />
+<meta name="theme-color" content="#F7F6F3" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#14130F" media="(prefers-color-scheme: dark)" />
+<link rel="canonical" href="https://rexapi.my.id/privacy" />
+<link rel="icon" type="image/x-icon" href="/assets/image/favicon.ico" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" />
+
+<style>
+*,*::before,*::after{
+  box-sizing:border-box;
+  margin:0;
+  padding:0;
+}
+
+:root{
+  --bg:#F7F6F3;
+  --surface:#FDFCFA;
+  --surface-2:#EDEAE3;
+  --border:#E6E2D9;
+  --border-strong:#DDD8CC;
+  --ink:#1C1B19;
+  --on-ink:#F7F6F3;
+  --text:#514E47;
+  --muted:#6B675F;
+  --faint:#8A867C;
+  --accent:#A63D0B;
+  --font:'IBM Plex Sans',system-ui,-apple-system,sans-serif;
+  --display:'Bricolage Grotesque','IBM Plex Sans',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#14130F;
+    --surface:#1C1B17;
+    --surface-2:#24221D;
+    --border:#2F2C26;
+    --border-strong:#3A362E;
+    --ink:#F2EFE7;
+    --on-ink:#14130F;
+    --text:#BDB7AA;
+    --muted:#9A9386;
+    --faint:#7C7669;
+    --accent:#E08A45;
+  }
+}
+
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--font);
+  font-size:16px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+
+a{
+  color:var(--accent);
+}
+
+.nav{
+  border-bottom:1px solid var(--border);
+  background:var(--surface);
+}
+
+.nav-in{
+  max-width:760px;
+  margin:0 auto;
+  padding:0 24px;
+  height:60px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+
+.brand{
+  font-family:var(--display);
+  font-size:18px;
+  font-weight:700;
+  letter-spacing:-.03em;
+  color:var(--ink);
+  text-decoration:none;
+}
+
+.nav-in a.back{
+  font-size:14px;
+  color:var(--text);
+  text-decoration:none;
+  display:inline-flex;
+  align-items:center;
+  min-height:44px;
+}
+
+.nav-in a.back:hover{
+  color:var(--accent);
+}
+
+main{
+  max-width:760px;
+  margin:0 auto;
+  padding:48px 24px 72px;
+}
+
+h1{
+  font-family:var(--display);
+  font-size:clamp(30px,5vw,40px);
+  font-weight:700;
+  letter-spacing:-.04em;
+  line-height:1.1;
+}
+
+.meta{
+  font-family:var(--mono);
+  font-size:12.5px;
+  color:var(--muted);
+  margin-top:12px;
+}
+
+.intro{
+  font-size:16.5px;
+  line-height:1.7;
+  color:var(--text);
+  margin-top:24px;
+}
+
+h2{
+  font-family:var(--display);
+  font-size:21px;
+  font-weight:700;
+  letter-spacing:-.025em;
+  margin-top:40px;
+}
+
+h3{
+  font-size:15.5px;
+  font-weight:600;
+  margin-top:22px;
+}
+
+p{
+  font-size:15px;
+  line-height:1.75;
+  color:var(--text);
+  margin-top:12px;
+}
+
+ul{
+  margin-top:12px;
+  padding-left:20px;
+}
+
+li{
+  font-size:15px;
+  line-height:1.75;
+  color:var(--text);
+  margin-top:7px;
+}
+
+li strong,
+p strong{
+  color:var(--ink);
+  font-weight:600;
+}
+
+code{
+  font-family:var(--mono);
+  font-size:13.5px;
+  background:var(--surface-2);
+  padding:2px 6px;
+  border-radius:5px;
+  color:var(--ink);
+}
+
+.box{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:20px;
+  margin-top:20px;
+}
+
+.box p:first-child{
+  margin-top:0;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:16px;
+  font-size:14.5px;
+}
+
+th,
+td{
+  text-align:left;
+  padding:11px 12px;
+  border-bottom:1px solid var(--border);
+  vertical-align:top;
+  line-height:1.6;
+}
+
+th{
+  font-weight:600;
+  color:var(--ink);
+  font-size:13px;
+  letter-spacing:.02em;
+}
+
+td{
+  color:var(--text);
+}
+
+.wrap-table{
+  overflow-x:auto;
+}
+
+footer{
+  border-top:1px solid var(--border);
+  background:var(--surface);
+  margin-top:56px;
+}
+
+.foot{
+  max-width:760px;
+  margin:0 auto;
+  padding:28px 24px;
+  display:flex;
+  gap:20px;
+  flex-wrap:wrap;
+  justify-content:space-between;
+  font-size:13px;
+  color:var(--muted);
+}
+
+.foot a{
+  color:var(--text);
+  text-decoration:none;
+}
+
+.foot a:hover{
+  color:var(--accent);
+}
+</style>
+</head>
+
+<body>
+
+<header class="nav">
+  <div class="nav-in">
+    <a href="/" class="brand">Rex API</a>
+    <a href="/" class="back">← Beranda</a>
+  </div>
+</header>
+
+<main>
+
+  <h1>Kebijakan Privasi</h1>
+  <div class="meta">Berlaku sejak 21 September 2026</div>
+
+  <p class="intro">
+    Dokumen ini menjelaskan data yang Rex API kumpulkan, alasan penggunaannya,
+    pihak yang dapat menerima atau memproses data tersebut, serta cara kamu
+    dapat meminta penghapusannya.
+  </p>
+
+  <h2>Data yang kami simpan</h2>
+
+  <h3>Saat kamu membuat akun</h3>
+
+  <div class="wrap-table">
+    <table>
+      <tr>
+        <th>Data</th>
+        <th>Tujuan</th>
+      </tr>
+
+      <tr>
+        <td>Alamat email</td>
+        <td>
+          Digunakan sebagai identitas akun dan sebagai sarana untuk menghubungimu
+          terkait akun atau layanan.
+        </td>
+      </tr>
+
+      <tr>
+        <td>Username</td>
+        <td>
+          Digunakan sebagai identitas yang ditampilkan di dashboard.
+        </td>
+      </tr>
+
+      <tr>
+        <td>Kata sandi</td>
+        <td>
+          Kata sandi tidak disimpan dalam bentuk teks asli dan tidak dapat
+          dilihat kembali oleh kami.
+        </td>
+      </tr>
+
+      <tr>
+        <td>Nama dari Google atau GitHub</td>
+        <td>
+          Disimpan jika kamu memilih masuk menggunakan Google atau GitHub,
+          dan dapat digunakan sebagai nama tampilan di dashboard.
+        </td>
+      </tr>
+
+      <tr>
+        <td>ID akun penyedia login</td>
+        <td>
+          Digunakan untuk mengenali akunmu saat masuk kembali melalui
+          Google atau GitHub.
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <h3>Saat kamu menggunakan API</h3>
+
+  <ul>
+    <li>
+      <strong>API key</strong> — disimpan dalam bentuk terenkripsi.
+      Kunci asli hanya ditampilkan kepada pemilik akun melalui fitur yang tersedia.
+    </li>
+
+    <li>
+      <strong>Penghitung pemakaian harian</strong> — mencatat jumlah request
+      yang dilakukan setiap hari untuk menghitung dan menerapkan batas penggunaan.
+    </li>
+
+    <li>
+      <strong>Waktu login terakhir</strong> — digunakan untuk informasi
+      aktivitas akun.
+    </li>
+
+    <li>
+      <strong>Catatan tindakan admin</strong> — perubahan tertentu yang
+      dilakukan pengelola terhadap akun dapat dicatat untuk keperluan administrasi
+      dan keamanan.
+    </li>
+  </ul>
+
+  <div class="box">
+    <p>
+      <strong>Yang tidak kami simpan secara permanen:</strong>
+      isi request dan response dari endpoint yang kamu gunakan tidak disimpan
+      ke basis data aplikasi setelah pemrosesan selesai.
+    </p>
+
+    <p>
+      Beberapa endpoint dapat menggunakan file sementara. File hasil unduhan,
+      unggahan, atau pemrosesan gambar dapat disimpan sementara di server
+      hingga satu jam sebelum dihapus secara otomatis.
+    </p>
+  </div>
+
+  <h2>Pihak ketiga</h2>
+
+  <p>
+    Untuk menyediakan Rex API, kami menggunakan beberapa layanan pihak ketiga.
+    Layanan tersebut dapat menerima atau memproses data tertentu sesuai dengan
+    fungsi yang digunakan.
+  </p>
+
+  <div class="wrap-table">
+    <table>
+      <tr>
+        <th>Layanan</th>
+        <th>Data yang dapat diproses</th>
+      </tr>
+
+      <tr>
+        <td>Supabase</td>
+        <td>
+          Digunakan untuk autentikasi dan penyimpanan data aplikasi,
+          termasuk data akun dan informasi terkait layanan.
+        </td>
+      </tr>
+
+      <tr>
+        <td>Google</td>
+        <td>
+          Jika kamu memilih masuk dengan Google, Google memproses proses
+          autentikasi dan memberikan informasi dasar akun yang kamu izinkan,
+          seperti alamat email, nama, dan identitas akun.
+        </td>
+      </tr>
+
+      <tr>
+        <td>GitHub</td>
+        <td>
+          Jika kamu memilih masuk dengan GitHub, GitHub memproses proses
+          autentikasi dan memberikan informasi akun yang diperlukan
+          untuk menghubungkan akun GitHub dengan Rex API.
+        </td>
+      </tr>
+
+      <tr>
+        <td>Cloudflare</td>
+        <td>
+          Digunakan untuk meneruskan dan melindungi lalu lintas menuju layanan kami.
+          Cloudflare dapat memproses alamat IP dan metadata permintaan yang melewati
+          jaringannya.
+        </td>
+      </tr>
+
+      <tr>
+        <td>Penyedia model AI</td>
+        <td>
+          Teks yang dikirim ke endpoint AI dapat diteruskan ke penyedia model
+          pihak ketiga untuk diproses. Hindari mengirimkan informasi sensitif
+          atau rahasia melalui endpoint tersebut.
+        </td>
+      </tr>
+
+      <tr>
+        <td>Penyedia pemrosesan gambar</td>
+        <td>
+          Gambar yang dikirim ke endpoint tertentu, seperti upscaler atau
+          pemrosesan gambar lainnya, dapat diteruskan ke layanan pihak ketiga
+          untuk diproses.
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <p>
+    Kami tidak menjual data pribadi pengguna dan tidak menggunakan pelacak
+    iklan untuk menjual atau membagikan profil pengguna kepada pengiklan.
+  </p>
+
+  <h2>Berapa lama data disimpan</h2>
+  
+  <p>
+    Saat ini, kami belum menerapkan jadwal penghapusan otomatis untuk seluruh
+    data akun. Data akun disimpan selama akun tetap aktif di Rex API.
+  </p>
+  
+  <p>
+    Jika kamu menghapus akun melalui dashboard, data utama yang terkait
+    dengan akun tersebut, termasuk API key dan data penggunaan akun,
+    akan dihapus dari sistem kami.
+  </p>
+  
+  <p>
+    File sementara hasil unduhan, unggahan, atau pemrosesan gambar merupakan
+    pengecualian dan dapat disimpan hingga satu jam sebelum dihapus secara otomatis.
+  </p>
+
+  <h2>Menghapus akun</h2>
+  
+  <p>
+    Kamu dapat menghapus akun secara langsung melalui dashboard.
+    Buka halaman <strong>Profil</strong>, lalu pilih
+    <strong>Hapus akun</strong>.
+  </p>
+  
+  <p>
+    Sebelum akun dihapus, kamu akan diminta memasukkan kata sandi
+    untuk mengonfirmasi bahwa permintaan penghapusan dilakukan oleh
+    pemilik akun.
+  </p>
+  
+  <p>
+    Setelah penghapusan dikonfirmasi, akun beserta API key dan data
+    penggunaan yang terkait akan dihapus dari sistem kami.
+    Penghapusan akun tidak dapat dibatalkan.
+  </p>
+
+  <h2>Keamanan</h2>
+
+  <ul>
+    <li>
+      Kata sandi tidak disimpan dalam bentuk teks asli.
+    </li>
+
+    <li>
+      API key disimpan dalam bentuk terenkripsi.
+    </li>
+
+    <li>
+      Data dikirim melalui koneksi HTTPS.
+    </li>
+  </ul>
+
+  <p>
+    Kami menerapkan langkah-langkah yang wajar untuk melindungi data,
+    tetapi tidak ada sistem yang dapat menjamin keamanan sepenuhnya.
+    Jika terjadi insiden keamanan yang berdampak pada data pengguna,
+    kami akan memberikan pemberitahuan melalui sarana yang tersedia
+    apabila diperlukan.
+  </p>
+
+  <h2>Anak-anak</h2>
+
+  <p>
+    Rex API tidak ditujukan untuk anak berusia di bawah 13 tahun.
+    Kami tidak dengan sengaja mengumpulkan data pribadi dari anak
+    di bawah usia tersebut.
+  </p>
+
+  <h2>Perubahan kebijakan</h2>
+
+  <p>
+    Jika kebijakan ini diperbarui, tanggal berlaku di bagian atas halaman
+    akan ikut diperbarui. Untuk perubahan yang berdampak signifikan terhadap
+    penggunaan data pribadi, pemberitahuan dapat diberikan melalui email
+    atau melalui layanan Rex API.
+  </p>
+
+  <h2>Kontak</h2>
+
+  <p>
+    Untuk pertanyaan atau hal lain terkait privasi, hubungi
+    <a href="mailto:support@rexapi.my.id">support@rexapi.my.id</a>.
+  </p>
+
+</main>
+
+<footer>
+  <div class="foot">
+
+    <span>© 2026 Rex API</span>
+
+    <span>
+      <a href="/">Beranda</a> ·
+      <a href="/terms">Ketentuan Layanan</a> ·
+      <a href="/docs">Dokumentasi</a>
+    </span>
+
+  </div>
+</footer>
+
+</body>
+</html>

@@ -10,13 +10,33 @@ export const ConfirmPasswordBody = z.object({
 });
 export type ConfirmPasswordBody = z.infer<typeof ConfirmPasswordBody>;
 
+/** First password for a provider-created account — no old password to prove. */
+export const SetPasswordBody = z.object({
+  password: z.string().min(8, 'Kata sandi minimal 8 karakter').max(200),
+});
+export type SetPasswordBody = z.infer<typeof SetPasswordBody>;
+
+export const SetPasswordResponse = z.object({
+  ok: z.literal(true),
+});
+
+/** Change an existing password — the old one must be proven first. */
+export const ChangePasswordBody = z.object({
+  currentPassword: z.string().min(1).max(200),
+  newPassword: z.string().min(8, 'Kata sandi minimal 8 karakter').max(200),
+});
+export type ChangePasswordBody = z.infer<typeof ChangePasswordBody>;
+
 export const PublicUserView = z.object({
   id: z.string(),
   username: z.string(),
+  displayName: z.string().nullable(),
   email: z.string(),
   apiKeyId: z.string().nullable(),
   createdAt: z.string(),
   lastLoginAt: z.string().nullable(),
+  provider: z.string(),
+  hasPassword: z.boolean(),
 });
 
 export const MeResponse = z.object({

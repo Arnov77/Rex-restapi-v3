@@ -1,518 +1,415 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="id">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rex API — REST API untuk bot, app, dan automation</title>
+<meta name="description" content="97 endpoint terdokumentasi: downloader media, AI, image generator, dan web utility. Gratis 150 request per hari dengan API key." />
+<meta name="theme-color" content="#F7F6F3" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#14130F" media="(prefers-color-scheme: dark)" />
+<link rel="canonical" href="https://rexapi.my.id/" />
 
-  <!-- Primary SEO -->
-  <title>Rex API — Free REST API for Bots, Apps &amp; Automation</title>
-  <meta
-    name="description"
-    content="One documented REST API with 80+ endpoints: media downloaders, AI tools, image generators, and web utilities. Get a free API key and start in minutes."
-  />
-  <meta
-    name="keywords"
-    content="REST API, bot API, app API, screenshot API, image tools API, quote card API, brat generator API, developer tools API, web utilities API"
-  />
-  <meta name="robots" content="index, follow, max-image-preview:large" />
-  <link rel="canonical" href="https://rexapi.my.id/" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Rex API" />
+<meta property="og:title" content="Rex API — REST API untuk bot, app, dan automation" />
+<meta property="og:description" content="97 endpoint terdokumentasi: downloader media, AI, image generator, dan web utility." />
+<meta property="og:url" content="https://rexapi.my.id/" />
+<meta property="og:image" content="https://rexapi.my.id/assets/image/web-app-manifest-512x512.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Rex API" />
+<meta name="twitter:description" content="REST API untuk bot, app, dan automation." />
 
-  <!-- Open Graph -->
-  <meta property="og:type" content="website" />
-  <meta property="og:site_name" content="Rex API" />
-  <meta property="og:title" content="Rex API — Free REST API for Bots & Apps" />
-  <meta
-    property="og:description"
-    content="80+ documented endpoints: media downloaders, AI tools, image generators, and web utilities in one fast REST API."
-  />
-  <meta property="og:url" content="https://rexapi.my.id/" />
-  <meta property="og:locale" content="en_US" />
+<link rel="icon" type="image/x-icon" href="/assets/image/favicon.ico" />
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/image/apple-touch-icon.png" />
+<link rel="manifest" href="/site.webmanifest" />
 
-  <!-- Twitter -->
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta
-    name="twitter:title"
-    content="Rex API — Free REST API for Bots & Apps"
-  />
-  <meta
-    name="twitter:description"
-    content="80+ endpoints for media downloaders, AI tools, image generators, and web utilities. Free API key, documented, JWT-secured."
-  />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" />
 
-  <!-- Favicons / manifest -->
-  <link rel="icon" type="image/x-icon" href="/assets/image/favicon.ico" />
-  <link rel="apple-touch-icon" sizes="180x180" href="/assets/image/apple-touch-icon.png" />
-  <link rel="manifest" href="/site.webmanifest" />
-  <meta name="theme-color" content="#07090c" />
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
-  <link rel="stylesheet" href="./css/style.css" />
-  <link rel="stylesheet" href="./css/icons.css" />
-
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    "@id": "https://rexapi.my.id/#software",
-    "name": "Rex API",
-    "url": "https://rexapi.my.id/",
-    "applicationCategory": "DeveloperApplication",
-    "operatingSystem": "Web",
-    "description": "A documented REST API for bots, apps, and automation offering media downloaders, AI tools, image generators, and web utilities.",
-    "offers": [
-      { "@type": "Offer", "name": "Anonymous tier", "price": "0",
-        "priceCurrency": "USD", "description": "15 requests per day per IP" },
-      { "@type": "Offer", "name": "Registered tier", "price": "0",
-        "priceCurrency": "USD", "description": "150 requests per day, personal API key" }
-    ],
-    "brand": { "@type": "Brand", "name": "Rex API" },
-    "creator": { "@type": "Person", "name": "Rex API Team",
-                 "url": "https://rexapi.my.id/" }
+:root{
+  --bg:#F7F6F3; --surface:#FDFCFA; --surface-2:#EDEAE3;
+  --border:#E6E2D9; --border-strong:#DDD8CC;
+  --ink:#1C1B19; --on-ink:#F7F6F3;
+  --text:#514E47; --muted:#6B675F; --faint:#8A867C;
+  --accent:#A63D0B;
+  --code-bg:#1C1B19; --code-fg:#DAD5C8; --code-dim:#A8A296;
+  --ok-bg:#E8F0E9; --ok-fg:#2F6B3E;
+  --r:14px; --r-sm:10px;
+  --font:'IBM Plex Sans',system-ui,-apple-system,sans-serif;
+  --display:'Bricolage Grotesque','IBM Plex Sans',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#14130F; --surface:#1C1B17; --surface-2:#24221D;
+    --border:#2F2C26; --border-strong:#3A362E;
+    --ink:#F2EFE7; --on-ink:#14130F;
+    --text:#BDB7AA; --muted:#9A9386; --faint:#7C7669;
+    --accent:#E08A45;
+    --code-bg:#0F0E0B; --code-fg:#DAD5C8; --code-dim:#8B8474;
+    --ok-bg:#1E2B21; --ok-fg:#7FB98C;
   }
-  </script>
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    "@id": "https://rexapi.my.id/#organization",
-    "name": "Rex API",
-    "url": "https://rexapi.my.id/",
-    "logo": "https://rexapi.my.id/assets/image/web-app-manifest-512x512.png",
-    "sameAs": [
-      "https://github.com/Arnov77/Rex-restapi-v3"
-    ]
-  }
-  </script>
-  <script type="application/ld+json" id="faqSchema">
-  {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    "mainEntity": []
-  }
-  </script>
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    "itemListElement": [
-      { "@type": "ListItem", "position": 1, "name": "Home",
-        "item": "https://rexapi.my.id/" }
-    ]
-  }
-  </script>
+}
+
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+img{max-width:100%;height:auto}
+
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+@media(max-width:640px){.wrap{padding:0 18px}}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 24px;border-radius:12px;font-size:15px;font-weight:600;border:1px solid transparent;cursor:pointer;font-family:var(--font);transition:opacity .15s}
+.btn:hover{opacity:.88}
+.btn-primary{background:var(--ink);color:var(--on-ink)}
+.btn-accent{background:var(--accent);color:#FFF}
+.btn-ghost{background:var(--surface);border-color:var(--border-strong);color:var(--ink)}
+
+h2.sec{font-family:var(--display);font-size:clamp(26px,3.4vw,36px);font-weight:700;letter-spacing:-.035em;line-height:1.1}
+p.lead{font-size:15px;color:var(--text);margin-top:12px;max-width:620px;line-height:1.65}
+
+/* NAV */
+.nav{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.nav-in{display:flex;align-items:center;justify-content:space-between;height:64px}
+.brand{font-family:var(--display);font-size:19px;font-weight:700;letter-spacing:-.03em}
+.nav-links{display:flex;align-items:center;gap:22px}
+.nav-links a{font-size:14px;color:var(--text);display:inline-flex;align-items:center;min-height:44px}
+.nav-links a:hover{color:var(--accent)}
+.nav-cta{display:flex;align-items:center;gap:14px}
+.nav-cta .btn{min-height:40px;padding:0 18px;font-size:14px;border-radius:10px}
+@media(max-width:860px){.nav-links{display:none}}
+@media(max-width:480px){.nav-cta a:not(.btn){display:none}}
+
+/* HERO */
+.hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px;align-items:start;padding-block:72px}
+@media(max-width:980px){.hero{grid-template-columns:1fr;gap:28px;padding-block:44px}}
+.badge{display:inline-flex;align-items:center;gap:9px;height:32px;padding:0 14px;background:var(--surface);border:1px solid var(--border);border-radius:999px;font-size:12.5px;color:var(--text)}
+.dot{width:6px;height:6px;border-radius:999px;background:var(--accent);flex-shrink:0}
+h1{font-family:var(--display);font-size:clamp(31px,7.2vw,56px);font-weight:700;line-height:1.06;letter-spacing:-.04em;margin-top:20px}
+.hero p{font-size:17px;line-height:1.65;color:var(--text);margin-top:20px;max-width:520px}
+.hero-cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:32px}
+.stats{display:flex;gap:36px;margin-top:36px;padding-top:24px;border-top:1px solid var(--border);flex-wrap:wrap}
+.stat b{display:block;font-family:var(--display);font-size:24px;font-weight:700;letter-spacing:-.02em}
+.stat span{font-size:12.5px;color:var(--muted)}
+
+@media(max-width:640px){
+  .hero{padding-block:34px}
+  .hero p{font-size:15.5px;margin-top:16px;line-height:1.6}
+  .hero-cta{margin-top:24px;gap:10px}
+  .hero-cta .btn{flex:1 1 150px}
+  .stats{gap:18px;margin-top:26px;padding-top:20px}
+  .stat b{font-size:21px}
+  .stat span{font-size:12px}
+  .badge{height:30px;font-size:12px;padding:0 12px}
+}
+@media(max-width:430px){.tester-head span{display:none}}
+
+/* TESTER */
+.tester{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.tester-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 18px;height:48px;border-bottom:1px solid var(--border)}
+.tester-head b{font-size:13.5px;font-weight:600}
+.tester-head span{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.tester-body{padding:18px;display:flex;flex-direction:column;gap:14px}
+.field label{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+.field select,.field input{width:100%;height:44px;padding:0 12px;border:1px solid var(--border-strong);border-radius:var(--r-sm);background:var(--bg);color:var(--ink);font-family:var(--mono);font-size:13px}
+.field select:focus,.field input:focus{outline:2px solid var(--accent);outline-offset:1px}
+.res-meta{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:11px;color:var(--code-dim);margin-bottom:8px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;height:22px;padding:0 9px;border-radius:6px;background:var(--ok-bg);color:var(--ok-fg);font-weight:500}
+.pill.bad{background:#F3E3DE;color:#9A3412}
+@media(prefers-color-scheme:dark){.pill.bad{background:#33211B;color:#E8A184}}
+.res-box{background:var(--code-bg);border-radius:var(--r-sm);padding:14px;min-height:170px;max-height:260px;overflow:auto}
+.res-box pre{font-family:var(--mono);font-size:11.5px;line-height:1.8;color:var(--code-fg);white-space:pre-wrap;word-break:break-word}
+.res-empty{min-height:170px;border:1px dashed var(--border-strong);border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;font-size:13px;color:var(--faint)}
+
+/* SECTIONS */
+section{padding:64px 0;border-top:1px solid var(--border)}
+@media(max-width:640px){section{padding:48px 0}}
+.band{background:var(--surface)}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:30px}
+.grid5{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-top:28px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:30px}
+@media(max-width:900px){.grid3{grid-template-columns:repeat(2,minmax(0,1fr))}.grid5{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:600px){.grid3,.grid2,.grid5{grid-template-columns:1fr}}
+
+.card{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:22px;display:flex;flex-direction:column;transition:border-color .15s}
+.band .card{background:var(--bg)}
+a.card:hover{border-color:var(--accent)}
+.card .num{font-family:var(--mono);font-size:11px;color:var(--accent)}
+.card h3{font-family:var(--display);font-size:20px;font-weight:700;letter-spacing:-.02em;margin-top:8px}
+.card p{font-size:13px;line-height:1.7;color:var(--text);margin-top:8px}
+.card svg{color:var(--accent)}
+
+.stack-item{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:18px;min-height:94px;display:flex;flex-direction:column;justify-content:center}
+.stack-item b{font-size:15px;font-weight:600}
+.stack-item span{font-size:12px;color:var(--muted);margin-top:4px}
+
+.quota{border-radius:16px;padding:28px;display:flex;flex-direction:column;min-height:230px}
+.quota.light{background:var(--surface);border:1px solid var(--border)}
+.quota.dark{background:var(--ink);color:var(--on-ink)}
+.quota .k{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.quota.dark .k{color:var(--accent)}
+.quota .n{font-family:var(--display);font-size:52px;font-weight:700;letter-spacing:-.04em;line-height:1;margin-top:12px}
+.quota .u{font-size:14px;color:var(--text);margin-left:8px;font-family:var(--font)}
+.quota.dark .u,.quota.dark .d{color:var(--code-dim)}
+.quota .d{font-size:13.5px;line-height:1.7;color:var(--text);margin-top:14px}
+.quota .btn{margin-top:auto;align-self:flex-start}
+
+/* FOOTER */
+footer{border-top:1px solid var(--border);background:var(--surface);padding:40px 0}
+.foot{display:flex;justify-content:space-between;gap:36px;flex-wrap:wrap}
+.foot-col{display:flex;flex-direction:column;gap:9px}
+.foot-col .h{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.foot-col a{font-size:13px;color:var(--text)}
+.foot-col a:hover{color:var(--accent)}
+.foot-links{display:flex;gap:56px;flex-wrap:wrap}
+.copy{margin-top:28px;padding-top:20px;border-top:1px solid var(--border);font-size:12.5px;color:var(--muted)}
+
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+</style>
 </head>
-
 <body>
-  <!-- Skip link -->
-  <a class="skip-link" href="#hero-title">Skip to content</a>
 
-  <!-- Top bar -->
-  <header class="topbar">
-    <div class="topbar-inner">
-      <a class="brand" href="/" aria-label="Rex API home">
-        <span class="brand-mark" aria-hidden="true">//</span>
-        <span class="brand-name">Rex API</span>
-        <span class="brand-ver">v3</span>
-      </a>
-
-      <nav class="top-nav" aria-label="Main navigation">
-        <a href="#features">Features</a>
-        <a href="#tiers">Pricing</a>
-        <a href="/docs">Docs</a>
-        <a href="/login">Sign in</a>
-        <a class="btn primary" href="/dashboard">Open dashboard</a>
+<header class="nav">
+  <div class="wrap nav-in">
+    <div style="display:flex;align-items:center;gap:32px">
+      <a href="/" class="brand">Rex API</a>
+      <nav class="nav-links">
+        <a href="#kategori">Kategori</a>
+        <a href="#kenapa">Kenapa</a>
+        <a href="/docs">Dokumentasi</a>
       </nav>
     </div>
-  </header>
+    <div class="nav-cta">
+      <a href="/login" style="font-size:14px;color:var(--text)">Masuk</a>
+      <a href="/login" class="btn btn-primary">Ambil API key</a>
+    </div>
+  </div>
+</header>
 
-  <main>
-    <!-- Hero -->
-    <section class="hero" id="hero" aria-labelledby="hero-title">
-      <div class="section-inner">
-        <div class="hero-grid">
-          <div class="hero-copy">
-            <div class="hero-pill" id="statusPill" data-state="ok" aria-live="polite">
-              <span class="dot" aria-hidden="true"></span>
-              <span id="statusPillText">All systems operational · v3</span>
-            </div>
+<main>
+  <div class="wrap hero">
+    <div>
+      <div class="badge"><span class="dot"></span>97 endpoint &middot; gratis 150 request/hari</div>
+      <h1>Satu API untuk bot, app, dan automation.</h1>
+      <p>Downloader media, AI, image generator, dan web utility. Satu base URL, satu header, bentuk response yang sama di semua endpoint.</p>
+      <div class="hero-cta">
+        <a href="/login" class="btn btn-primary">Mulai gratis</a>
+        <a href="/docs" class="btn btn-ghost">Lihat dokumentasi</a>
+      </div>
+      <div class="stats">
+        <div class="stat"><b>15</b><span>kategori</span></div>
+        <div class="stat"><b>JSON</b><span>response konsisten</span></div>
+        <div class="stat"><b>0</b><span>biaya untuk mulai</span></div>
+      </div>
+    </div>
 
-            <h1 id="hero-title">
-              One REST API for <span class="accent">bots, apps,</span><br />
-              and automation
-            </h1>
+    <div class="tester">
+      <div class="tester-head">
+        <b>Coba tanpa daftar</b>
+        <span>tanpa API key &middot; 15/hari</span>
+      </div>
+      <div class="tester-body">
+        <div class="field">
+          <label for="ep">Endpoint</label>
+          <select id="ep">
+            <option value="/api/tools/translate/">GET /api/tools/translate</option>
+            <option value="/api/fun/cek-kodam/">GET /api/fun/cek-kodam</option>
+            <option value="/api/games/tebaktebakan/random">GET /api/games/tebaktebakan/random</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="pr">Parameter</label>
+          <input id="pr" type="text" value="text=halo dunia&amp;to=en" autocomplete="off" spellcheck="false" />
+        </div>
+        <button id="run" type="button" class="btn btn-accent" style="width:100%">Kirim request</button>
+        <div>
+          <label style="display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Response</label>
+          <div id="out" class="res-empty">Tekan &ldquo;Kirim request&rdquo; untuk melihat response aslinya.</div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-            <p class="sub">
-              Download media, use AI tools, generate images, and access dozens
-              of web utilities — all through one documented API, secured with
-              JWT and ready to use from your dashboard.
-            </p>
+  <section id="kategori" class="band">
+    <div class="wrap">
+      <h2 class="sec">Enam kategori, satu kunci</h2>
+      <p class="lead">Semua endpoint memakai autentikasi dan format response yang sama, jadi pindah antar kategori tidak perlu belajar ulang.</p>
+      <div class="grid3">
+        <a class="card" href="/docs"><span class="num">01</span><h3>Downloader</h3><p>TikTok, YouTube, Instagram, Facebook, Spotify, SoundCloud, MediaFire.</p></a>
+        <a class="card" href="/docs"><span class="num">02</span><h3>AI</h3><p>Chatbot, image generator, dan speech-to-text.</p></a>
+        <a class="card" href="/docs"><span class="num">03</span><h3>Maker</h3><p>Brat, quote card, meme, sticker Telegram, achievement.</p></a>
+        <a class="card" href="/docs"><span class="num">04</span><h3>Tools</h3><p>Screenshot, OCR, translate, QR, TTS, upscaler, remove background.</p></a>
+        <a class="card" href="/docs"><span class="num">05</span><h3>Search</h3><p>Pencarian Pinterest dan manga beserta detail chapter.</p></a>
+        <a class="card" href="/docs"><span class="num">06</span><h3>Games &amp; Fun</h3><p>Asah otak, tebak gambar, family 100, primbon, cek khodam.</p></a>
+      </div>
+    </div>
+  </section>
 
-            <div class="hero-ctas">
-              <a class="btn primary lg" href="/dashboard">Get your free API key <i class="bi bi-box-arrow-up-right"></i></a>
-              <a class="btn lg" href="/docs">Explore the docs</a>
-            </div>
-          </div>
+  <section id="kenapa">
+    <div class="wrap">
+      <h2 class="sec">Kenapa Rex API</h2>
+      <div class="grid3">
+        <div class="card">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>
+          <h3 style="font-size:19px">Cepat dan bisa ditebak</h3>
+          <p>Response di-cache, media besar dialirkan lewat proxy bertanda tangan, dan batas waktu ditegakkan per endpoint.</p>
+        </div>
+        <div class="card">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.2 8.2 8 9 4.8-.8 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>
+          <h3 style="font-size:19px">Dijaga serius</h3>
+          <p>API key disimpan terenkripsi, URL dari luar disaring anti-SSRF, dan setiap tindakan admin tercatat.</p>
+        </div>
+        <div class="card">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h10"/></svg>
+          <h3 style="font-size:19px">Dokumentasi yang hidup</h3>
+          <p>Tiap endpoint punya playground. Isi parameter, kirim, lalu salin kodenya untuk cURL, Node, atau Python.</p>
+        </div>
+      </div>
+    </div>
+  </section>
 
-          <div class="code-preview" id="codePreview" data-mode="demo" role="region" aria-label="Live API preview">
-            <div class="cp-head">
-              <div class="cp-dots" aria-hidden="true"><span></span><span></span><span></span></div>
-              <div class="cp-title">preview<span class="cp-badge" id="cpBadge">200 OK</span></div>
-            </div>
-            <div class="cp-request">
-              <span class="cp-prompt" aria-hidden="true">$</span>
-              <pre id="cpRequest">curl -H "Authorization: Bearer rex_…" https://rexapi.my.id/api/downloader/ytplay</pre>
-            </div>
-            <div class="cp-response">
-              <button class="cp-copy" id="cpCopy" type="button" aria-label="Copy request and response">
-                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
-                  <rect x="5.5" y="5.5" width="8.5" height="8.5" rx="1.6"/>
-                  <path d="M3 10.5V3.5a1.5 1.5 0 0 1 1.5-1.5H11"/>
-                </svg>
-                Copy
-              </button>
-              <pre id="cpResponse">{
-  <span class="k">"ok"</span>: <span class="b">true</span>,
-  <span class="k">"data"</span>: {
-    <span class="k">"title"</span>: <span class="s">"Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster)"</span>,
-    <span class="k">"author"</span>: <span class="s">"Rick Astley"</span>,
-    <span class="k">"thumbnail"</span>: <span class="s">"https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg"</span>,
-    <span class="k">"duration"</span>: <span class="n">213</span>,
-    <span class="k">"source"</span>: <span class="s">"search"</span>,
-    <span class="k">"url"</span>: <span class="s">"https://rexapi.my.id/p/05jmytci"</span>,
-    <span class="k">"format"</span>: <span class="s">"mp3"</span>
+  <section class="band">
+    <div class="wrap">
+      <h2 class="sec" style="font-size:clamp(22px,2.8vw,28px)">Dibangun di atas</h2>
+      <div class="grid5">
+        <div class="stack-item"><b>Fastify</b><span>HTTP server</span></div>
+        <div class="stack-item"><b>TypeScript</b><span>seluruh kode</span></div>
+        <div class="stack-item"><b>Supabase</b><span>basis data</span></div>
+        <div class="stack-item"><b>Puppeteer</b><span>render gambar</span></div>
+        <div class="stack-item"><b>FFmpeg</b><span>olah media</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2 class="sec">Kuota</h2>
+      <div class="grid2">
+        <div class="quota light">
+          <div class="k">Tanpa API key</div>
+          <div><span class="n">15</span><span class="u">request / hari</span></div>
+          <div class="d">Dihitung per alamat IP. Cocok untuk mencoba sebelum memutuskan.</div>
+          <a href="/docs" class="btn btn-ghost">Coba dulu</a>
+        </div>
+        <div class="quota dark">
+          <div class="k">Dengan API key</div>
+          <div><span class="n">150</span><span class="u">request / hari</span></div>
+          <div class="d">Tetap gratis setelah daftar. Kuota dan riwayat pemakaian terlihat di dashboard.</div>
+          <a href="/login" class="btn btn-accent">Ambil API key</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <div>
+        <div class="brand">Rex API</div>
+        <div style="font-size:12.5px;color:var(--muted);margin-top:8px">rexapi.my.id &middot; v3.0.0</div>
+      </div>
+      <div class="foot-links">
+        <div class="foot-col">
+          <span class="h">Produk</span>
+          <a href="/docs">Dokumentasi</a>
+          <a href="/dashboard">Dashboard</a>
+          <a href="/login">Ambil API key</a>
+        </div>
+        <div class="foot-col">
+          <span class="h">Lainnya</span>
+          <a href="https://github.com/Arnov77/Rex-restapi-v3" rel="noopener">GitHub</a>
+          <a href="/api/ready">Status</a>
+          <a href="/privacy">Kebijakan Privasi</a>
+          <a href="/terms">Ketentuan Layanan</a>
+        </div>
+      </div>
+    </div>
+    <div class="copy">&copy; 2026 Rex API. Dibuat oleh Arnov / Rexu.</div>
+  </div>
+</footer>
+
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","@id":"https://rexapi.my.id/#software","name":"Rex API","url":"https://rexapi.my.id/","applicationCategory":"DeveloperApplication","operatingSystem":"Any","description":"REST API terdokumentasi untuk bot, app, dan automation: downloader media, AI, image generator, dan web utility.","offers":[{"@type":"Offer","price":"0","priceCurrency":"USD","description":"15 request per hari per IP"},{"@type":"Offer","price":"0","priceCurrency":"USD","description":"150 request per hari dengan API key"}]}
+</script>
+
+<script>
+(function () {
+  var DEFAULTS = {
+    '/api/tools/translate/': 'text=halo dunia&to=en',
+    '/api/fun/cek-kodam/': 'name=Rexu',
+    '/api/games/tebaktebakan/random': ''
+  };
+
+  var ep = document.getElementById('ep');
+  var pr = document.getElementById('pr');
+  var run = document.getElementById('run');
+  var out = document.getElementById('out');
+
+  ep.addEventListener('change', function () {
+    pr.value = DEFAULTS[ep.value] || '';
+  });
+
+  function buildUrl() {
+    var raw = pr.value.trim();
+    if (!raw) return ep.value;
+    var qs = new URLSearchParams();
+    raw.split('&').forEach(function (pair) {
+      var i = pair.indexOf('=');
+      if (i > 0) qs.set(pair.slice(0, i).trim(), pair.slice(i + 1));
+    });
+    var s = qs.toString();
+    return s ? ep.value + '?' + s : ep.value;
   }
-}</pre>
-              <span class="cp-cursor" aria-hidden="true"></span>
-            </div>
-            <div class="cp-meta" id="cpMeta">
-              <span>HTTP <strong>GET</strong></span>
-              <span class="sep">·</span>
-              <span id="cpLatency"><strong>312</strong> ms</span>
-              <span class="sep">·</span>
-              <span id="cpQuota"><strong>127 / 150</strong> today</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
 
-    <!-- Social proof -->
-    <section class="proof" id="social-proof" aria-label="Usage statistics">
-      <div class="section-inner">
-        <h2 class="visually-hidden">Trusted by developers</h2>
-        <div class="proof-grid">
-          <div class="stat" data-count="84">
-            <div class="stat-value"><span class="accent">0</span>+</div>
-            <div class="stat-label">Documented endpoints</div>
-          </div>
-          <div class="stat" data-count="250">
-            <div class="stat-value"><span class="accent">0</span>K+</div>
-            <div class="stat-label">Requests per day</div>
-          </div>
-          <div class="stat" data-count="12">
-            <div class="stat-value"><span class="accent">0</span></div>
-            <div class="stat-label">Endpoint categories</div>
-          </div>
-          <div class="stat" data-count="99">
-            <div class="stat-value"><span class="accent">0</span>.9%</div>
-            <div class="stat-label">Uptime (30 days)</div>
-          </div>
-        </div>
-        <div class="proof-band" aria-hidden="true">
-          <div class="proof-track">
-            <span>YouTube</span><span>·</span><span>TikTok</span><span>·</span>
-            <span>Instagram</span><span>·</span><span>Twitter / X</span><span>·</span>
-            <span>Discord bots</span><span>·</span><span>Telegram</span><span>·</span>
-            <span>WhatsApp</span><span>·</span><span>Node.js</span><span>·</span>
-            <span>Python</span><span>·</span><span>cURL</span><span>·</span>
-            <span>REST</span><span>·</span><span>JWT</span>
-            <!-- duplicated for a seamless loop -->
-            <span>YouTube</span><span>·</span><span>TikTok</span><span>·</span>
-            <span>Instagram</span><span>·</span><span>Twitter / X</span><span>·</span>
-            <span>Discord bots</span><span>·</span><span>Telegram</span><span>·</span>
-            <span>WhatsApp</span><span>·</span><span>Node.js</span><span>·</span>
-            <span>Python</span><span>·</span><span>cURL</span><span>·</span>
-            <span>REST</span><span>·</span><span>JWT</span>
-          </div>
-        </div>
-      </div>
-    </section>
+  function esc(s) {
+    return String(s).replace(/[&<>]/g, function (c) {
+      return c === '&' ? '&amp;' : c === '<' ? '&lt;' : '&gt;';
+    });
+  }
 
-    <!-- Features -->
-    <section id="features" class="features" aria-labelledby="features-title">
-      <div class="section-inner">
-        <div class="section-label">What's included</div>
+  function render(status, ok, ct, ms, body) {
+    out.className = 'res-box';
+    out.innerHTML =
+      '<div class="res-meta">' +
+        '<span class="pill' + (ok ? '' : ' bad') + '">' + esc(status) + '</span>' +
+        '<span>' + esc(ct) + '</span>' +
+        '<span>' + ms + ' ms</span>' +
+      '</div><pre>' + esc(body) + '</pre>';
+  }
 
-        <h2 id="features-title">Useful endpoints for real projects</h2>
+  run.addEventListener('click', function () {
+    run.disabled = true;
+    run.textContent = 'Mengirim…';
+    out.className = 'res-empty';
+    out.textContent = 'Menunggu response…';
 
-        <p class="lede">
-          Rex API gives you ready-to-use endpoints for apps, bots, dashboards,
-          and automation workflows — media downloaders, AI tools, image
-          generators, and web utilities, all documented and protected with
-          fair usage limits.
-        </p>
-
-        <div class="feat-grid">
-          <article class="feat">
-            <div class="feat-icon" aria-hidden="true">DL</div>
-            <h3>Media Downloaders</h3>
-            <p>
-              Pull video and audio from YouTube, TikTok, Instagram, Twitter/X,
-              Spotify, SoundCloud, and more — one endpoint per platform.
-            </p>
-            <button class="feat-endpoint" type="button" data-endpoint="/api/downloader/youtube" aria-label="Try the YouTube downloader endpoint">
-              <span class="method">GET</span>/api/downloader/youtube
-            </button>
-          </article>
-
-          <article class="feat">
-            <div class="feat-icon violet" aria-hidden="true">AI</div>
-            <h3>AI Tools</h3>
-            <p>
-              Chat with an AI assistant, generate images from a prompt, or
-              transcribe audio to text.
-            </p>
-            <button class="feat-endpoint" type="button" data-endpoint="/api/ai/imagegen" aria-label="Try the image generation endpoint">
-              <span class="method">GET</span>/api/ai/imagegen
-            </button>
-          </article>
-
-          <article class="feat">
-            <div class="feat-icon" aria-hidden="true">MK</div>
-            <h3>Image Makers</h3>
-            <p>
-              Generate quote cards, brat-style captions, stickers, and other
-              ready-to-post images.
-            </p>
-            <button class="feat-endpoint" type="button" data-endpoint="/api/maker/quote" aria-label="Try the quote maker endpoint">
-              <span class="method">GET</span>/api/maker/quote
-            </button>
-          </article>
-
-          <article class="feat">
-            <div class="feat-icon" aria-hidden="true">TL</div>
-            <h3>Web Utilities</h3>
-            <p>
-              Screenshots, OCR, translation, text-to-speech, QR codes,
-              background removal, and other everyday utilities.
-            </p>
-            <button class="feat-endpoint" type="button" data-endpoint="/api/tools/screenshot" aria-label="Try the screenshot endpoint">
-              <span class="method">GET</span>/api/tools/screenshot
-            </button>
-          </article>
-
-          <article class="feat">
-            <div class="feat-icon" aria-hidden="true">SR</div>
-            <h3>Search</h3>
-            <p>
-              Search manga titles and Pinterest images directly through the
-              API.
-            </p>
-            <button class="feat-endpoint" type="button" data-endpoint="/api/search/manga" aria-label="Try the manga search endpoint">
-              <span class="method">GET</span>/api/search/manga
-            </button>
-          </article>
-
-          <article class="feat">
-            <div class="feat-icon" aria-hidden="true">GM</div>
-            <h3>Games &amp; Fun</h3>
-            <p>
-              Trivia, word games, and novelty endpoints, popular for bot
-              minigames — Indonesian-language content.
-            </p>
-            <button class="feat-endpoint" type="button" data-endpoint="/api/games/tebaktebakan/random" aria-label="Try the trivia endpoint">
-              <span class="method">GET</span>/api/games/tebaktebakan/random
-            </button>
-          </article>
-
-          <article class="feat">
-            <div class="feat-icon" aria-hidden="true">SL</div>
-            <h3>Shortlinks</h3>
-            <p>
-              Create and manage short URLs, with click tracking and optional
-              expiry, right from your dashboard.
-            </p>
-            <button class="feat-endpoint" type="button" data-endpoint="/api/tools/shortlink" aria-label="Try the shortlink endpoint">
-              <span class="method">POST</span>/api/tools/shortlink
-            </button>
-          </article>
-
-          <article class="feat">
-            <div class="feat-icon violet" aria-hidden="true">KY</div>
-            <h3>Accounts &amp; API Keys</h3>
-            <p>
-              Register, sign in, and manage your personal API key and usage —
-              no backend of your own required.
-            </p>
-            <button class="feat-endpoint" type="button" data-endpoint="/api/auth/register" aria-label="Try the account registration endpoint">
-              <span class="method">POST</span>/api/auth/register
-            </button>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <!-- How it works -->
-    <section class="steps-section" id="how-it-works" aria-labelledby="steps-title">
-      <div class="section-inner">
-        <div class="section-label" style="text-align:center">How it works</div>
-
-        <h2 id="steps-title">Get started in three steps</h2>
-
-        <p class="lede">
-          No credit card, no framework, no boilerplate — from signup to first
-          response in under five minutes.
-        </p>
-
-        <ol class="steps">
-          <li class="step">
-            <h3>Grab your key</h3>
-            <p>Create a free account and copy your personal <code>rex_</code> API key from the dashboard. Anonymous requests work too, at 15/day per IP.</p>
-            <pre><span class="k">1.</span> Sign up at /dashboard
-<span class="k">2.</span> Copy your key under API Keys</pre>
-          </li>
-          <li class="step">
-            <h3>Make your first request</h3>
-            <p>Attach the key as a Bearer token and call any endpoint. Responses are JSON with <code>success</code>, <code>data</code>, and <code>ms</code>.</p>
-            <pre>curl -H <span class="s">"Authorization: Bearer rex_…"</span> \
-  https://rexapi.my.id/api/ai/imagegen?q=cat</pre>
-          </li>
-          <li class="step">
-            <h3>Build &amp; scale</h3>
-            <p>Wire it into your Discord, WhatsApp or Telegram bot, track usage in the dashboard, and upgrade when you outgrow 150 requests/day.</p>
-            <pre>const res = await fetch(
-  <span class="s">"/api/downloader/youtube?q=URL"</span>, {
-  headers: { <span class="s">"Authorization"</span>: <span class="s">"Bearer rex_…"</span> }
-});</pre>
-          </li>
-        </ol>
-      </div>
-    </section>
-
-    <!-- Tiers -->
-    <section id="tiers" class="tiers" aria-labelledby="tiers-title">
-      <div class="section-inner">
-        <div class="section-label" style="text-align:center">Pricing</div>
-
-        <h2 id="tiers-title">Start free. Scale when you need more.</h2>
-
-        <p class="lede">
-          Try Rex API without an account, or sign in to get a personal API key,
-          higher daily quota, and a usage dashboard for your apps and bots.
-        </p>
-
-        <div class="tier-grid">
-          <article class="tier">
-            <h3>Anonymous</h3>
-
-            <div class="quota">
-              <span class="num">15</span>
-              <span class="unit">requests / day per IP</span>
-            </div>
-
-            <p class="desc">
-              No sign-up required. Test public endpoints directly from the dashboard.
-            </p>
-
-            <ul>
-              <li>Access to public endpoints</li>
-              <li>15 requests per day</li>
-              <li>Limit applies per IP address</li>
-            </ul>
-
-            <a class="btn" href="/dashboard">Try without signing in</a>
-          </article>
-
-          <article class="tier recommended">
-            <span class="tier-badge">Recommended</span>
-
-            <h3>Registered</h3>
-
-            <div class="quota">
-              <span class="num">150</span>
-              <span class="unit">requests / day</span>
-            </div>
-
-            <p class="desc">
-              Create a free account to get your own API key for production apps,
-              bots, and tools.
-            </p>
-
-            <ul>
-              <li>Personal <code style="font-size:11.5px">rex_…</code> API key</li>
-              <li>150 requests per day</li>
-              <li>Rotate or revoke keys anytime</li>
-              <li>Live usage dashboard</li>
-            </ul>
-
-            <a class="btn primary" href="/login?next=%2Fdashboard">Create free account</a>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <!-- FAQ -->
-    <section class="faq-section" id="faq" aria-labelledby="faq-title">
-      <div class="section-inner">
-        <div class="section-label" style="text-align:center">FAQ</div>
-
-        <h2 id="faq-title">Frequently asked questions</h2>
-
-        <div class="faq-list">
-          <details class="faq-item">
-            <summary>Is Rex API free to use?</summary>
-            <div class="faq-answer">Yes. The Anonymous tier gives you 15 requests per day per IP with no sign-up, and the Registered tier gives 150 requests per day with a personal API key — both completely free.</div>
-          </details>
-          <details class="faq-item">
-            <summary>How do I get an API key for my bot or app?</summary>
-            <div class="faq-answer">Create a free account at the dashboard, then copy your personal <code>rex_</code> API key from the API Keys tab. Include it in the <code>Authorization</code> header as a Bearer token with every request: <code>Authorization: Bearer rex_…</code>.</div>
-          </details>
-          <details class="faq-item">
-            <summary>What endpoints does Rex API provide?</summary>
-            <div class="faq-answer">Rex API provides over 80 endpoints grouped into media downloaders (YouTube, TikTok, Instagram, Twitter/X), AI tools (chat, image generation, transcription), image makers, web utilities (screenshots, OCR, QR codes), search, games, and shortlinks with click tracking.</div>
-          </details>
-          <details class="faq-item">
-            <summary>Can I use Rex API with Discord, WhatsApp or Telegram bots?</summary>
-            <div class="faq-answer">Yes — that is exactly what it was built for. The JSON response shape (<code>success</code>, <code>data</code>, <code>ms</code>) maps cleanly onto Discord.js, Telegraf, and other bot frameworks, and most downloaders return direct media URLs you can forward immediately.</div>
-          </details>
-          <details class="faq-item">
-            <summary>What happens when I hit my daily limit?</summary>
-            <div class="faq-answer">Requests beyond the daily quota receive a <code>429</code> response with a JSON body explaining the limit. Anonymous limits reset per IP at midnight UTC; registered limits reset per account. Your dashboard shows live usage so you can plan ahead.</div>
-          </details>
-          <details class="faq-item">
-            <summary>Is my API key secure?</summary>
-            <div class="faq-answer">Keys are transmitted only over HTTPS and validated as signed JWT tokens server-side — they cannot be forged or tampered with. You can rotate or revoke keys at any time from the dashboard without changing your account.</div>
-          </details>
-        </div>
-      </div>
-    </section>
-
-    <!-- Final CTA (new) -->
-    <section class="final-cta" id="final-cta" aria-label="Call to action">
-      <div class="section-inner">
-        <h2>Ship your next bot today</h2>
-        <p>One key, 84+ endpoints, zero boilerplate. Your first request is a curl away.</p>
-        <a class="btn primary lg" href="/dashboard">Get your free API key <i class="bi bi-box-arrow-up-right"></i></a>
-      </div>
-    </section>
-  </main>
-
-  <footer>
-    <div class="foot-inner">
-      <nav class="foot-links" aria-label="Footer navigation">
-        <a href="/dashboard">Dashboard</a>
-        <a href="/docs">API Docs</a>
-        <a href="/api/health">Status</a>
-        <a href="#" target="_blank" rel="noopener">GitHub</a>
-      </nav>
-
-      <div class="foot-meta">
-        Rex API v3 — Built with Fastify + TypeScript · MIT licensed ·
-        status: <strong id="footerStatus">checking…</strong>
-      </div>
-    </div>
-  </footer>
-
-  <!-- Landing-page behavior (vanilla, deferred — Core Web Vitals, guide §4.3) -->
-  <script src="./js/landing.js" defer></script>
+    var t0 = performance.now();
+    fetch(buildUrl(), { headers: { Accept: 'application/json' } })
+      .then(function (res) {
+        var ms = Math.round(performance.now() - t0);
+        var ct = (res.headers.get('content-type') || '').split(';')[0] || '—';
+        return res.text().then(function (txt) {
+          var body = txt;
+          try { body = JSON.stringify(JSON.parse(txt), null, 2); } catch (e) {}
+          if (body.length > 4000) body = body.slice(0, 4000) + '\n…';
+          render(res.status + ' ' + res.statusText, res.ok, ct, ms, body);
+        });
+      })
+      .catch(function (err) {
+        var ms = Math.round(performance.now() - t0);
+        render('Gagal', false, 'network', ms, String(err && err.message || err));
+      })
+      .finally(function () {
+        run.disabled = false;
+        run.textContent = 'Kirim request';
+      });
+  });
+})();
+</script>
 </body>
 </html>

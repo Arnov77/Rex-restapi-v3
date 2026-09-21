@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ketentuan Layanan — Rex API</title>
+<meta name="description" content="Ketentuan penggunaan Rex API, termasuk akun, kuota, larangan penggunaan, dan batas tanggung jawab." />
+<meta name="theme-color" content="#F7F6F3" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#14130F" media="(prefers-color-scheme: dark)" />
+<link rel="canonical" href="https://rexapi.my.id/terms" />
+<link rel="icon" type="image/x-icon" href="/assets/image/favicon.ico" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" />
+
+<style>
+*,*::before,*::after{
+  box-sizing:border-box;
+  margin:0;
+  padding:0;
+}
+
+:root{
+  --bg:#F7F6F3;
+  --surface:#FDFCFA;
+  --surface-2:#EDEAE3;
+  --border:#E6E2D9;
+  --border-strong:#DDD8CC;
+  --ink:#1C1B19;
+  --on-ink:#F7F6F3;
+  --text:#514E47;
+  --muted:#6B675F;
+  --faint:#8A867C;
+  --accent:#A63D0B;
+  --font:'IBM Plex Sans',system-ui,-apple-system,sans-serif;
+  --display:'Bricolage Grotesque','IBM Plex Sans',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#14130F;
+    --surface:#1C1B17;
+    --surface-2:#24221D;
+    --border:#2F2C26;
+    --border-strong:#3A362E;
+    --ink:#F2EFE7;
+    --on-ink:#14130F;
+    --text:#BDB7AA;
+    --muted:#9A9386;
+    --faint:#7C7669;
+    --accent:#E08A45;
+  }
+}
+
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--font);
+  font-size:16px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+
+a{
+  color:var(--accent);
+}
+
+.nav{
+  border-bottom:1px solid var(--border);
+  background:var(--surface);
+}
+
+.nav-in{
+  max-width:760px;
+  margin:0 auto;
+  padding:0 24px;
+  height:60px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+
+.brand{
+  font-family:var(--display);
+  font-size:18px;
+  font-weight:700;
+  letter-spacing:-.03em;
+  color:var(--ink);
+  text-decoration:none;
+}
+
+.nav-in a.back{
+  font-size:14px;
+  color:var(--text);
+  text-decoration:none;
+  display:inline-flex;
+  align-items:center;
+  min-height:44px;
+}
+
+.nav-in a.back:hover{
+  color:var(--accent);
+}
+
+main{
+  max-width:760px;
+  margin:0 auto;
+  padding:48px 24px 72px;
+}
+
+h1{
+  font-family:var(--display);
+  font-size:clamp(30px,5vw,40px);
+  font-weight:700;
+  letter-spacing:-.04em;
+  line-height:1.1;
+}
+
+.meta{
+  font-family:var(--mono);
+  font-size:12.5px;
+  color:var(--muted);
+  margin-top:12px;
+}
+
+.intro{
+  font-size:16.5px;
+  line-height:1.7;
+  color:var(--text);
+  margin-top:24px;
+}
+
+h2{
+  font-family:var(--display);
+  font-size:21px;
+  font-weight:700;
+  letter-spacing:-.025em;
+  margin-top:40px;
+}
+
+p{
+  font-size:15px;
+  line-height:1.75;
+  color:var(--text);
+  margin-top:12px;
+}
+
+ul{
+  margin-top:12px;
+  padding-left:20px;
+}
+
+li{
+  font-size:15px;
+  line-height:1.75;
+  color:var(--text);
+  margin-top:7px;
+}
+
+li strong,
+p strong{
+  color:var(--ink);
+  font-weight:600;
+}
+
+.box{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:20px;
+  margin-top:20px;
+}
+
+.box p:first-child{
+  margin-top:0;
+}
+
+footer{
+  border-top:1px solid var(--border);
+  background:var(--surface);
+  margin-top:56px;
+}
+
+.foot{
+  max-width:760px;
+  margin:0 auto;
+  padding:28px 24px;
+  display:flex;
+  gap:20px;
+  flex-wrap:wrap;
+  justify-content:space-between;
+  font-size:13px;
+  color:var(--muted);
+}
+
+.foot a{
+  color:var(--text);
+  text-decoration:none;
+}
+
+.foot a:hover{
+  color:var(--accent);
+}
+</style>
+</head>
+
+<body>
+
+<header class="nav">
+  <div class="nav-in">
+    <a href="/" class="brand">Rex API</a>
+    <a href="/" class="back">← Beranda</a>
+  </div>
+</header>
+
+<main>
+
+  <h1>Ketentuan Layanan</h1>
+  <div class="meta">Berlaku sejak 20 September 2026</div>
+
+  <p class="intro">
+    Dengan menggunakan Rex API, kamu dianggap telah membaca dan menyetujui
+    ketentuan di bawah ini. Kami berusaha menyajikannya dengan bahasa yang
+    jelas dan ringkas.
+  </p>
+
+  <h2>Tentang layanan</h2>
+
+  <p>
+    Rex API menyediakan berbagai endpoint untuk mengunduh media, memproses
+    gambar, menggunakan model AI, dan menjalankan berbagai utilitas web.
+    Layanan ini dioperasikan secara independen oleh individu, bukan perusahaan.
+  </p>
+
+  <h2>Akun dan API key</h2>
+
+  <ul>
+    <li>
+      Setiap pengguna hanya diperbolehkan memiliki satu akun. Membuat beberapa
+      akun untuk memperoleh kuota tambahan tidak diperbolehkan.
+    </li>
+
+    <li>
+      Kamu bertanggung jawab menjaga keamanan API key milikmu. Jangan
+      membagikannya atau menempatkannya di kode, repositori, atau aplikasi
+      publik yang dapat diakses orang lain.
+    </li>
+
+    <li>
+      Jika API key bocor atau diduga telah diketahui pihak lain, segera gunakan
+      fitur <strong>Regenerate</strong> melalui dashboard untuk membuat key baru.
+    </li>
+  </ul>
+
+  <h2>Kuota dan batas penggunaan</h2>
+
+  <p>
+    Penggunaan tanpa API key dapat dibatasi berdasarkan alamat IP.
+    Untuk penggunaan dengan API key, batas harian mengikuti kuota yang
+    ditampilkan di dashboard.
+  </p>
+
+  <p>
+    Batas penggunaan dapat disesuaikan sewaktu-waktu berdasarkan kapasitas,
+    kondisi server, dan kebutuhan operasional layanan.
+  </p>
+
+  <h2>Penggunaan yang tidak diperbolehkan</h2>
+
+  <ul>
+    <li>
+      <strong>Melanggar hak cipta atau hak pihak lain.</strong>
+      Kamu bertanggung jawab memastikan bahwa konten yang diakses, diunduh,
+      atau diproses melalui Rex API memang boleh kamu gunakan dan tidak
+      melanggar hak pihak lain.
+    </li>
+
+    <li>
+      <strong>Menjual ulang akses Rex API.</strong>
+      Menawarkan kembali akses Rex API sebagai layanan berbayar milikmu sendiri
+      tanpa izin tidak diperbolehkan.
+    </li>
+
+    <li>
+      <strong>Melewati batas penggunaan.</strong>
+      Termasuk menggunakan banyak akun, pergantian alamat IP, proxy, VPN,
+      atau metode lain dengan tujuan menghindari kuota atau pembatasan layanan.
+    </li>
+
+    <li>
+      <strong>Mengganggu layanan.</strong>
+      Mengirim permintaan otomatis atau lalu lintas dalam jumlah tidak wajar
+      yang dapat mengganggu kestabilan layanan atau pengguna lain tidak
+      diperbolehkan.
+    </li>
+
+    <li>
+      <strong>Melanggar hukum.</strong>
+      Rex API tidak boleh digunakan untuk aktivitas yang melanggar hukum
+      yang berlaku.
+    </li>
+
+    <li>
+      <strong>Menyalahgunakan data pribadi.</strong>
+      Rex API tidak boleh digunakan untuk mengumpulkan atau memproses data
+      pribadi orang lain dengan tujuan pelecehan, penguntitan, penipuan,
+      atau bentuk penyalahgunaan lainnya.
+    </li>
+  </ul>
+
+  <div class="box">
+    <p>
+      Jika ketentuan ini dilanggar, kami dapat membatasi akses,
+      menonaktifkan API key, atau menonaktifkan akun. Dalam kasus penyalahgunaan
+      serius atau risiko terhadap keamanan layanan, tindakan dapat dilakukan
+      tanpa pemberitahuan sebelumnya.
+    </p>
+  </div>
+
+  <h2>Konten yang kamu kirim</h2>
+
+  <p>
+    Kamu bertanggung jawab atas konten yang dikirim melalui Rex API.
+    Kami tidak meninjau setiap konten secara manual sebelum diproses.
+  </p>
+
+  <p>
+    Isi request dan response tidak disimpan secara permanen di basis data
+    aplikasi setelah pemrosesan selesai. Beberapa endpoint dapat menggunakan
+    file sementara yang disimpan hingga satu jam sebelum dihapus secara
+    otomatis, sebagaimana dijelaskan dalam
+    <a href="/privacy">Kebijakan Privasi</a>.
+  </p>
+
+  <p>
+    Data yang dikirim ke endpoint tertentu dapat diteruskan ke layanan pihak
+    ketiga yang diperlukan untuk memproses permintaan. Misalnya, teks yang
+    dikirim ke endpoint AI dapat diteruskan ke penyedia model AI, dan gambar
+    yang dikirim ke endpoint pemrosesan gambar dapat diteruskan ke layanan
+    pemrosesan terkait.
+  </p>
+
+  <p>
+    Hindari mengirimkan informasi sensitif, rahasia, atau data yang tidak
+    seharusnya dibagikan melalui layanan ini.
+  </p>
+
+  <h2>Ketergantungan pada layanan pihak ketiga</h2>
+
+  <p>
+    Beberapa fitur Rex API bergantung pada situs, API, model AI, atau layanan
+    pihak ketiga yang berada di luar kendali kami.
+  </p>
+
+  <p>
+    Jika layanan pihak ketiga mengubah sistem, membatasi akses, mengalami
+    gangguan, atau menghentikan layanan, fitur Rex API yang bergantung padanya
+    dapat ikut terganggu atau berhenti berfungsi.
+  </p>
+
+  <h2>Tanpa jaminan</h2>
+
+  <p>
+    Rex API disediakan sebagaimana adanya.
+    <strong>
+      Kami tidak menjamin bahwa layanan akan selalu tersedia, bebas dari
+      gangguan, atau menghasilkan data yang selalu akurat.
+    </strong>
+  </p>
+
+  <p>
+    Layanan dapat mengalami perubahan, gangguan, pemeliharaan, atau penghentian
+    sementara maupun permanen. Kami juga tidak menjamin setiap endpoint akan
+    tetap tersedia atau berfungsi dengan cara yang sama selamanya.
+  </p>
+
+  <p>
+    Rex API tidak dirancang untuk penggunaan yang bersifat kritis atau sebagai
+    satu-satunya sistem yang diandalkan untuk layanan yang membutuhkan
+    ketersediaan atau keakuratan tinggi.
+  </p>
+
+  <h2>Batas tanggung jawab</h2>
+
+  <p>
+    Sejauh diizinkan oleh hukum yang berlaku, kami tidak bertanggung jawab
+    atas kerugian yang timbul akibat penggunaan, gangguan, perubahan,
+    atau ketidaktersediaan Rex API, termasuk kehilangan data, kehilangan
+    akses, atau gangguan pada aplikasi yang menggunakan layanan ini.
+  </p>
+
+  <p>
+    Kamu bertanggung jawab atas cara Rex API digunakan di aplikasi, bot,
+    situs web, atau sistem lain yang kamu bangun.
+  </p>
+
+  <h2>Perubahan layanan</h2>
+
+  <p>
+    Kami dapat menambah, mengubah, membatasi, atau menghapus endpoint dan
+    fitur tertentu jika diperlukan untuk menjaga layanan, memperbaiki sistem,
+    menyesuaikan kapasitas, atau mengikuti perubahan dari layanan pihak ketiga.
+  </p>
+
+  <h2>Perubahan ketentuan</h2>
+
+  <p>
+    Ketentuan ini dapat diperbarui dari waktu ke waktu. Tanggal berlaku di
+    bagian atas halaman menunjukkan versi terbaru.
+  </p>
+
+  <p>
+    Perubahan yang berdampak signifikan dapat kami informasikan melalui
+    Rex API, dashboard, atau email jika diperlukan.
+  </p>
+
+  <h2>Kontak</h2>
+
+  <p>
+    Untuk pertanyaan mengenai ketentuan ini atau laporan penyalahgunaan,
+    hubungi
+    <a href="mailto:support@rexapi.my.id">support@rexapi.my.id</a>.
+  </p>
+
+</main>
+
+<footer>
+  <div class="foot">
+
+    <span>© 2026 Rex API</span>
+
+    <span>
+      <a href="/">Beranda</a> ·
+      <a href="/privacy">Kebijakan Privasi</a> ·
+      <a href="/docs">Dokumentasi</a>
+    </span>
+
+  </div>
+</footer>
+
+</body>
+</html>

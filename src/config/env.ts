@@ -128,6 +128,7 @@ const schema = z.object({
   GEMINI_API_KEYS: z.string().optional(), // comma-separated, contoh: key1,key2,key3
   GROQ_API_KEYS: z.string().optional(),   // comma-separated, contoh: key1,key2,key3
   TOKENROUTER_API_KEYS: z.string().optional(),
+  BANDELBANGET_API_KEYS: z.string().optional(),
   GEOIP_CITY_DB: z.string().default('./GeoLite2-City.mmdb'),
   GEOIP_ASN_DB: z.string().default('./GeoLite2-ASN.mmdb'),
   SERPAPI_KEYS: z.string().optional(),
@@ -147,6 +148,19 @@ const schema = z.object({
   DEEZLOAD_INTERNAL_URL: z.string().optional(),
   DEEZLOAD_INTERNAL_SECRET: z.string().optional(),
   DEEZLOAD_DOWNLOAD_DIR: z.string().optional(),
+
+  // Outgoing mail for password resets. Optional: without it the forgot-
+  // password endpoint answers 503 instead of the server refusing to boot.
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().default(465),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().optional(),
+
+  // Links in outgoing email are built from this, never from the request's
+  // Host header — otherwise a forged Host would point reset links at an
+  // attacker's site (password reset poisoning).
+  PUBLIC_BASE_URL: z.string().url().default('https://rexapi.my.id'),
     
   AUDIO_LOUDNESS_FILTER: z.string().default(''),
 

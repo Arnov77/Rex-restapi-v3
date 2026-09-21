@@ -8,7 +8,11 @@ import {
   RegenerateKeyResponse,
   RevealKeyResponse,
   UsageResponse,
+  SetPasswordBody,
+  SetPasswordResponse,
+  ChangePasswordBody,
 } from './me.schemas.js';
+import { accountDeletionService } from './accountDeletion.service.js';
 import { Unauthorized } from '@shared/errors.js';
 
 /**
@@ -91,6 +95,69 @@ const meRoutes: FastifyPluginAsyncZod = async (app) => {
     async (req) => {
       const plaintext = await meService(app.supabase).revealKey(userId(req), req.body.password);
       return { ok: true as const, data: { plaintext } };
+    },
+  );
+
+  app.post(
+    '/password',
+    {
+      preHandler: [app.authenticate, ipLimit],
+      schema: {
+        hide: true,
+        tags: ['me'],
+        summary: 'Set the first password for a provider-created account',
+        description:
+          'Only valid while the account has no password. Signing in with the provider keeps working afterwards.',
+        security: [{ bearerAuth: [] }],
+        body: SetPasswordBody,
+        response: { 200: SetPasswordResponse },
+      },
+    },
+    async (req) => {
+      await meService(app.supabase).setInitialPassword(userId(req), req.body.password);
+      return { ok: true as const };
+    },
+  );
+
+  app.post(
+    '/password/change',
+    {
+      preHandler: [app.authenticate, ipLimit],
+      schema: {
+        hide: true,
+        tags: ['me'],
+        summary: 'Change the password, proving the current one',
+        security: [{ bearerAuth: [] }],
+        body: ChangePasswordBody,
+        response: { 200: SetPasswordResponse },
+      },
+    },
+    async (req) => {
+      await meService(app.supabase).changePassword(
+        userId(req),
+        req.body.currentPassword,
+        req.body.newPassword,
+      );
+      return { ok: true as const };
+    },
+  );
+
+  app.post(
+    '/delete',
+    {
+      preHandler: [app.authenticate, ipLimit],
+      schema: {
+        hide: true,
+        tags: ['me'],
+        summary: 'Permanently delete the account (password required)',
+        security: [{ bearerAuth: [] }],
+        body: ConfirmPasswordBody,
+        response: { 200: SetPasswordResponse },
+      },
+    },
+    async (req) => {
+      await accountDeletionService(app.supabase).deleteAccount(userId(req), req.body.password);
+      return { ok: true as const };
     },
   );
 

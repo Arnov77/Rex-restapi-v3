@@ -215,6 +215,28 @@ export default {
       });
     }
 
+    // --- Reset countdown -------------------------------------------------
+    //
+    // The backend buckets quota by UTC calendar day, so the reset moment is
+    // simply the next UTC midnight. Computed here rather than fetched: no
+    // endpoint exposes it, and the browser already knows the current time.
+
+    const nowTick = ref(Date.now());
+    let resetTimer = null;
+    onMounted(() => { resetTimer = setInterval(() => (nowTick.value = Date.now()), 30000); });
+    onBeforeUnmount(() => { if (resetTimer) clearInterval(resetTimer); });
+
+    const resetsIn = computed(() => {
+      const now = new Date(nowTick.value);
+      const next = Date.UTC(
+        now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0, 0,
+      );
+      const ms = next - now.getTime();
+      const h = Math.floor(ms / 3600000);
+      const m = Math.floor((ms % 3600000) / 60000);
+      return h > 0 ? `reset in ${h}h ${m}m` : `reset in ${m}m`;
+    });
+
     // --- Stat card -------------------------------------------------------
 
     function statCard({ icon, label, value, unit, meta, tone, children }) {
@@ -417,6 +439,7 @@ export default {
             label: 'Daily quota',
             value: limit.value || '—',
             unit: limit.value ? '/day' : '',
+            meta: resetsIn.value,
             children: usageMeter({ used: used.value, limit: limit.value, pct: pct.value, tone: meterTone.value }),
           }),
           statCard({

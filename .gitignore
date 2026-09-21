@@ -34,3 +34,4 @@ python/deezload/.env
 __pycache__/
 *.pyc
 *.bak
+.backup-ui/

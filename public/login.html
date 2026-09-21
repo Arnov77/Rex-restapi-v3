@@ -1,198 +1,424 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="id">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sign in · Rex API</title>
-  <meta name="description" content="Sign in to your Rex API account, or create a new one." />
-  <link rel="icon" type="image/x-icon" href="/assets/image/favicon.ico" />
-  <link rel="manifest" href="/site.webmanifest" />
-  <link rel="stylesheet" href="./css/dashboard.css" />
-  <link rel="stylesheet" href="./css/login.css" />
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Masuk — Rex API</title>
+<meta name="description" content="Masuk ke Rex API untuk mengambil API key dan membuka kuota 150 request per hari." />
+<meta name="robots" content="noindex" />
+<meta name="theme-color" content="#F7F6F3" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#14130F" media="(prefers-color-scheme: dark)" />
+
+<link rel="icon" type="image/x-icon" href="/assets/image/favicon.ico" />
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/image/apple-touch-icon.png" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" />
+
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:#F7F6F3; --surface:#FDFCFA; --surface-2:#EDEAE3;
+  --border:#E6E2D9; --border-strong:#DDD8CC;
+  --ink:#1C1B19; --on-ink:#F7F6F3;
+  --text:#514E47; --muted:#6B675F; --faint:#8A867C;
+  --accent:#A63D0B;
+  --err-bg:#F6E7E1; --err-fg:#8F2E0C;
+  --code-dim:#A8A296;
+  --font:'IBM Plex Sans',system-ui,-apple-system,sans-serif;
+  --display:'Bricolage Grotesque','IBM Plex Sans',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#14130F; --surface:#1C1B17; --surface-2:#24221D;
+    --border:#2F2C26; --border-strong:#3A362E;
+    --ink:#F2EFE7; --on-ink:#14130F;
+    --text:#BDB7AA; --muted:#9A9386; --faint:#7C7669;
+    --accent:#E08A45;
+    --err-bg:#331F17; --err-fg:#E8A184;
+  }
+}
+
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100dvh}
+a{color:inherit;text-decoration:none}
+
+.shell{min-height:100dvh;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+@media(max-width:900px){.shell{grid-template-columns:1fr}}
+
+/* KIRI */
+.pane{padding:28px 24px 32px;display:flex;flex-direction:column;min-width:0}
+@media(min-width:901px){.pane{padding:40px 56px}}
+.brand{font-family:var(--display);font-size:19px;font-weight:700;letter-spacing:-.03em;align-self:flex-start}
+.center{flex:1;display:flex;flex-direction:column;justify-content:center;width:100%;max-width:400px;margin:0 auto;padding:28px 0}
+@media(min-width:901px){.center{margin:0}}
+
+.tabs{display:flex;gap:4px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:4px;margin-bottom:24px}
+.tabs button{flex:1;min-height:40px;border:0;border-radius:9px;background:transparent;color:var(--muted);font-family:var(--font);font-size:14px;font-weight:600;cursor:pointer}
+.tabs button.active{background:var(--bg);color:var(--ink)}
+
+h1{font-family:var(--display);font-size:28px;font-weight:700;letter-spacing:-.035em;line-height:1.12}
+@media(min-width:901px){h1{font-size:34px}}
+.sub{font-size:14.5px;line-height:1.6;color:var(--text);margin-top:8px}
+.sub a{color:var(--accent);font-weight:500}
+
+.oauth{display:flex;flex-direction:column;gap:10px;margin-top:24px}
+.oauth a{display:flex;align-items:center;justify-content:center;gap:10px;min-height:50px;background:var(--surface);border:1px solid var(--border-strong);border-radius:12px;font-size:14.5px;font-weight:500;transition:border-color .15s}
+.oauth a:hover{border-color:var(--accent)}
+.gh-mark{fill:var(--ink)}
+
+.divider{display:flex;align-items:center;gap:12px;margin:22px 0}
+.divider span:first-child,.divider span:last-child{flex:1;height:1px;background:var(--border)}
+.divider em{font-style:normal;font-size:12px;color:var(--faint)}
+
+form{display:flex;flex-direction:column;gap:15px}
+.field label{display:block;font-size:13px;font-weight:500;margin-bottom:6px}
+.field .row{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px}
+.field .row a{font-size:12.5px;color:var(--muted)}
+.field .row a:hover{color:var(--accent)}
+input{width:100%;min-height:50px;padding:0 14px;border:1px solid var(--border-strong);border-radius:12px;background:var(--surface);color:var(--ink);font-family:var(--font);font-size:15px}
+input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
+input::placeholder{color:var(--faint)}
+.hint{font-size:12px;color:var(--muted);margin-top:6px}
+
+button.submit{min-height:52px;background:var(--ink);color:var(--on-ink);border:0;border-radius:12px;font-family:var(--font);font-size:15px;font-weight:600;cursor:pointer;margin-top:3px;transition:opacity .15s}
+button.submit:hover:not(:disabled){opacity:.88}
+button.submit:disabled{opacity:.55;cursor:not-allowed}
+
+.err{background:var(--err-bg);color:var(--err-fg);border-radius:10px;padding:11px 13px;font-size:13px;line-height:1.55}
+
+.legal{font-size:11.5px;line-height:1.6;color:var(--faint);margin-top:20px}
+.pane-foot{font-size:12.5px;color:var(--faint)}
+@media(max-width:900px){.pane-foot{display:none}}
+
+/* KANAN */
+.aside{background:var(--surface-2);border-left:1px solid var(--border);padding:56px;display:flex;flex-direction:column;justify-content:center}
+@media(max-width:900px){
+  .aside{border-left:0;border-top:1px solid var(--border);padding:28px 24px 36px}
+  .aside h2{font-size:20px}
+  .aside .snippet{display:none}
+}
+.kicker{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+.aside h2{font-family:var(--display);font-size:30px;font-weight:700;letter-spacing:-.035em;line-height:1.16;margin-top:16px;max-width:400px}
+.perks{display:flex;flex-direction:column;gap:18px;margin-top:30px}
+.perk{display:flex;gap:13px;align-items:flex-start}
+.perk svg{flex-shrink:0;margin-top:2px;color:var(--accent)}
+.perk b{display:block;font-size:14.5px;font-weight:600}
+.perk span{display:block;font-size:13px;line-height:1.65;color:var(--text);margin-top:3px}
+.snippet{margin-top:36px;background:var(--ink);border-radius:12px;padding:16px;font-family:var(--mono);font-size:11.5px;line-height:1.85;color:#DAD5C8;max-width:420px;overflow-x:auto}
+.snippet .p{color:var(--accent)}
+.snippet .s{color:var(--code-dim)}
+
+[hidden]{display:none !important}
+</style>
 </head>
 <body>
-  <main class="auth-page">
-    <div class="auth-box">
-      <a class="auth-brand" href="/">
-        <span class="brand-mark">//</span>
-        <span class="brand-name">Rex API</span>
-      </a>
 
-      <div class="auth-tabs" role="tablist">
-        <button id="tab-login" class="active" role="tab">Sign in</button>
-        <button id="tab-register" role="tab">Register</button>
+<div class="shell">
+  <div class="pane">
+    <a href="/" class="brand">Rex API</a>
+
+    <div class="center">
+      <div class="tabs" role="tablist">
+        <button id="tab-login" type="button" class="active" role="tab">Masuk</button>
+        <button id="tab-register" type="button" role="tab">Daftar</button>
       </div>
 
-      <h1 class="auth-h1" id="auth-h1">Welcome back</h1>
-      <p class="auth-sub" id="auth-sub">Sign in to access the dashboard.</p>
+      <h1 id="auth-h1">Masuk ke akunmu</h1>
+      <p class="sub" id="auth-sub">Belum punya akun? <a href="#daftar" id="to-register">Daftar gratis</a></p>
 
-      <!-- Login form -->
-      <form id="form-login" autocomplete="on">
-        <div class="auth-row">
-          <label for="login-id">Email or username</label>
-          <input class="input" id="login-id" type="text" autocomplete="username" required />
+      <div class="oauth" id="oauth" hidden>
+        <a href="#google" id="oauth-google">
+          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.44a5.4 5.4 0 0 1-2.4 3.58v2.77h3.86c2.26-2.09 3.59-5.17 3.59-8.59z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-2.77c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09A11.99 11.99 0 0 0 12 24z"/><path fill="#FBBC05" d="M5.27 14.52a7.2 7.2 0 0 1 0-4.59V6.84H1.29a12 12 0 0 0 0 10.77l3.98-3.09z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.69 1.29 6.84l3.98 3.09C6.22 6.86 8.87 4.75 12 4.75z"/></svg>
+          Lanjut dengan Google
+        </a>
+        <a href="#github" id="oauth-github">
+          <svg width="18" height="18" viewBox="0 0 24 24" class="gh-mark" aria-hidden="true"><path d="M12 .5C5.37.5 0 5.87 0 12.5c0 5.3 3.44 9.8 8.21 11.39.6.11.82-.26.82-.58 0-.29-.01-1.05-.02-2.06-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.21.09 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.31 3.5 1 .11-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6.01 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.66.24 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.8 5.63-5.48 5.92.43.37.81 1.1.81 2.22 0 1.6-.01 2.89-.01 3.29 0 .32.22.7.83.58A12 12 0 0 0 24 12.5C24 5.87 18.63.5 12 .5z"/></svg>
+          Lanjut dengan GitHub
+        </a>
+      </div>
+
+      <div class="divider" id="divider" hidden>
+        <span></span><em>atau pakai email</em><span></span>
+      </div>
+
+      <form id="form-login" novalidate>
+        <div class="err" id="login-err" hidden></div>
+        <div class="field">
+          <label for="login-id">Email atau username</label>
+          <input id="login-id" type="text" autocomplete="username" placeholder="kamu@email.com" required />
         </div>
-        <div class="auth-row">
-          <label for="login-pw">Password</label>
-          <input class="input" id="login-pw" type="password" autocomplete="current-password" required />
+        <div class="field">
+          <div class="row">
+            <label for="login-pw" style="margin:0">Kata sandi</label>
+            <a href="/reset">Lupa kata sandi?</a>
+          </div>
+          <input id="login-pw" type="password" autocomplete="current-password" placeholder="••••••••••" required />
         </div>
-        <div class="auth-err" id="login-err" hidden></div>
-        <button class="btn primary full" id="btn-login" type="submit" style="margin-top:14px">Sign in</button>
+        <button class="submit" id="btn-login" type="submit">Masuk</button>
       </form>
 
-      <!-- Register form -->
-      <form id="form-register" autocomplete="on" hidden>
-        <div class="auth-row">
+      <form id="form-register" novalidate hidden>
+        <div class="err" id="reg-err" hidden></div>
+        <div class="field">
           <label for="reg-username">Username</label>
-          <input class="input" id="reg-username" type="text" autocomplete="username" minlength="3" maxlength="32" pattern="[a-zA-Z0-9_]+" required />
+          <input id="reg-username" type="text" autocomplete="username" placeholder="rexu" required />
         </div>
-        <div class="auth-row">
+        <div class="field">
           <label for="reg-email">Email</label>
-          <input class="input" id="reg-email" type="email" autocomplete="email" required />
+          <input id="reg-email" type="email" autocomplete="email" placeholder="kamu@email.com" required />
         </div>
-        <div class="auth-row">
-          <label for="reg-pw">Password (min 8 chars)</label>
-          <input class="input" id="reg-pw" type="password" autocomplete="new-password" minlength="8" required />
+        <div class="field">
+          <label for="reg-pw">Kata sandi</label>
+          <input id="reg-pw" type="password" autocomplete="new-password" placeholder="Minimal 8 karakter" required />
+          <div class="hint">Pakai minimal 8 karakter.</div>
         </div>
-        <div class="auth-err" id="reg-err" hidden></div>
-        <button class="btn primary full" id="btn-register" type="submit" style="margin-top:14px">Create account</button>
+        <button class="submit" id="btn-register" type="submit">Buat akun</button>
       </form>
 
-      <div class="auth-foot">
-        <a href="/">← Back to home</a>
+      <p class="legal">Dengan melanjutkan, kamu setuju pada <a href="/terms">Ketentuan Layanan</a> dan <a href="/privacy">Kebijakan Privasi</a> Rex API.</p>
+    </div>
+
+    <div class="pane-foot">rexapi.my.id &middot; v3.0.0</div>
+  </div>
+
+  <aside class="aside">
+    <div class="kicker">Setelah masuk</div>
+    <h2>Kuota naik jadi 150 request per hari.</h2>
+
+    <div class="perks">
+      <div class="perk">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>
+        <div><b>API key pribadi</b><span>Langsung terbit begitu akun jadi, bisa dirotasi kapan saja.</span></div>
+      </div>
+      <div class="perk">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>
+        <div><b>Playground penuh</b><span>Coba 97 endpoint dari browser, salin kodenya ke proyekmu.</span></div>
+      </div>
+      <div class="perk">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>
+        <div><b>Riwayat pemakaian</b><span>Lihat sisa kuota dan endpoint yang paling sering dipakai.</span></div>
       </div>
     </div>
-  </main>
 
-  <script type="module">
+    <div class="snippet">
+      <div><span class="p">$</span> curl rexapi.my.id/api/tools/qr \</div>
+      <div>&nbsp;&nbsp;-H <span class="s">"x-api-key: rex_…"</span></div>
+    </div>
+  </aside>
+</div>
 
-    const LS_JWT = 'rex.jwt';
-    const LS_KEY = 'rex.apiKey';
+<script type="module">
+(async function () {
+  // Flip to true once the Google/GitHub providers are enabled in Supabase
+  // and /login is listed under Authentication → URL Configuration. Until
+  // then the buttons stay hidden: one that does nothing when clicked is
+  // worse than none at all.
+  var OAUTH_ENABLED = true;
 
-    function resolveNextHref() {
-      const raw = new URLSearchParams(location.search).get('next');
-      if (!raw) return '/dashboard';
-      try {
-        const decoded = decodeURIComponent(raw);
-        if (!decoded.startsWith('/') || decoded.startsWith('//')) return '/dashboard';
-        const u = new URL(decoded, location.origin);
-        u.pathname = u.pathname.replace(/\.html$/i, '');
-        if (u.pathname === '/index') u.pathname = '/';
-        return u.pathname + u.search + u.hash;
-      } catch {
-        return '/dashboard';
-      }
+  var SUPABASE_URL = 'https://sahnaelftuqutevwoinj.supabase.co';
+  var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNhaG5hZWxmdHVxdXRldndvaW5qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzMzgxNzYsImV4cCI6MjA4NjkxNDE3Nn0.fCGY7HSFBqXfbO8mroZfL5i-N2AhBk7bJLb_Us-W5YA';
+
+  var LS_JWT = 'rex.jwt';
+  var LS_KEY = 'rex.apiKey';
+
+  var supabase = null;
+  async function getSupabase() {
+    if (supabase) return supabase;
+    var mod = await import('https://esm.sh/@supabase/supabase-js@2');
+    supabase = mod.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, detectSessionInUrl: true },
+    });
+    return supabase;
+  }
+
+  if (OAUTH_ENABLED) {
+    document.getElementById('oauth').hidden = false;
+    document.getElementById('divider').hidden = false;
+  }
+
+  function showOauthError(msg) {
+    var box = document.getElementById('login-err');
+    box.textContent = msg;
+    box.hidden = false;
+  }
+
+  async function startOauth(provider) {
+    try {
+      var sb = await getSupabase();
+      var next = new URLSearchParams(location.search).get('next');
+      var redirectTo = location.origin + '/login' + (next ? '?next=' + encodeURIComponent(next) : '');
+      var res = await sb.auth.signInWithOAuth({ provider: provider, options: { redirectTo: redirectTo } });
+      if (res.error) throw res.error;
+    } catch (err) {
+      showOauthError('Tidak bisa membuka halaman ' + provider + ': ' + (err.message || err));
     }
+  }
 
-    async function postJson(path, body) {
-      const res = await fetch(path, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+  if (OAUTH_ENABLED) {
+    document.getElementById('oauth-google').addEventListener('click', function (e) {
+      e.preventDefault(); startOauth('google');
+    });
+    document.getElementById('oauth-github').addEventListener('click', function (e) {
+      e.preventDefault(); startOauth('github');
+    });
+  }
+
+  function resolveNextHref() {
+    var raw = new URLSearchParams(location.search).get('next');
+    if (!raw) return '/dashboard';
+    try {
+      var decoded = decodeURIComponent(raw);
+      if (!decoded.startsWith('/') || decoded.startsWith('//')) return '/dashboard';
+      var u = new URL(decoded, location.origin);
+      u.pathname = u.pathname.replace(/\.html$/i, '');
+      if (u.pathname === '/index') u.pathname = '/';
+      return u.pathname + u.search + u.hash;
+    } catch (e) {
+      return '/dashboard';
+    }
+  }
+
+  async function postJson(path, body) {
+    var res = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    var payload = null;
+    try { payload = await res.json(); } catch (e) { /* empty/non-JSON */ }
+    if (!res.ok) {
+      var msg = (payload && payload.error && payload.error.message) || (payload && payload.message) || ('HTTP ' + res.status);
+      throw new Error(msg);
+    }
+    return payload;
+  }
+
+  // ── Tab ───────────────────────────────────────────────────────────
+  var tabLogin = document.getElementById('tab-login');
+  var tabRegister = document.getElementById('tab-register');
+  var formLogin = document.getElementById('form-login');
+  var formRegister = document.getElementById('form-register');
+  var h1 = document.getElementById('auth-h1');
+  var sub = document.getElementById('auth-sub');
+
+  function showTab(name) {
+    var isLogin = name === 'login';
+    tabLogin.classList.toggle('active', isLogin);
+    tabRegister.classList.toggle('active', !isLogin);
+    formLogin.hidden = !isLogin;
+    formRegister.hidden = isLogin;
+    h1.textContent = isLogin ? 'Masuk ke akunmu' : 'Buat akun baru';
+    sub.innerHTML = isLogin
+      ? 'Belum punya akun? <a href="#daftar" id="to-register">Daftar gratis</a>'
+      : 'Gratis 150 request per hari. Tanpa kartu kredit.';
+    if (isLogin) {
+      var link = document.getElementById('to-register');
+      if (link) link.addEventListener('click', function (e) { e.preventDefault(); showTab('register'); });
+    }
+    var target = isLogin ? document.getElementById('login-id') : document.getElementById('reg-username');
+    requestAnimationFrame(function () { target.focus(); });
+  }
+
+  tabLogin.addEventListener('click', function () { showTab('login'); });
+  tabRegister.addEventListener('click', function () { showTab('register'); });
+
+  var firstLink = document.getElementById('to-register');
+  if (firstLink) firstLink.addEventListener('click', function (e) { e.preventDefault(); showTab('register'); });
+
+  // ── Masuk ─────────────────────────────────────────────────────────
+  var loginErr = document.getElementById('login-err');
+  var btnLogin = document.getElementById('btn-login');
+  formLogin.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    loginErr.hidden = true;
+    btnLogin.disabled = true; btnLogin.textContent = 'Memproses…';
+    try {
+      var r = await postJson('/api/auth/login', {
+        identifier: document.getElementById('login-id').value.trim(),
+        password: document.getElementById('login-pw').value,
       });
-      let payload = null;
-      try { payload = await res.json(); } catch { /* empty/non-JSON */ }
-      if (!res.ok) {
-        const msg = payload?.error?.message || payload?.message || `HTTP ${res.status}`;
-        throw new Error(msg);
-      }
-      return payload;
+      localStorage.setItem(LS_JWT, r.data.token);
+      location.href = resolveNextHref();
+    } catch (err) {
+      loginErr.textContent = err.message;
+      loginErr.hidden = false;
+      btnLogin.disabled = false;
+      btnLogin.textContent = 'Masuk';
     }
+  });
 
-    // Tab switching.
-    const tabLogin = document.getElementById('tab-login');
-    const tabRegister = document.getElementById('tab-register');
-    const formLogin = document.getElementById('form-login');
-    const formRegister = document.getElementById('form-register');
-    const h1 = document.getElementById('auth-h1');
-    const sub = document.getElementById('auth-sub');
+  // ── Daftar ────────────────────────────────────────────────────────
+  var regErr = document.getElementById('reg-err');
+  var btnRegister = document.getElementById('btn-register');
+  formRegister.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    regErr.hidden = true;
+    btnRegister.disabled = true; btnRegister.textContent = 'Membuat akun…';
+    var username = document.getElementById('reg-username').value.trim();
+    var email = document.getElementById('reg-email').value.trim();
+    var password = document.getElementById('reg-pw').value;
+    try {
+      var r = await postJson('/api/auth/register', { username: username, email: email, password: password });
+      localStorage.setItem(LS_JWT, r.data.token);
 
-    function showTab(name) {
-      const isLogin = name === 'login';
-      tabLogin.classList.toggle('active', isLogin);
-      tabRegister.classList.toggle('active', !isLogin);
-      formLogin.hidden = !isLogin;
-      formRegister.hidden = isLogin;
-      h1.textContent = isLogin ? 'Welcome back' : 'Create an account';
-      sub.textContent = isLogin
-        ? 'Sign in to access the dashboard.'
-        : 'Free 1,000 daily requests. Upgrade later if you need more.';
-      const target = isLogin ? document.getElementById('login-id') : document.getElementById('reg-username');
-      requestAnimationFrame(() => target.focus());
-    }
-
-    tabLogin.addEventListener('click', () => showTab('login'));
-    tabRegister.addEventListener('click', () => showTab('register'));
-
-    // ── Login submit ─────────────────────────────────────────────────
-    const loginErr = document.getElementById('login-err');
-    const btnLogin = document.getElementById('btn-login');
-    formLogin.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      loginErr.hidden = true;
-      btnLogin.disabled = true; btnLogin.textContent = 'Signing in…';
       try {
-        const r = await postJson('/api/auth/login', {
-          identifier: document.getElementById('login-id').value.trim(),
-          password: document.getElementById('login-pw').value,
-        });
-        localStorage.setItem(LS_JWT, r.data.token);
-        location.href = resolveNextHref();
-      } catch (err) {
-        loginErr.textContent = err.message;
-        loginErr.hidden = false;
-        btnLogin.disabled = false;
-        btnLogin.textContent = 'Sign in';
-      }
-    });
+        var k = await fetch('/api/me/key/regenerate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer ' + r.data.token,
+          },
+          body: JSON.stringify({ password: password }),
+        }).then(function (res) { return res.ok ? res.json() : null; });
+        if (k && k.data && k.data.plaintext) localStorage.setItem(LS_KEY, k.data.plaintext);
+      } catch (e2) { /* swallow */ }
 
-    // ── Register submit ──────────────────────────────────────────────
-    const regErr = document.getElementById('reg-err');
-    const btnRegister = document.getElementById('btn-register');
-    formRegister.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      regErr.hidden = true;
-      btnRegister.disabled = true; btnRegister.textContent = 'Creating account…';
-      const username = document.getElementById('reg-username').value.trim();
-      const email = document.getElementById('reg-email').value.trim();
-      const password = document.getElementById('reg-pw').value;
-      try {
-        const r = await postJson('/api/auth/register', { username, email, password });
-        localStorage.setItem(LS_JWT, r.data.token);
-
-        try {
-          const k = await fetch('/api/me/key/regenerate', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${r.data.token}`,
-            },
-            body: JSON.stringify({ password }),
-          }).then((res) => res.ok ? res.json() : null);
-          if (k?.data?.plaintext) localStorage.setItem(LS_KEY, k.data.plaintext);
-        } catch { /* swallow */ }
-
-        location.href = resolveNextHref();
-      } catch (err) {
-        regErr.textContent = err.message;
-        regErr.hidden = false;
-        btnRegister.disabled = false;
-        btnRegister.textContent = 'Create account';
-      }
-    });
-
-    // If user is already signed in, skip the form and go straight to next=.
-    if (localStorage.getItem(LS_JWT)) {
-      fetch('/api/me', {
-        headers: { Authorization: `Bearer ${localStorage.getItem(LS_JWT)}` },
-      }).then((r) => {
-        if (r.ok) location.href = resolveNextHref();
-        else if (r.status === 401) {
-          localStorage.removeItem(LS_JWT);
-          localStorage.removeItem(LS_KEY);
-        }
-      }).catch(() => { location.href = resolveNextHref(); });
+      location.href = resolveNextHref();
+    } catch (err) {
+      regErr.textContent = err.message;
+      regErr.hidden = false;
+      btnRegister.disabled = false;
+      btnRegister.textContent = 'Buat akun';
     }
-  </script>
+  });
+
+  // Coming back from the provider: Supabase parses the fragment, we trade
+  // that session for our own JWT so the rest of the app sees one format.
+  if (OAUTH_ENABLED && /[#&](access_token|error)=/.test(location.hash)) {
+    try {
+      var sb2 = await getSupabase();
+      var sess = await sb2.auth.getSession();
+      var at = sess.data && sess.data.session && sess.data.session.access_token;
+      if (at) {
+        var r = await postJson('/api/auth/oauth', { accessToken: at });
+        localStorage.setItem(LS_JWT, r.data.token);
+        await sb2.auth.signOut();          // our JWT is the session now
+        history.replaceState(null, '', location.pathname + location.search);
+        location.href = resolveNextHref();
+        return;
+      }
+    } catch (err) {
+      history.replaceState(null, '', location.pathname + location.search);
+      showOauthError(err.message || String(err));
+    }
+  }
+
+  // Sudah masuk → langsung lanjut.
+  if (localStorage.getItem(LS_JWT)) {
+    fetch('/api/me', {
+      headers: { Authorization: 'Bearer ' + localStorage.getItem(LS_JWT) },
+    }).then(function (r) {
+      if (r.ok) location.href = resolveNextHref();
+      else if (r.status === 401) {
+        localStorage.removeItem(LS_JWT);
+        localStorage.removeItem(LS_KEY);
+      }
+    }).catch(function () { location.href = resolveNextHref(); });
+  }
+})();
+</script>
 </body>
 </html>

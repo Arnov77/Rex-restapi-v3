@@ -73,7 +73,7 @@ export default {
     function copyKey() {
       if (!props.auth.state.apiKey) return;
       copyText(props.auth.state.apiKey).then((ok) => {
-        emit('onToast', { kind: ok === false ? 'err' : 'ok', text: ok === false ? 'Copy blocked — select the key manually' : 'API key copied to clipboard' });
+        emit('onToast', { kind: ok === false ? 'err' : 'ok', text: ok === false ? 'Gagal menyalin — salin manual aja' : 'API key tersalin' });
       });
     }
 
@@ -173,6 +173,42 @@ export default {
     // dialogs break the dark theme and leak the page origin in the title).
     const confirmOpen = ref(false);
 
+    // First-password flow for provider accounts — see setPasswordBanner.
+    const setPwValue = ref('');
+    const setPwBusy = ref(false);
+    const setPwError = ref(null);
+    const setPwDone = ref(false);
+
+    async function submitPassword() {
+      if (setPwBusy.value || setPwValue.value.length < 8) return;
+      setPwBusy.value = true;
+      setPwError.value = null;
+      try {
+        const res = await fetch('/api/me/password', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${props.auth.state.jwt}`,
+          },
+          body: JSON.stringify({ password: setPwValue.value }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          setPwError.value = data?.error?.message || `Gagal menyimpan (${res.status})`;
+          return;
+        }
+        setPwDone.value = true;
+        setPwValue.value = '';
+        // Refresh so hasPassword flips and the reveal/rotate buttons work
+        // without a reload.
+        await props.auth.init?.();
+      } catch (err) {
+        setPwError.value = err.message || String(err);
+      } finally {
+        setPwBusy.value = false;
+      }
+    }
+
     function revokeKey() {
       if (!props.auth.state.apiKey) return;
       confirmOpen.value = true;
@@ -222,7 +258,7 @@ export default {
             h('button', { class: 'modal-close', onClick: cancelRevoke, ariaLabel: 'Close' }, '\u2715'),
           ]),
           h('div', { class: 'modal-foot' }, [
-            h('button', { class: 'btn', onClick: cancelRevoke, type: 'button' }, 'Cancel'),
+            h('button', { class: 'btn', onClick: cancelRevoke, type: 'button' }, 'Batal'),
             h('button', { class: 'btn danger', onClick: confirmRevoke, type: 'button' }, 'Remove key'),
           ]),
         ]),
@@ -234,7 +270,7 @@ export default {
     function header() {
       let count = 'No key on this device';
       if (hasKey.value) count = '1 active key on this device';
-      else if (signedInNoKey.value) count = 'Key lives on your account, not this device';
+      else if (signedInNoKey.value) count = 'Key ada di akun, bukan di perangkat ini';
       return h('div', { class: 'main-top' }, [
         h('div', { class: 'main-title-row' }, [
           h('h1', { class: 'main-title' }, 'API Keys'),
@@ -267,17 +303,17 @@ export default {
             h('div', { class: 'key-meta' }, [
               h('span', {}, 'X-API-Key header'),
               h('span', { class: 'key-sep' }, '·'),
-              h('span', {}, 'Your account key isn\u2019t stored on this device'),
+              h('span', {}, 'API key tidak tersedia di browser ini'),
             ]),
           ]),
             h('div', { class: 'key-actions' }, [
-            h('button', { class: 'btn sm', onClick: openReveal, disabled: revealing.value || regenerating.value }, revealing.value ? 'Revealing…' : 'Reveal'),
-            h('button', { class: 'btn sm', onClick: openRegenerate, disabled: regenerating.value || revealing.value }, regenerating.value ? 'Regenerating…' : 'Regenerate'),
+            h('button', { class: 'btn sm', onClick: openReveal, disabled: revealing.value || regenerating.value }, revealing.value ? 'Membuka…' : 'Reveal'),
+            h('button', { class: 'btn sm', onClick: openRegenerate, disabled: regenerating.value || revealing.value }, regenerating.value ? 'Membuat…' : 'Regenerate'),
           ]),
         ]),
         h('div', { class: 'key-note' }, [
           h('span', { class: 'key-note-icon' }, 'ℹ'),
-          h('span', {}, 'Signed in as @' + (props.auth.state.user?.username ?? '') + ' — your account has a key, but this device never stored one (new browser, another person\u2019s login, or cleared storage). Reveal needs your account password; regenerate issues a fresh key that replaces the old one everywhere.'),
+          h('span', {}, 'Key kamu masih aman di akun. Gunakan Reveal untuk melihatnya dengan konfirmasi kata sandi, atau Regenerate untuk membuat key baru. Key lama akan otomatis dinonaktifkan.'),
         ]),
       ]);
     }
@@ -295,18 +331,18 @@ export default {
             h('div', { class: 'key-meta' }, [
               h('span', {}, 'X-API-Key header'),
               h('span', { class: 'key-sep' }, '·'),
-              h('span', {}, 'Issued at registration'),
+              h('span', {}, 'Dibuat saat daftar'),
             ]),
           ]),
           h('div', { class: 'key-actions' }, [
             h('button', { class: 'btn sm', onClick: copyKey }, '⎘ Copy'),
-            h('button', { class: 'btn sm', onClick: toggleReveal }, revealed.value ? 'Hide' : 'Reveal'),
+            h('button', { class: 'btn sm', onClick: toggleReveal }, revealed.value ? 'Sembunyikan' : 'Lihat'),
             h('button', { class: 'btn sm danger', onClick: revokeKey }, 'Remove'),
           ]),
         ]),
         h('div', { class: 'key-note' }, [
           h('span', { class: 'key-note-icon' }, 'ℹ'),
-          h('span', {}, 'The plaintext key lives only on devices where you\u2019ve signed in. Regenerate to issue a fresh key everywhere at once.'),
+          h('span', {}, 'Key aslinya cuma tersimpan di perangkat tempat kamu login. Kalau perlu ganti, Regenerate bikin yang baru sekaligus mematikan yang lama.'),
         ]),
         h('div', { class: 'key-actions-row' }, [
           h('button', {
@@ -336,9 +372,55 @@ export default {
       });
     }
 
+    /**
+     * Provider accounts land here with a working key they cannot see:
+     * reveal and regenerate both demand a password confirmation, and they
+     * have no password. Offer to set one right where the wall is hit,
+     * rather than sending them off to find a settings page.
+     */
+    function providerLabel(p) {
+      if (p === 'github') return 'GitHub';
+      if (p === 'google') return 'Google';
+      return p || 'provider';
+    }
+
+    function setPasswordBanner() {
+      const user = props.auth.state.user;
+      if (!user || user.hasPassword !== false) return null;
+
+      return h('div', { class: 'setpw' }, [
+        h('div', { class: 'setpw-head' }, [
+          h('strong', {}, 'Buat kata sandi dulu'),
+          h('p', {}, 'Kata sandi diperlukan untuk Reveal dan Regenerate. Login dengan ' +
+            providerLabel(user.provider) + ' tetap bisa digunakan seperti biasa.'),
+        ]),
+
+        setPwError.value && h('div', { class: 'setpw-err' }, setPwError.value),
+        setPwDone.value && h('div', { class: 'setpw-ok' }, 'Kata sandi tersimpan. Sekarang kamu bisa melihat dan mengganti API key.'),
+
+        !setPwDone.value && h('div', { class: 'setpw-form' }, [
+          h('input', {
+            type: 'password',
+            class: 'input',
+            placeholder: 'Kata sandi baru — minimal 8 karakter',
+            autocomplete: 'new-password',
+            value: setPwValue.value,
+            onInput: (e) => (setPwValue.value = e.target.value),
+            onKeydown: (e) => { if (e.key === 'Enter') submitPassword(); },
+          }),
+          h('button', {
+            class: 'btn primary',
+            disabled: setPwBusy.value || setPwValue.value.length < 8,
+            onClick: submitPassword,
+          }, setPwBusy.value ? 'Menyimpan…' : 'Simpan'),
+        ]),
+      ]);
+    }
+
     return () =>
       h('div', { class: 'apikeys' }, [
         header(),
+        setPasswordBanner(),
         hasKey.value ? keyCard() : signedInNoKey.value ? uncachedState() : emptyState(),
         passwordModal(),
         revokeConfirmModal(),

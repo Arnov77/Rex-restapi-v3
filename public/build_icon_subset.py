@@ -53,7 +53,6 @@ JS_FILES = [
 # picked up regardless of where the script is run from).
 HTML_FILES = [
     'dashboard.html',
-    'profile/profile.html',
 ]
 
 def main():

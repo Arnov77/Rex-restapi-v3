@@ -12,7 +12,7 @@ import { apiKeysService } from '../apiKeys/apiKeys.service.js';
 import type { ApiKeyRecord } from '../apiKeys/apiKeys.repo.js';
 import { quotaRepo, todayUtc } from '../quota/quota.repo.js';
 import { loadEnv } from '../../config/env.js';
-import { Forbidden, NotFound, Unauthorized } from '@shared/errors.js';
+import { Conflict, Forbidden, NotFound, Unauthorized } from '@shared/errors.js';
 
 export interface UsageView {
   date: string;
@@ -56,6 +56,12 @@ export function meService(db: SupabaseClient) {
   async function confirmPassword(userId: string, password: string): Promise<void> {
     const user = await users.findById(userId);
     if (!user) throw Unauthorized('User no longer exists');
+    if (!user.passwordHash) {
+      throw Forbidden(
+        'Account has no password to confirm',
+        'Akun provider belum punya kata sandi. Pasang kata sandi dulu sebelum melihat atau mengganti API key.',
+      );
+    }
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) throw Forbidden('Password confirmation failed');
   }
@@ -118,6 +124,60 @@ export function meService(db: SupabaseClient) {
         remaining: Math.max(0, limit - used),
         resetInSeconds: reset,
       };
+    },
+
+    /**
+     * Give a provider-created account its first password.
+     *
+     * Only valid while the account has none: changing an existing password
+     * has to prove the old one, and that is a different endpoint. Without
+     * this, a user who signed up with Google can never reveal or rotate
+     * their API key, because both gates demand a password confirmation.
+     *
+     * The provider link stays intact, so afterwards either route works.
+     */
+    async setInitialPassword(userId: string, password: string) {
+      const user = await users.findById(userId);
+      if (!user) throw Unauthorized('User no longer exists');
+
+      if (user.passwordHash) {
+        throw Conflict(
+          'Password already set',
+          undefined,
+          'Akun ini sudah punya kata sandi.',
+        );
+      }
+
+      const passwordHash = await bcrypt.hash(password, 12);
+      await users.setPasswordHash(userId, passwordHash);
+    },
+
+    /**
+     * Replace an existing password. Proving the current one is what makes
+     * this safe: a stolen JWT alone must not be enough to lock the real
+     * owner out of their account.
+     */
+    async changePassword(userId: string, currentPassword: string, newPassword: string) {
+      const user = await users.findById(userId);
+      if (!user) throw Unauthorized('User no longer exists');
+
+      if (!user.passwordHash) {
+        throw Conflict(
+          'No password to change',
+          undefined,
+          'Akun ini belum punya kata sandi. Buat dulu dari tab API Keys.',
+        );
+      }
+
+      const ok = await bcrypt.compare(currentPassword, user.passwordHash);
+      if (!ok) throw Forbidden('Current password incorrect', 'Kata sandi saat ini salah.');
+
+      if (currentPassword === newPassword) {
+        throw Conflict('Same password', undefined, 'Kata sandi baru harus berbeda dari yang lama.');
+      }
+
+      const passwordHash = await bcrypt.hash(newPassword, 12);
+      await users.setPasswordHash(userId, passwordHash);
     },
   };
 }

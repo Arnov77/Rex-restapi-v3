@@ -14,6 +14,8 @@ export const PublicUserSchema = z.object({
   apiKeyId: z.string().nullable(),
   createdAt: z.string(),
   lastLoginAt: z.string().nullable(),
+  provider: z.string(),
+  hasPassword: z.boolean(),
 });
 
 export const ListUsersResponse = z.object({

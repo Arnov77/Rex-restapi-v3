@@ -32,6 +32,8 @@ export interface YtdlpResult {
   thumbnail: string | null;
   duration: number | null;
   filePath: string;
+  /** Actual video height delivered — may be lower than requested. */
+  height?: number | null;
 }
 
 const TEMP_DIR = resolve(process.cwd(), '.ytdlp-temp');
@@ -69,26 +71,26 @@ export async function ytdlpGetMeta(url: string): Promise<{ title: string; author
 
   const baseArgs = ['--no-warnings', '-j', '--no-playlist', '--skip-download'];
 
-  const primaryArgs = [
+  const directArgs = [
     ...baseArgs,
     ...YTDLP_CLIENT_ARGS,
-    ...proxyArgs,
     ...(cookies ? ['--cookies', cookies] : []),
     url,
   ];
 
   let stdout: string;
   try {
-    ({ stdout } = await execFileAsync('yt-dlp', primaryArgs, { timeout: 30_000, maxBuffer: 10 * 1024 * 1024 }));
+    ({ stdout } = await execFileAsync('yt-dlp', directArgs, { timeout: 30_000, maxBuffer: 10 * 1024 * 1024 }));
   } catch (err) {
     if (!proxyArgs.length) throw err;
-    const fallbackArgs = [
+    const proxiedArgs = [
       ...baseArgs,
       ...YTDLP_CLIENT_ARGS_FALLBACK,
       ...proxyArgs,
+      ...(cookies ? ['--cookies', cookies] : []),
       url,
     ];
-    ({ stdout } = await execFileAsync('yt-dlp', fallbackArgs, { timeout: 30_000, maxBuffer: 10 * 1024 * 1024 }));
+    ({ stdout } = await execFileAsync('yt-dlp', proxiedArgs, { timeout: 90_000, maxBuffer: 10 * 1024 * 1024 }));
   }
 
   const data = JSON.parse(stdout);
@@ -108,37 +110,73 @@ export async function ytdlpDownloadVideo(url: string, quality: string = '720'): 
   const cookies = getCookiesPath();
   const id = randomBytes(8).toString('hex');
   const outputPath = join(TEMP_DIR, `${id}.mp4`);
+  const proxyArgs = getProxyArgs();
 
-  const args = [
+  // Same two wins as the audio path: metadata comes from the download call via
+  // --print-json, and the slow upstream proxy is demoted to a fallback.
+  // Trailing `/b` lets it fall back to muxed format 18 when YouTube exposes no
+  // adaptive streams (common without a PO token).
+  const baseArgs = [
     '--no-warnings',
     '--no-playlist',
-    '-f', `bv*[height<=${quality}]+ba/b[height<=${quality}]/b`,
+    '--print-json',
+    '-f', `bv*[height<=${quality}]+ba/b[height<=${quality}]/18/b`,
     '--merge-output-format', 'mp4',
     '-o', outputPath,
+  ];
+
+  const directArgs = [
+    ...baseArgs,
     ...YTDLP_CLIENT_ARGS,
-    ...getProxyArgs(),
     ...(cookies ? ['--cookies', cookies] : []),
     url,
   ];
 
-  await execFileAsync('yt-dlp', args, {
-    timeout: 120_000, // 2 min for download+merge
-    maxBuffer: 10 * 1024 * 1024,
-  });
+  let stdout: string;
+  try {
+    ({ stdout } = await execFileAsync('yt-dlp', directArgs, {
+      timeout: 120_000,
+      maxBuffer: 20 * 1024 * 1024,
+    }));
+  } catch (err) {
+    if (!proxyArgs.length) throw err;
+    const proxiedArgs = [
+      ...baseArgs,
+      ...YTDLP_CLIENT_ARGS_FALLBACK,
+      ...proxyArgs,
+      ...(cookies ? ['--cookies', cookies] : []),
+      url,
+    ];
+    ({ stdout } = await execFileAsync('yt-dlp', proxiedArgs, {
+      timeout: 240_000,
+      maxBuffer: 20 * 1024 * 1024,
+    }));
+  }
 
   if (!existsSync(outputPath)) {
     throw new Error(`yt-dlp did not produce output file for ${quality}p`);
   }
 
-  // Get metadata
-  const meta = await ytdlpGetMeta(url).catch(() => ({
-    title: 'YouTube Video',
-    author: '',
-    thumbnail: null,
-    duration: null,
-  }));
+  let meta = { title: 'YouTube Video', author: '', thumbnail: null as string | null, duration: null as number | null };
+  let actualHeight: number | null = null;
+  try {
+    const line = stdout.trim().split('\n').find((l) => l.startsWith('{'));
+    if (line) {
+      const d = JSON.parse(line);
+      meta = {
+        title: d.title || 'YouTube Video',
+        author: d.uploader || d.channel || '',
+        thumbnail: d.thumbnail || null,
+        duration: typeof d.duration === 'number' ? d.duration : null,
+      };
+      // YouTube frequently exposes only muxed format 18 (360p) without a PO
+      // token, so what we actually got can be lower than what was requested.
+      // Report the real height instead of silently implying the asked-for one.
+      actualHeight = typeof d.height === 'number' ? d.height : null;
+    }
+  } catch { /* keep defaults */ }
 
-  return { ...meta, filePath: outputPath };
+  return { ...meta, filePath: outputPath, height: actualHeight };
 }
 
 /**
@@ -151,51 +189,70 @@ export async function ytdlpDownloadAudio(url: string): Promise<YtdlpResult> {
   const outputTemplate = join(TEMP_DIR, `${id}`);
   const proxyArgs = getProxyArgs();
 
+  // `--print-json` gives us metadata from the SAME call that downloads, so we
+  // no longer pay for a second full extraction just to read the title.
+  // `18/ba/b` first: YouTube commonly exposes only muxed format 18 without a
+  // PO token, and asking for `ba` alone then fails outright.
   const baseArgs = [
     '--no-warnings',
     '--no-playlist',
+    '--print-json',
+    '-f', '18/ba/b',
     '-x',
     '--audio-format', 'mp3',
+    '--audio-quality', '192K',
     '-o', `${outputTemplate}.%(ext)s`,
   ];
 
-  const primaryArgs = [
+  // Direct first — the upstream proxy resolves in minutes rather than seconds,
+  // so it is only worth paying for when the direct attempt actually fails.
+  const directArgs = [
     ...baseArgs,
-    '-f', 'ba/b',
     ...YTDLP_CLIENT_ARGS,
-    ...proxyArgs,
     ...(cookies ? ['--cookies', cookies] : []),
     url,
   ];
 
+  let stdout: string;
   try {
-    await execFileAsync('yt-dlp', primaryArgs, { timeout: 120_000, maxBuffer: 10 * 1024 * 1024 });
+    ({ stdout } = await execFileAsync('yt-dlp', directArgs, {
+      timeout: 90_000,
+      maxBuffer: 20 * 1024 * 1024,
+    }));
   } catch (err) {
     if (!proxyArgs.length) throw err;
-    // android client only exposes muxed format 18 (no separate audio-only
-    // stream) — but reliably bypasses the captcha/sign-in soft-block.
-    const fallbackArgs = [
+    const proxiedArgs = [
       ...baseArgs,
-      '-f', '18/best',
       ...YTDLP_CLIENT_ARGS_FALLBACK,
       ...proxyArgs,
+      ...(cookies ? ['--cookies', cookies] : []),
       url,
     ];
-    await execFileAsync('yt-dlp', fallbackArgs, { timeout: 120_000, maxBuffer: 10 * 1024 * 1024 });
+    ({ stdout } = await execFileAsync('yt-dlp', proxiedArgs, {
+      timeout: 180_000,
+      maxBuffer: 20 * 1024 * 1024,
+    }));
   }
 
-  // Find the output file (yt-dlp names it with the actual extension)
   const mp3Path = `${outputTemplate}.mp3`;
   if (!existsSync(mp3Path)) {
     throw new Error('yt-dlp did not produce audio output file');
   }
 
-  const meta = await ytdlpGetMeta(url).catch(() => ({
-    title: 'YouTube Video',
-    author: '',
-    thumbnail: null,
-    duration: null,
-  }));
+  // --print-json emits one JSON object per item; for ytsearch that is the hit.
+  let meta = { title: 'YouTube Video', author: '', thumbnail: null as string | null, duration: null as number | null };
+  try {
+    const line = stdout.trim().split('\n').find((l) => l.startsWith('{'));
+    if (line) {
+      const d = JSON.parse(line);
+      meta = {
+        title: d.title || 'YouTube Video',
+        author: d.uploader || d.channel || '',
+        thumbnail: d.thumbnail || null,
+        duration: typeof d.duration === 'number' ? d.duration : null,
+      };
+    }
+  } catch { /* keep defaults */ }
 
   return { ...meta, filePath: mp3Path };
 }
@@ -328,20 +385,41 @@ function entryToMedia(entry: YtdlpEntry): YtdlpMediaItem[] {
  */
 export async function ytdlpGetInfo(url: string): Promise<YtdlpInfo> {
   const cookies = getCookiesPath();
-  const args = [
+  const proxyArgs = getProxyArgs();
+  const baseArgs = [
     '--no-warnings',
     '-J',
     '--playlist-end', '20',
+  ];
+
+  // Direct first, proxy only as a fallback — see ytdlpDownloadAudio for why.
+  const directArgs = [
+    ...baseArgs,
     ...YTDLP_CLIENT_ARGS,
-    ...getProxyArgs(),
     ...(cookies ? ['--cookies', cookies] : []),
     url,
   ];
 
-  const { stdout } = await execFileAsync('yt-dlp', args, {
-    timeout: 45_000,
-    maxBuffer: 20 * 1024 * 1024,
-  });
+  let stdout: string;
+  try {
+    ({ stdout } = await execFileAsync('yt-dlp', directArgs, {
+      timeout: 45_000,
+      maxBuffer: 20 * 1024 * 1024,
+    }));
+  } catch (err) {
+    if (!proxyArgs.length) throw err;
+    const proxiedArgs = [
+      ...baseArgs,
+      ...YTDLP_CLIENT_ARGS_FALLBACK,
+      ...proxyArgs,
+      ...(cookies ? ['--cookies', cookies] : []),
+      url,
+    ];
+    ({ stdout } = await execFileAsync('yt-dlp', proxiedArgs, {
+      timeout: 120_000,
+      maxBuffer: 20 * 1024 * 1024,
+    }));
+  }
 
   const data = JSON.parse(stdout) as YtdlpEntry & { entries?: YtdlpEntry[] };
   const entries: YtdlpEntry[] = Array.isArray(data.entries) ? data.entries.filter(Boolean) : [data];
@@ -370,6 +448,98 @@ export async function ytdlpGetInfo(url: string): Promise<YtdlpInfo> {
   };
 }
 
+
+// ─── Fast audio extraction: direct URL, no download ──────────────────────────
+//
+// For ytplay: one yt-dlp call returns metadata + a direct audio-only CDN URL.
+// The signed proxy streams it, so nothing touches disk and ffmpeg never runs.
+// Cuts a ~90s download+transcode down to a single ~5s extraction call.
+
+export interface YtAudioDirect {
+  title: string;
+  author: string;
+  thumbnail: string | null;
+  duration: number | null;
+  audioUrl: string;
+  ext: string;
+}
+
+export async function ytdlpGetAudioUrl(url: string): Promise<YtAudioDirect> {
+  const cookies = getCookiesPath();
+  const proxyArgs = getProxyArgs();
+
+  // No -f here: with -J it filters formats away and can fail outright.
+  // We pick from the full `formats` array ourselves below.
+  const baseArgs = [
+    '--no-warnings',
+    '-J',
+    '--no-playlist',
+  ];
+
+  // Direct (no proxy) resolves in ~6s; the upstream proxy takes minutes, so
+  // it is only worth using when the direct attempt actually fails.
+  const directArgs = [
+    ...baseArgs,
+    ...YTDLP_CLIENT_ARGS,
+    ...(cookies ? ['--cookies', cookies] : []),
+    url,
+  ];
+
+  let stdout: string;
+  try {
+    ({ stdout } = await execFileAsync('yt-dlp', directArgs, {
+      timeout: 30_000,
+      maxBuffer: 20 * 1024 * 1024,
+    }));
+  } catch (err) {
+    if (!proxyArgs.length) throw err;
+    const proxiedArgs = [
+      ...baseArgs,
+      ...YTDLP_CLIENT_ARGS_FALLBACK,
+      ...proxyArgs,
+      ...(cookies ? ['--cookies', cookies] : []),
+      url,
+    ];
+    ({ stdout } = await execFileAsync('yt-dlp', proxiedArgs, {
+      timeout: 90_000,
+      maxBuffer: 20 * 1024 * 1024,
+    }));
+  }
+
+  const raw = JSON.parse(stdout) as YtdlpEntry & { entries?: YtdlpEntry[]; url?: string };
+  // ytsearch wraps the hit in a playlist — unwrap to the first entry.
+  const data = Array.isArray(raw.entries) ? (raw.entries[0] ?? raw) : raw;
+
+  const formats = (Array.isArray(data.formats) ? data.formats : []).filter(
+    (f) => typeof f.url === 'string' && f.ext !== 'mhtml',
+  );
+
+  // Prefer real audio-only formats, highest bitrate first.
+  const audioOnly = formats
+    .filter((f) => f.vcodec === 'none' && !!f.acodec && f.acodec !== 'none')
+    .sort((a, b) => (b.tbr ?? 0) - (a.tbr ?? 0));
+
+  let chosen = audioOnly[0];
+
+  // Fallback: any muxed format that at least carries audio (format 18, etc.)
+  if (!chosen) {
+    chosen = formats
+      .filter((f) => !!f.acodec && f.acodec !== 'none')
+      .sort((a, b) => (b.tbr ?? 0) - (a.tbr ?? 0))[0];
+  }
+
+  const audioUrl = chosen?.url ?? data.url;
+  if (!audioUrl) throw new Error('yt-dlp returned no playable audio URL');
+
+  return {
+    title: (data.title || 'YouTube Audio').toString().replace(/\s+/g, ' ').trim().slice(0, 200),
+    author: (data.uploader || data.channel || '').toString(),
+    thumbnail: (data.thumbnail || null) as string | null,
+    duration: typeof data.duration === 'number' ? data.duration : null,
+    audioUrl,
+    ext: chosen?.ext ?? 'm4a',
+  };
+}
 
 // ─── Audio loudness normalization (EBU R128) ─────────────────────────────────
 //

@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<!-- The token rides in the URL; keep it out of Referer headers sent to font hosts. -->
+<meta name="referrer" content="no-referrer" />
+<meta name="robots" content="noindex" />
+<title>Atur ulang kata sandi — Rex API</title>
+<meta name="theme-color" content="#F7F6F3" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#14130F" media="(prefers-color-scheme: dark)" />
+<link rel="icon" type="image/x-icon" href="/assets/image/favicon.ico" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" />
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#F7F6F3;--surface:#FDFCFA;--surface-2:#EDEAE3;
+  --border:#E6E2D9;--border-strong:#DDD8CC;
+  --ink:#1C1B19;--on-ink:#F7F6F3;
+  --text:#514E47;--muted:#6B675F;--faint:#8A867C;
+  --accent:#A63D0B;
+  --err-bg:#F6E7E1;--err-fg:#8F2E0C;
+  --ok-bg:#E8F0E9;--ok-fg:#2F6B3E;
+  --font:'IBM Plex Sans',system-ui,-apple-system,sans-serif;
+  --display:'Bricolage Grotesque','IBM Plex Sans',sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#14130F;--surface:#1C1B17;--surface-2:#24221D;
+    --border:#2F2C26;--border-strong:#3A362E;
+    --ink:#F2EFE7;--on-ink:#14130F;
+    --text:#BDB7AA;--muted:#9A9386;--faint:#7C7669;
+    --accent:#E08A45;
+    --err-bg:#331F17;--err-fg:#E8A184;
+    --ok-bg:#1E2B21;--ok-fg:#7FB98C;
+  }
+}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100dvh;display:flex;flex-direction:column}
+a{color:var(--accent)}
+.top{padding:22px 24px}
+.brand{font-family:var(--display);font-size:19px;font-weight:700;letter-spacing:-.03em;color:var(--ink);text-decoration:none}
+.center{flex:1;display:flex;align-items:center;justify-content:center;padding:24px}
+.card{width:100%;max-width:400px}
+h1{font-family:var(--display);font-size:28px;font-weight:700;letter-spacing:-.035em;line-height:1.15}
+.sub{font-size:14.5px;line-height:1.6;color:var(--text);margin-top:8px}
+form{display:flex;flex-direction:column;gap:14px;margin-top:24px}
+label{display:block;font-size:13px;font-weight:500;margin-bottom:6px}
+input{width:100%;min-height:50px;padding:0 14px;border:1px solid var(--border-strong);border-radius:12px;background:var(--surface);color:var(--ink);font-family:var(--font);font-size:15px}
+input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
+button{min-height:52px;background:var(--ink);color:var(--on-ink);border:0;border-radius:12px;font-family:var(--font);font-size:15px;font-weight:600;cursor:pointer;margin-top:3px}
+button:disabled{opacity:.55;cursor:not-allowed}
+.msg{border-radius:10px;padding:12px 14px;font-size:13.5px;line-height:1.55;margin-top:18px}
+.err{background:var(--err-bg);color:var(--err-fg)}
+.ok{background:var(--ok-bg);color:var(--ok-fg)}
+.back{display:inline-block;margin-top:22px;font-size:14px}
+[hidden]{display:none !important}
+</style>
+</head>
+<body>
+<div class="top"><a href="/" class="brand">Rex API</a></div>
+
+<div class="center">
+  <div class="card">
+
+    <!-- Tanpa token: minta tautan -->
+    <div id="ask" hidden>
+      <h1>Lupa kata sandi?</h1>
+      <p class="sub">Masukkan email akunmu. Kami kirim tautan untuk membuat kata sandi baru.</p>
+      <form id="ask-form" novalidate>
+        <div>
+          <label for="email">Email</label>
+          <input id="email" type="email" autocomplete="email" placeholder="kamu@email.com" required />
+        </div>
+        <button id="ask-btn" type="submit">Kirim tautan</button>
+      </form>
+      <div id="ask-msg" class="msg" hidden></div>
+    </div>
+
+    <!-- Dengan token: sandi baru -->
+    <div id="set" hidden>
+      <h1>Buat kata sandi baru</h1>
+      <p class="sub">Minimal 8 karakter.</p>
+      <form id="set-form" novalidate>
+        <div>
+          <label for="pw1">Kata sandi baru</label>
+          <input id="pw1" type="password" autocomplete="new-password" required />
+        </div>
+        <div>
+          <label for="pw2">Ulangi kata sandi</label>
+          <input id="pw2" type="password" autocomplete="new-password" required />
+        </div>
+        <button id="set-btn" type="submit">Simpan kata sandi</button>
+      </form>
+      <div id="set-msg" class="msg" hidden></div>
+    </div>
+
+    <!-- Token sudah dipakai atau kedaluwarsa -->
+    <div id="dead" hidden>
+      <h1>Tautan tidak berlaku</h1>
+      <p class="sub">Tautan ini sudah dipakai atau sudah lewat 30 menit. Minta tautan baru untuk melanjutkan.</p>
+      <a href="/reset" style="display:inline-flex;align-items:center;justify-content:center;min-height:50px;padding:0 22px;margin-top:22px;background:var(--ink);color:var(--on-ink);border-radius:12px;font-weight:600;text-decoration:none">Minta tautan baru</a>
+    </div>
+
+    <p id="checking" class="sub" hidden>Memeriksa tautan…</p>
+
+    <a href="/login" class="back">← Kembali ke halaman masuk</a>
+  </div>
+</div>
+
+<script>
+(async function () {
+  // Read the token once, then scrub it from the address bar and history.
+  var token = new URLSearchParams(location.search).get('token');
+  if (token) history.replaceState(null, '', location.pathname);
+
+  function show(el, text, kind) {
+    el.textContent = text;
+    el.className = 'msg ' + kind;
+    el.hidden = false;
+  }
+
+  async function post(path, body) {
+    var res = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    var data = null;
+    try { data = await res.json(); } catch (e) {}
+    if (!res.ok) throw new Error((data && data.error && data.error.message) || ('HTTP ' + res.status));
+    return data;
+  }
+
+  if (!token) {
+    document.getElementById('ask').hidden = false;
+    var askForm = document.getElementById('ask-form');
+    var askBtn = document.getElementById('ask-btn');
+    var askMsg = document.getElementById('ask-msg');
+
+    askForm.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      var email = document.getElementById('email').value.trim();
+      if (!email) return;
+      askBtn.disabled = true;
+      askBtn.textContent = 'Mengirim…';
+      try {
+        await post('/api/auth/password/forgot', { email: email });
+        askForm.hidden = true;
+        show(askMsg, 'Kalau email itu terdaftar, tautannya sudah dikirim. Cek juga folder spam. Tautan berlaku 30 menit.', 'ok');
+      } catch (err) {
+        show(askMsg, err.message, 'err');
+        askBtn.disabled = false;
+        askBtn.textContent = 'Kirim tautan';
+      }
+    });
+    return;
+  }
+
+  // Check before showing the form, so nobody types a password twice only
+  // to learn the link was already spent.
+  var checking = document.getElementById('checking');
+  checking.hidden = false;
+  try {
+    var r = await post('/api/auth/password/reset/check', { token: token });
+    checking.hidden = true;
+    if (!r.data.valid) {
+      document.getElementById('dead').hidden = false;
+      return;
+    }
+  } catch (err) {
+    checking.hidden = true;
+    document.getElementById('dead').hidden = false;
+    return;
+  }
+
+  document.getElementById('set').hidden = false;
+  var setForm = document.getElementById('set-form');
+  var setBtn = document.getElementById('set-btn');
+  var setMsg = document.getElementById('set-msg');
+
+  setForm.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var pw1 = document.getElementById('pw1').value;
+    var pw2 = document.getElementById('pw2').value;
+    if (pw1.length < 8) return show(setMsg, 'Kata sandi minimal 8 karakter.', 'err');
+    if (pw1 !== pw2) return show(setMsg, 'Kedua kata sandi tidak sama.', 'err');
+
+    setBtn.disabled = true;
+    setBtn.textContent = 'Menyimpan…';
+    try {
+      await post('/api/auth/password/reset', { token: token, password: pw1 });
+      setForm.hidden = true;
+      show(setMsg, 'Kata sandi berhasil diganti. Silakan masuk dengan kata sandi baru.', 'ok');
+    } catch (err) {
+      show(setMsg, err.message, 'err');
+      setBtn.disabled = false;
+      setBtn.textContent = 'Simpan kata sandi';
+    }
+  });
+})();
+</script>
+</body>
+</html>

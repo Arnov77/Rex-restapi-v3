@@ -80,6 +80,24 @@ function upgradePinimgUrl(
   );
 }
 
+function isStaticImageUrl(
+  value: string | null | undefined,
+): boolean {
+  if (!value) return false;
+
+  try {
+    const url = new URL(value);
+
+    return /\.(jpe?g|png|webp)$/i.test(
+      url.pathname,
+    );
+  } catch {
+    return /\.(jpe?g|png|webp)(?:$|[?#])/i.test(
+      value,
+    );
+  }
+}
+
 function decodeHtml(value: string): string {
   return value
     .replace(/&amp;/g, '&')
@@ -439,9 +457,9 @@ export async function searchPinterest(query: string, limit: number): Promise<Pin
           const filtered = enriched.filter((item) => {
             const image = item.image?.toLowerCase() || '';
             const thumbnail = item.thumbnail?.toLowerCase() || '';
-        
+          
             return (
-              item.image &&
+              isStaticImageUrl(item.image) &&
               !image.includes('/custom_covers/') &&
               !thumbnail.includes('/custom_covers/')
             );

@@ -8,7 +8,8 @@
  */
 
 import { ytdlpGetInfo } from '../youtube/ytdlp.js';
-import { AppError } from '@shared/errors.js';
+import { AppError, BadRequest } from '@shared/errors.js';
+import { ssrfSafeFetch } from '@shared/utils/ssrfFetch.js';
 import { loadEnv } from '../../../config/env.js';
 
 export interface FacebookResult {
@@ -32,24 +33,54 @@ class CobaltError extends Error {
   }
 }
 
+/** True only for genuine fb.watch / facebook.com/share/ short links (exact hostname). */
+function isShortShareLink(raw: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    return false;
+  }
+  const h = u.hostname.toLowerCase();
+  if (h === 'fb.watch' || h.endsWith('.fb.watch')) return true;
+  if (
+    (h === 'facebook.com' || h.endsWith('.facebook.com')) &&
+    u.pathname.toLowerCase().startsWith('/share/')
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function isFacebookFamilyHost(hostname: string): boolean {
+  const h = hostname.toLowerCase();
+  return h === 'facebook.com' || h.endsWith('.facebook.com');
+}
+
 /** Resolve fb.watch / /share/ links to the canonical URL, then strip query noise. */
 async function normalizeUrl(url: string, signal?: AbortSignal): Promise<string> {
   let resolved = url;
-  if (/fb\.watch|facebook\.com\/share\//i.test(url)) {
+  if (isShortShareLink(url)) {
     try {
-      const res = await fetch(url, {
+      // SSRF-safe: every redirect hop is validated (no private/metadata IPs).
+      const res = await ssrfSafeFetch(url, {
         method: 'GET',
-        redirect: 'follow',
         headers: { 'User-Agent': DESKTOP_UA, Accept: 'text/html,application/xhtml+xml' },
         signal,
+        timeoutMs: 15_000,
       });
       resolved = res.url || url;
+      await res.arrayBuffer().catch(() => {});
       const u = new URL(resolved);
+      if (!isFacebookFamilyHost(u.hostname)) {
+        throw BadRequest('Could not resolve to a Facebook URL');
+      }
       if (/login|checkpoint/i.test(u.pathname)) {
         const next = u.searchParams.get('next') || u.searchParams.get('u');
         if (next) resolved = decodeURIComponent(next);
       }
-    } catch {
+    } catch (err) {
+      if (err instanceof AppError) throw err;
       resolved = url;
     }
   }

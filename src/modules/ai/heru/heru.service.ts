@@ -1,12 +1,13 @@
 import { randomBytes } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { FastifyBaseLogger } from 'fastify';
 
 import { withGroq } from '@shared/groqRotator.js';
 import { withBandelbanget } from '@shared/bandelbangetRotator.js';
 
 import { AppError } from '@shared/errors.js';
 
-const BANDELBANGET_MODEL = 'glm-5.2';
+const BANDELBANGET_MODEL = 'glm-5.3';
 const FALLBACK_MODEL = 'qwen/qwen3.6-27b';
 
 const MAX_HISTORY_MESSAGES = 20;
@@ -210,6 +211,7 @@ export async function chatWithHeru(
   text: string,
   sessionId: string | undefined,
   ownerKeyId: string | null,
+  log?: FastifyBaseLogger,
 ): Promise<HeruResult> {
   const id = sessionId ?? generateSessionId();
   const existing = await findSession(db, id);
@@ -234,6 +236,18 @@ export async function chatWithHeru(
     const isNetworkError = !(err instanceof AppError);
 
     if (isBandelbangetError || isNetworkError) {
+      // Catat penyebab asli sebelum fallback, biar nggak "tiba-tiba" pindah model
+      log?.warn(
+        {
+          provider: 'bandelbanget',
+          model: BANDELBANGET_MODEL,
+          fallbackTo: FALLBACK_MODEL,
+          errCode: err instanceof AppError ? err.code : 'UNKNOWN',
+          errStatus: err instanceof AppError ? err.statusCode : undefined,
+          errMessage: err instanceof Error ? err.message : String(err),
+        },
+        'Bandelbanget failed, falling back to Groq',
+      );
       reply = await callGroq(messages);
     } else {
       throw err;

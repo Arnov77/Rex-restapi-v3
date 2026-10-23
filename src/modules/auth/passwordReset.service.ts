@@ -95,7 +95,9 @@ export function passwordResetService(db: SupabaseClient) {
           'Tautan reset tidak valid atau sudah kedaluwarsa. Minta tautan baru.',
         );
       }
-      await users.setPasswordHash(row.user_id, await bcrypt.hash(newPassword, 12));
+      // Rotate + stamp password_changed_at so every previously issued JWT
+      // (including a possibly stolen one) stops validating (H4).
+      await users.rotatePassword(row.user_id, await bcrypt.hash(newPassword, 12));
       await tokens.consumeAllForUser(row.user_id);
     },
   };

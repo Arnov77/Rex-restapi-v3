@@ -1,4 +1,5 @@
-import { AppError } from '@shared/errors.js';
+import { AppError, BadRequest } from '@shared/errors.js';
+import { ssrfSafeFetch } from '@shared/utils/ssrfFetch.js';
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
@@ -63,16 +64,28 @@ function mimeFromFilename(filename: string): string | null {
 }
 
 export async function downloadMediafire(url: string): Promise<MediafireResult> {
+  // Exact hostname gate — the schema regex is substring-based, so enforce it
+  // here too before any outbound request leaves the server.
+  let host = '';
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    throw BadRequest('URL MediaFire tidak valid');
+  }
+  if (host !== 'mediafire.com' && !host.endsWith('.mediafire.com')) {
+    throw BadRequest('URL harus dari mediafire.com');
+  }
+
   const pageUrl = url.replace(/\/file\/view\//, '/file/').replace(/\/$/, '') + (url.includes('/file/') ? '' : '/');
 
-  const res = await fetch(pageUrl, {
+  // SSRF-safe: every redirect hop is validated (no private/metadata IPs).
+  const res = await ssrfSafeFetch(pageUrl, {
     headers: {
       'User-Agent': UA,
       'Accept': 'text/html,application/xhtml+xml,*/*',
       'Accept-Language': 'en-US,en;q=0.9',
     },
-    signal: AbortSignal.timeout(15_000),
-    redirect: 'follow',
+    timeoutMs: 15_000,
   });
 
   if (!res.ok) {

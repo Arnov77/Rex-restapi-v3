@@ -187,7 +187,7 @@ export default {
         // Auth gate
         !isAuth && h('div', { class: 'auth-gate', style: 'margin-bottom:20px' }, [
           h('div', { class: 'auth-gate-row' }, [
-            h('span', { class: 'auth-gate-icon' }, '🔒'),
+            h('span', { class: 'auth-gate-icon' }, h('i', { class: 'bi bi-lock', 'aria-hidden': 'true' })),
             h('div', { class: 'auth-gate-text' }, [
               h('strong', {}, 'Sign in required'),
               h('div', {}, 'Sign in to create and manage your shortlinks.'),
@@ -335,7 +335,7 @@ export default {
                   target: '_blank',
                   rel: 'noopener',
                   title: 'Open link',
-                }, '⇗'),
+                }, h('i', { class: 'bi bi-box-arrow-up-right', 'aria-hidden': 'true' })),
 
                 // Delete button
                 h('button', {

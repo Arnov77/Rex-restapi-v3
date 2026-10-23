@@ -149,7 +149,8 @@ export function meService(db: SupabaseClient) {
       }
 
       const passwordHash = await bcrypt.hash(password, 12);
-      await users.setPasswordHash(userId, passwordHash);
+      // Stamp password_changed_at so any previously issued JWT is rejected (H4).
+      await users.rotatePassword(userId, passwordHash);
     },
 
     /**
@@ -177,7 +178,9 @@ export function meService(db: SupabaseClient) {
       }
 
       const passwordHash = await bcrypt.hash(newPassword, 12);
-      await users.setPasswordHash(userId, passwordHash);
+      // Stamp password_changed_at: every JWT issued before this moment —
+      // including a possibly stolen one — stops validating (H4).
+      await users.rotatePassword(userId, passwordHash);
     },
   };
 }

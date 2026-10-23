@@ -414,7 +414,7 @@ export default {
               h('div', { class: 'detail-form' }, [
                 !authStatus.value.ok && h('div', { class: 'auth-gate' }, [
                   h('div', { class: 'auth-gate-row' }, [
-                    h('span', { class: 'auth-gate-icon' }, '🔒'),
+                    h('span', { class: 'auth-gate-icon' }, h('i', { class: 'bi bi-lock', 'aria-hidden': 'true' })),
                     h('div', { class: 'auth-gate-text' }, [
                       h('strong', {}, 'Masuk dulu untuk mencoba'),
                       h('div', {}, authStatus.value.hint),

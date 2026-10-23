@@ -26,6 +26,27 @@ declare module 'fastify' {
 interface JwtPayload {
   sub: string;
   type: 'access';
+  /** Issued-at (seconds, set automatically by jsonwebtoken). */
+  iat?: number;
+}
+
+/**
+ * H4 — reject access tokens issued before the user's last password
+ * rotation. Rows that never rotated keep `passwordChangedAt === null`
+ * and are unaffected, so pre-existing sessions survive the rollout.
+ *
+ * The comparison is in whole seconds (`iat` has second precision): a token
+ * minted in the same second as the rotation still validates, which avoids
+ * locking the user out on an immediate re-login.
+ */
+function tokenPredatesPasswordChange(
+  payload: JwtPayload,
+  userRow: { passwordChangedAt: string | null },
+): boolean {
+  if (!userRow.passwordChangedAt) return false;
+  const changedAtSec = Math.floor(new Date(userRow.passwordChangedAt).getTime() / 1000);
+  if (!Number.isFinite(changedAtSec)) return false;
+  return (payload.iat ?? 0) < changedAtSec;
 }
 
 function extractApiKey(req: FastifyRequest): string | null {
@@ -179,6 +200,9 @@ export default fp(
         return;
       }
       if (!userRow) return;
+      // H4: a token issued before the last password rotation is dead —
+      // keep the branch's non-fatal philosophy and treat it as anon.
+      if (tokenPredatesPasswordChange(payload, userRow)) return;
       req.user = users.publicView(userRow);
 
       // Cross-link to the user's primary API key row so rate-limit
@@ -224,6 +248,11 @@ export default fp(
       }
       const user = await users.findById(payload.sub);
       if (!user) throw Unauthorized('User no longer exists');
+      // H4: the password was rotated after this token was issued —
+      // force a fresh login (kills stolen tokens post-compromise).
+      if (tokenPredatesPasswordChange(payload, user)) {
+        throw Unauthorized('Session expired — please sign in again');
+      }
       req.user = users.publicView(user);
     });
 

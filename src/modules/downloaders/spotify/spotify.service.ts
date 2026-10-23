@@ -153,7 +153,19 @@ function detectType(input: string): 'track' | 'album' | 'playlist' {
 }
 
 function isSpotifyUrl(input: string): boolean {
-  return /^https?:\/\/open\.spotify\.com\/(track|album|playlist)\//i.test(input);
+  return /^https?:\/\/(open\.)?spotify\.com\/.*(track|album|playlist)\//i.test(input);
+}
+
+/**
+ * Normalize berbagai format URL Spotify ke open.spotify.com.
+ * - https://spotify.com/intl-id/track/ID → https://open.spotify.com/track/ID
+ * - https://open.spotify.com/track/ID    → tidak berubah
+ */
+function normalizeSpotifyUrl(input: string): string {
+  if (!isSpotifyUrl(input)) return input;
+  const match = input.match(/\/(track|album|playlist)\/([A-Za-z0-9]+)/i);
+  if (!match) return input;
+  return `https://open.spotify.com/${match[1]}/${match[2]}`;
 }
 
 function extractSpotifyId(url: string): string {
@@ -342,6 +354,7 @@ export async function downloadSpotify(
   input: string,
   base: string,
 ): Promise<{ type: 'track' | 'album' | 'playlist'; tracks: SpotifyTrack[] }> {
+  input = normalizeSpotifyUrl(input);
   const type = detectType(input);
   const tempDir = join(TEMP_BASE, `${Date.now()}`);
   mkdirSync(tempDir, { recursive: true });

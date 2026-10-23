@@ -103,6 +103,12 @@ export default {
 
     const used = computed(() => props.auth.state.usage?.used ?? 0);
     const limit = computed(() => props.auth.state.usage?.limit ?? 0);
+    // Keys with no daily cap report limit: null. Distinct from "no usage
+    // data at all" (anonymous), which the old code lumped together.
+    const unlimited = computed(() => {
+      const u = props.auth.state.usage;
+      return !!u && u.limit == null;
+    });
     const pct = computed(() => (limit.value ? Math.min(100, Math.round((used.value / limit.value) * 100)) : 0));
 
     // Color grade: accent by default, warn > 80%, err > 95%.
@@ -241,7 +247,10 @@ export default {
 
     function statCard({ icon, label, value, unit, meta, tone, children }) {
       return h('div', { class: ['stat-card', tone && 'tone-' + tone] }, [
-        h('div', { class: 'stat-icon' }, icon),
+        h('div', { class: 'stat-icon' },
+          typeof icon === 'string' && icon.startsWith('bi-')
+            ? h('i', { class: 'bi ' + icon, 'aria-hidden': 'true' })
+            : icon),
         h('div', { class: 'stat-body' }, [
           h('div', { class: 'stat-label' }, label),
           h('div', { class: 'stat-value' }, [
@@ -377,7 +386,7 @@ export default {
             title: 'Copy snippet',
             'aria-label': 'Copy Quick Start snippet',
             onClick: copyQuickStart,
-          }, '⎘'),
+          }, h('i', { class: 'bi bi-clipboard', 'aria-hidden': 'true' })),
         ]),
         noKeyCta.value
           ? h('a', { class: 'btn primary full', href: '/register?next=/dashboard' }, 'Register to get a key')
@@ -394,7 +403,7 @@ export default {
       if (pct.value <= 80) return null;
       const tone = pct.value > 95 ? 'err' : 'warn';
       return h('div', { class: ['quota-band', 'tone-' + tone] }, [
-        h('span', { class: 'quota-band-icon' }, tone === 'err' ? '⚠' : '◔'),
+        h('span', { class: 'quota-band-icon' }, h('i', { class: 'bi ' + (tone === 'err' ? 'bi-exclamation-triangle' : 'bi-speedometer2'), 'aria-hidden': 'true' })),
         h('div', { class: 'quota-band-copy' }, [
           h('strong', {}, `You\u2019re using ${pct.value}% of your daily quota`),
           h('span', {}, 'Upgrade your plan for higher limits and priority support.'),
@@ -429,21 +438,26 @@ export default {
         props.auth.isAuthenticated.value ? h('div', { class: 'overview-grid' }, [
           // Row 1: stat cards
           statCard({
-            icon: '▲',
+            icon: 'bi-graph-up-arrow',
             label: 'Requests today',
             value: used.value,
-            meta: limit.value ? 'of ' + limit.value + ' daily limit' : 'per-IP anonymous limit',
+            meta: unlimited.value
+              ? 'no daily limit on this key'
+              : limit.value ? 'of ' + limit.value + ' daily limit' : 'per-IP anonymous limit',
           }),
           statCard({
-            icon: '◔',
+            icon: 'bi-speedometer2',
             label: 'Daily quota',
-            value: limit.value || '—',
-            unit: limit.value ? '/day' : '',
-            meta: resetsIn.value,
-            children: usageMeter({ used: used.value, limit: limit.value, pct: pct.value, tone: meterTone.value }),
+            value: unlimited.value ? 'Unlimited' : (limit.value || '—'),
+            unit: !unlimited.value && limit.value ? '/day' : '',
+            // A reset countdown means nothing when there is nothing to reset.
+            meta: unlimited.value ? 'No daily cap — use as much as you need' : resetsIn.value,
+            children: unlimited.value
+              ? null
+              : usageMeter({ used: used.value, limit: limit.value, pct: pct.value, tone: meterTone.value }),
           }),
           statCard({
-            icon: '⚿',
+            icon: 'bi-key',
             label: 'Active API key',
             value: maskedKey.value || 'None',
             meta: props.auth.state.apiKey ? 'X-API-Key header' : 'No key cached on this device',

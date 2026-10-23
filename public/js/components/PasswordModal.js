@@ -119,7 +119,7 @@ export default {
             class: 'modal-close',
             onClick: this.close,
             'aria-label': 'Close',
-          }, '✕'),
+          }, create('i', { class: 'bi bi-x-lg', 'aria-hidden': 'true' })),
         ]),
 
         create('div', { class: 'modal-body' }, [

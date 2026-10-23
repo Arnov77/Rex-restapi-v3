@@ -28,7 +28,7 @@ const heruRoutes: FastifyPluginAsyncZod = async (app) => {
     const { text, session } = req.query;
     const ownerKeyId = req.apiKey?.id ?? null;
 
-    const result = await chatWithHeru(app.supabase, text, session, ownerKeyId);
+    const result = await chatWithHeru(app.supabase, text, session, ownerKeyId, req.log);
 
     return {
       ok: true as const,

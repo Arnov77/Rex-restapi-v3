@@ -7,7 +7,7 @@
 # code OUT of production images.
 
 # ───────────────────────── builder ─────────────────────────
-FROM node:20-bookworm AS builder
+FROM node:22-bookworm AS builder
 
 WORKDIR /app
 
@@ -24,7 +24,7 @@ RUN npm run build
 RUN npm prune --omit=dev
 
 # ───────────────────────── runtime ─────────────────────────
-FROM node:20-bookworm-slim AS runtime
+FROM node:22-bookworm-slim AS runtime
 
 # System Chromium + the few shared libs Playwright needs at runtime.
 # We use system Chromium instead of Playwright's bundled browser so the

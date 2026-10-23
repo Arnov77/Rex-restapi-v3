@@ -4,6 +4,7 @@
  */
 
 import { AppError } from '@shared/errors.js';
+import { ssrfSafeFetch } from '@shared/utils/ssrfFetch.js';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,6 +42,20 @@ export interface MangaDetail {
 
 const BASE = 'https://komiku.org';
 
+/**
+ * Exact hostname allowlist for komiku — defeats the userinfo bypass
+ * (`komiku.org@169.254.169.254`) and prefix attack (`komiku.org.evil.com`)
+ * that substring/`startsWith` checks miss.
+ */
+function isKomikuHost(raw: string): boolean {
+  try {
+    const h = new URL(raw).hostname.toLowerCase();
+    return h === 'komiku.org' || h.endsWith('.komiku.org');
+  } catch {
+    return false;
+  }
+}
+
 const HEADERS: Record<string, string> = {
   'User-Agent':
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -61,9 +76,11 @@ async function fetchHtml(url: string): Promise<string> {
     throw new AppError(400, 'INVALID_URL', `URL tidak valid: ${url}`);
   }
 
-  const res = await fetch(parsedUrl.toString(), {
+  // SSRF-safe: the URL and every redirect hop are validated (no
+  // private/metadata IPs) before any connection is opened.
+  const res = await ssrfSafeFetch(parsedUrl.toString(), {
     headers: HEADERS,
-    redirect: 'follow',
+    timeoutMs: 20_000,
   });
 
   if (!res.ok) {
@@ -90,7 +107,7 @@ async function resolveDetailUrl(q: string): Promise<string> {
   const trimmed = q.trim().replace(/\/$/, '');
 
   // 1. Full URL
-  if (trimmed.startsWith('https://komiku.org') || trimmed.startsWith('http://komiku.org')) {
+  if (isKomikuHost(trimmed)) {
     return trimmed.endsWith('/') ? trimmed : trimmed + '/';
   }
 
@@ -441,7 +458,7 @@ export async function getChapterImages(chapterUrl: string): Promise<ChapterImage
     throw new AppError(400, 'INVALID_URL', `URL chapter tidak valid: ${chapterUrl}`);
   }
 
-  if (!parsedUrl.hostname.includes('komiku')) {
+  if (!isKomikuHost(chapterUrl)) {
     throw new AppError(400, 'INVALID_URL', 'URL harus dari domain komiku.org');
   }
 

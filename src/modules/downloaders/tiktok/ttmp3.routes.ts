@@ -5,13 +5,24 @@ import { basename } from 'node:path';
 import { shortProxyUrl } from '@modules/downloaders/_proxy/proxy.token.js';
 import { downloadAndNormalizeAudio, getTempDir } from '../youtube/ytdlp.js';
 import { AppError } from '@shared/errors.js';
+import { ssrfSafeFetch } from '@shared/utils/ssrfFetch.js';
 import { loadEnv } from '../../../config/env.js';
 
+/**
+ * Exact hostname match for TikTok — defeats the substring bypasses the old
+ * regex allowed (`vm.tiktok.com.evil.com`, userinfo `tiktok.com@169.254.169.254`).
+ */
+function isTiktokHost(u: string): boolean {
+  try {
+    const h = new URL(u).hostname.toLowerCase();
+    return h === 'tiktok.com' || h.endsWith('.tiktok.com');
+  } catch {
+    return false;
+  }
+}
+
 const Ttmp3Query = z.object({
-  url: z.string().url().refine(
-    (u) => /tiktok\.com|vm\.tiktok\.com|vt\.tiktok\.com/i.test(u),
-    { message: 'Must be a valid TikTok URL' },
-  ),
+  url: z.string().url().refine(isTiktokHost, { message: 'Must be a valid TikTok URL' }),
 });
 
 const Ttmp3Response = z.object({
@@ -27,14 +38,22 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 
 /** Resolve a short TikTok URL (vt./vm.tiktok.com) to its canonical URL. */
 async function resolveShortUrl(url: string): Promise<string> {
-  if (!/vm\.tiktok\.com|vt\.tiktok\.com/i.test(url)) return url;
+  let host = '';
   try {
-    const res = await fetch(url, {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    return url;
+  }
+  if (host !== 'vm.tiktok.com' && host !== 'vt.tiktok.com') return url;
+  try {
+    // SSRF-safe: every redirect hop is validated (no private/metadata IPs).
+    const res = await ssrfSafeFetch(url, {
       method: 'HEAD',
-      redirect: 'follow',
       headers: { 'User-Agent': UA },
-      signal: AbortSignal.timeout(8_000),
+      timeoutMs: 8_000,
     });
+    // HEAD has no body, but drain defensively so the socket is released.
+    await res.arrayBuffer().catch(() => {});
     return res.url || url;
   } catch {
     return url;

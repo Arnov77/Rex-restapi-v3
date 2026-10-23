@@ -1,10 +1,20 @@
 import { z } from 'zod';
 
+/**
+ * Exact hostname match — the old substring regex also accepted
+ * `mediafire.com.evil.com` and userinfo tricks like `mediafire.com@169.254.169.254`.
+ */
+function isMediafireHost(u: string): boolean {
+  try {
+    const h = new URL(u).hostname.toLowerCase();
+    return h === 'mediafire.com' || h.endsWith('.mediafire.com');
+  } catch {
+    return false;
+  }
+}
+
 export const MediafireQuery = z.object({
-  url: z.string().url().refine(
-    (u) => /mediafire\.com/i.test(u),
-    { message: 'Must be a valid MediaFire URL' },
-  ),
+  url: z.string().url().refine(isMediafireHost, { message: 'Must be a valid MediaFire URL' }),
 });
 export type MediafireQuery = z.infer<typeof MediafireQuery>;
 

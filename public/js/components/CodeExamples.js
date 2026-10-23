@@ -218,7 +218,9 @@ export default {
             class: 'code-copy-btn',
             onClick: copy,
             title: 'Copy to clipboard',
-          }, copied.value ? '✓ Copied' : 'Copy'),
+          }, copied.value
+            ? [h('i', { class: 'bi bi-check2', 'aria-hidden': 'true' }), ' Tersalin']
+            : [h('i', { class: 'bi bi-clipboard', 'aria-hidden': 'true' }), ' Salin']),
           h('pre', { class: 'code-block' },
             h('code', {
               class: `hljs language-${({'cURL':'bash','Node.js':'javascript','Python':'python'})[activeLang.value]}`,

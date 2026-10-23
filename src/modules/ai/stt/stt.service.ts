@@ -1,5 +1,6 @@
 import { AppError } from '@shared/errors.js';
 import { withGroq } from '@shared/groqRotator.js';
+import { ssrfSafeFetch, readBodyCapped } from '@shared/utils/ssrfFetch.js';
 import { toFile } from 'groq-sdk';
 
 export interface SttResult {
@@ -35,8 +36,14 @@ export async function transcribeAudio(
   });
 }
 
+// Groq whisper-large-v3 caps uploads at 25 MB — reject anything bigger
+// before buffering it into memory (memory-DoS vector).
+const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
+
 export async function transcribeFromUrl(url: string, language?: string): Promise<SttResult> {
-  const res = await fetch(url);
+  // SSRF-safe: the URL and every redirect hop are validated (no
+  // private/metadata IPs) before any connection is opened.
+  const res = await ssrfSafeFetch(url, { timeoutMs: 60_000 });
   if (!res.ok) throw new AppError(400, 'AUDIO_FETCH_FAILED', `Gagal fetch audio: ${res.status}`);
 
   const contentType = res.headers.get('content-type') ?? 'audio/mpeg';
@@ -46,6 +53,6 @@ export async function transcribeFromUrl(url: string, language?: string): Promise
     : contentType.includes('mp4') ? 'mp4'
     : 'mp3';
 
-  const buffer = Buffer.from(await res.arrayBuffer());
+  const buffer = await readBodyCapped(res, MAX_AUDIO_BYTES, 'AUDIO_TOO_LARGE');
   return transcribeAudio(buffer, `audio.${ext}`, language);
 }

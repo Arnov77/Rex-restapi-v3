@@ -294,7 +294,7 @@ export default {
     function uncachedState() {
       return h('div', { class: 'card key-card key-card-none' }, [
         h('div', { class: 'key-row' }, [
-          h('div', { class: 'key-glyph' }, '⚿'),
+          h('div', { class: 'key-glyph' }, h('i', { class: 'bi bi-key', 'aria-hidden': 'true' })),
           h('div', { class: 'key-body' }, [
             h('div', { class: 'key-name-row' }, [
               h('strong', { class: 'key-name' }, '••••••••••••••••'),
@@ -322,7 +322,7 @@ export default {
     function keyCard() {
       return h('div', { class: 'card key-card' }, [
         h('div', { class: 'key-row' }, [
-          h('div', { class: 'key-glyph' }, '⚿'),
+          h('div', { class: 'key-glyph' }, h('i', { class: 'bi bi-key', 'aria-hidden': 'true' })),
           h('div', { class: 'key-body' }, [
             h('div', { class: 'key-name-row' }, [
               h('strong', { class: 'key-name' }, revealed.value ? props.auth.state.apiKey : keyLabel.value),
@@ -335,7 +335,9 @@ export default {
             ]),
           ]),
           h('div', { class: 'key-actions' }, [
-            h('button', { class: 'btn sm', onClick: copyKey }, '⎘ Copy'),
+            h('button', { class: 'btn sm', onClick: copyKey }, [
+              h('i', { class: 'bi bi-clipboard', 'aria-hidden': 'true' }), ' Salin',
+            ]),
             h('button', { class: 'btn sm', onClick: toggleReveal }, revealed.value ? 'Sembunyikan' : 'Lihat'),
             h('button', { class: 'btn sm danger', onClick: revokeKey }, 'Remove'),
           ]),

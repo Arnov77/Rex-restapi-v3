@@ -38,6 +38,12 @@ export interface UserRecord {
   providerId: string | null;
   /** Human name for greetings — from the provider, or null to fall back to username. */
   displayName: string | null;
+  /**
+   * When the password was last set/changed/reset. Null when never rotated.
+   * Auth middleware rejects access JWTs issued before this stamp (H4).
+   * Never exposed to clients.
+   */
+  passwordChangedAt: string | null;
 }
 
 export interface PublicUser {
@@ -69,6 +75,7 @@ interface Row {
   provider_id: string | null;
   provider_linked_at: string | null;
   display_name: string | null;
+  password_changed_at: string | null;
 }
 
 const toRecord = (row: Row | null): UserRecord | null =>
@@ -83,13 +90,15 @@ const toRecord = (row: Row | null): UserRecord | null =>
     provider: row.provider,
     providerId: row.provider_id,
     displayName: row.display_name,
+    passwordChangedAt: row.password_changed_at,
   };
 
 export function usersRepo(db: SupabaseClient) {
   return {
     publicView(record: UserRecord): PublicUser {
       // providerId is an internal identity key — no reason to ship it.
-      const { passwordHash, providerId: _p, ...rest } = record;
+      // passwordChangedAt is a security timestamp — also internal.
+      const { passwordHash, providerId: _p, passwordChangedAt: _c, ...rest } = record;
       return { ...rest, hasPassword: passwordHash !== null };
     },
 
@@ -111,7 +120,7 @@ export function usersRepo(db: SupabaseClient) {
       return toRecord(data);
     },
 
-    async insert(rec: Omit<UserRecord, 'createdAt' | 'lastLoginAt'>): Promise<UserRecord> {
+    async insert(rec: Omit<UserRecord, 'createdAt' | 'lastLoginAt' | 'passwordChangedAt'>): Promise<UserRecord> {
       const { data, error } = await db
         .from(TABLE)
         .insert({
@@ -167,6 +176,20 @@ export function usersRepo(db: SupabaseClient) {
     async setPasswordHash(id: string, passwordHash: string): Promise<void> {
       const { error } = await db.from(TABLE).update({ password_hash: passwordHash }).eq('id', id);
       if (error) throw Internal(`users.setPasswordHash: ${error.message}`);
+    },
+
+    /**
+     * Set a new password hash AND stamp password_changed_at in ONE update,
+     * so there is no window where the new password is live but old access
+     * JWTs still validate. Auth middleware rejects any token issued before
+     * the stamp. Use this for every password change/reset/set (H4).
+     */
+    async rotatePassword(id: string, passwordHash: string): Promise<void> {
+      const { error } = await db
+        .from(TABLE)
+        .update({ password_hash: passwordHash, password_changed_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) throw Internal(`users.rotatePassword: ${error.message}`);
     },
 
     async remove(id: string): Promise<void> {

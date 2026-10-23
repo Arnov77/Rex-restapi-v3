@@ -1,4 +1,5 @@
 import { BadRequest } from '@shared/errors.js';
+import { ssrfSafeFetch } from '@shared/utils/ssrfFetch.js';
 import { ytdlpGetInfo } from '../youtube/ytdlp.js';
 
 export interface PinterestResult {
@@ -17,8 +18,20 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 async function resolveUrl(url: string): Promise<{ pinId: string; canonical: string }> {
   let resolved = url;
 
-  if (/pin\.it/i.test(url)) {
-    const res = await fetch(url, { method: 'HEAD', redirect: 'follow', headers: { 'User-Agent': UA } });
+  let host = '';
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    /* fall through — pin-id regex below will reject */
+  }
+  if (host === 'pin.it' || host.endsWith('.pin.it')) {
+    // SSRF-safe: every redirect hop is validated (no private/metadata IPs).
+    const res = await ssrfSafeFetch(url, {
+      method: 'HEAD',
+      headers: { 'User-Agent': UA },
+      timeoutMs: 10_000,
+    });
+    await res.arrayBuffer().catch(() => {});
     resolved = res.url || url;
   }
 

@@ -15,6 +15,8 @@ const usersRepoMock = {
   insert: vi.fn(),
   touchLogin: vi.fn(),
   setApiKeyId: vi.fn(),
+  setPasswordHash: vi.fn(),
+  rotatePassword: vi.fn().mockResolvedValue(undefined),
   publicView: vi.fn((rec: any) => {
     const { passwordHash: _h, ...rest } = rec;
     return rest;

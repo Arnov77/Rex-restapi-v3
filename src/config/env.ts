@@ -165,6 +165,8 @@ const schema = z.object({
   AUDIO_LOUDNESS_FILTER: z.string().default(''),
 
   OUTBOUND_PROXY_URLS: z.string().optional(),
+
+  CAPSOLVER_API_KEY: z.string().optional(),
 });
 
 export type Env = z.infer<typeof schema>;

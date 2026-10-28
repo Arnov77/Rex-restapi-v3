@@ -34,6 +34,7 @@ const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
 /** Build CDN-specific request headers (Referer/Range) for a given target. */
+/** Build CDN-specific request headers (Referer/Range) for a given target. */
 function buildHeaders(target: URL): Record<string, string> {
   const headers: Record<string, string> = {
     'User-Agent': USER_AGENT,
@@ -42,6 +43,7 @@ function buildHeaders(target: URL): Record<string, string> {
   };
   const h = target.hostname;
   const isTiktokCdn = /tiktok|musical\.ly|byteoversea|ibytedtos|bytecdn|byte-?d/i.test(h);
+
   if (h.includes('tikwm.com')) {
     headers.Referer = 'https://www.tikwm.com/';
   } else if (isTiktokCdn) {
@@ -49,12 +51,19 @@ function buildHeaders(target: URL): Record<string, string> {
     headers.Range = 'bytes=0-';
   } else if (h.includes('twimg.com') || h.includes('twitter') || h.includes('x.com')) {
     headers.Referer = 'https://x.com/';
+  } else if (h.includes('googlevideo.com') || h.includes('youtube.com')) {
+    // Penanganan khusus CDN YouTube:
+    headers.Referer = 'https://www.youtube.com/';
+    headers.Range = 'bytes=0-';
+  } else if (h.includes('ytultra.com')) {
+    headers.Referer = 'https://www.ytultra.com/';
+    headers.Origin = 'https://www.ytultra.com';
   } else {
     headers.Referer = `${target.origin}/`;
   }
+
   return headers;
 }
-
 
 /** Hosts the proxy may stream from even if they resolve to private IPs —
  *  e.g. a self-hosted cobalt instance whose tunnels point at 127.0.0.1. */

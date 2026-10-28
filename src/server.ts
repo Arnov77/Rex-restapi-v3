@@ -31,7 +31,12 @@ async function main() {
   process.on('SIGTERM', () => void shutdown('SIGTERM'));
 
   try {
-    await app.listen({ host: env.HOST, port: env.PORT });
+    // Pterodactyl menyediakan SERVER_PORT, fallback ke env.PORT atau 3000
+    const port = Number(process.env.SERVER_PORT || env.PORT || 3000);
+    const host = env.HOST || '0.0.0.0';
+
+    await app.listen({ host, port });
+    app.log.info(`Server listening on http://${host}:${port}`);
   } catch (err) {
     app.log.error({ err }, 'failed to start');
     process.exit(1);

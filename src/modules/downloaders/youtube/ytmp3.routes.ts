@@ -1,8 +1,6 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { statSync, createReadStream } from 'node:fs';
-import { basename } from 'node:path';
-import { ytdlpDownloadAudio, getTempDir } from './ytdlp.js';
+import { ytultraGetAudio } from './ytultra.js';
 import { shortProxyUrl } from '@modules/downloaders/_proxy/proxy.token.js';
 
 const Ytmp3Query = z.object({
@@ -13,7 +11,6 @@ const Ytmp3Query = z.object({
 });
 
 const ytmp3Routes: FastifyPluginAsyncZod = async (app) => {
-  // Main endpoint — returns JSON with short proxy URL
   app.get(
     '/',
     {
@@ -24,12 +21,10 @@ const ytmp3Routes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (req) => {
-      const result = await ytdlpDownloadAudio(req.query.url);
+      const result = await ytultraGetAudio(req.query.url);
 
       const base = `${req.protocol}://${req.host}`;
-      const fileId = basename(result.filePath);
-      const internalUrl = `${base}/api/downloader/ytmp3/file/${fileId}`;
-      const proxyUrl = shortProxyUrl(base, internalUrl, {
+      const proxyUrl = shortProxyUrl(base, result.audioUrl, {
         filename: `${result.title.replace(/[^a-zA-Z0-9 _-]/g, '')}.mp3`,
         contentType: 'audio/mpeg',
       });
@@ -43,34 +38,6 @@ const ytmp3Routes: FastifyPluginAsyncZod = async (app) => {
           format: 'mp3',
         },
       };
-    },
-  );
-
-  // File serving endpoint — streams the temp mp3 (used internally by proxy)
-  app.get(
-    '/file/:id',
-    { schema: { hide: true } },
-    async (req, reply) => {
-      const { id } = req.params as { id: string };
-      if (!/^[a-f0-9]+\.mp3$/.test(id)) {
-        return reply.code(400).send({ ok: false, error: { message: 'Invalid file ID' } });
-      }
-
-      const filePath = `${getTempDir()}/${id}`;
-
-      try {
-        const stat = statSync(filePath);
-
-        reply
-          .type('audio/mpeg')
-          .header('content-length', String(stat.size))
-          .header('content-disposition', `inline; filename="${id}"`)
-          .header('cache-control', 'private, max-age=3600');
-
-        return reply.send(createReadStream(filePath));
-      } catch {
-        return reply.code(404).send({ ok: false, error: { message: 'File expired or not found' } });
-      }
     },
   );
 };

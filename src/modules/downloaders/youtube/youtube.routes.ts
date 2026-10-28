@@ -1,9 +1,8 @@
+// src/modules/downloaders/youtube/youtube.routes.ts
+
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { statSync, createReadStream } from 'node:fs';
-import { basename } from 'node:path';
 import { downloadYoutube } from './youtube.service.js';
-import { getTempDir } from './ytdlp.js';
 import { shortProxyUrl } from '@modules/downloaders/_proxy/proxy.token.js';
 
 const YoutubeQuery = z.object({
@@ -11,11 +10,16 @@ const YoutubeQuery = z.object({
     (u) => /youtube\.com|youtu\.be|youtube-nocookie\.com/i.test(u),
     { message: 'Must be a valid YouTube URL' },
   ),
-  quality: z.enum(['1080', '720', '480', '360']).default('720').optional(),
+  quality: z.enum(['1080', '720', '480', '360', '240', '144']).default('720').optional(),
+  all: z.enum(['true', 'false']).transform((v) => v === 'true').default('false').optional(),
 });
 
+function parseHeight(q: string): number {
+  const n = q.match(/(\d{2,4})\s*p/i);
+  return n?.[1] ? parseInt(n[1], 10) : 0;
+}
+
 const youtubeRoutes: FastifyPluginAsyncZod = async (app) => {
-  // Main endpoint — returns JSON with short proxy URL
   app.get(
     '/',
     {
@@ -26,17 +30,38 @@ const youtubeRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (req) => {
-      const quality = req.query.quality || '720';
-      const result = await downloadYoutube(req.query.url, quality);
-      const media = result.media[0]!;
+      const targetQuality = req.query.quality || '720';
+      const showAll = req.query.all === true;
+      const result = await downloadYoutube(req.query.url, targetQuality);
 
       const base = `${req.protocol}://${req.host}`;
-      const fileId = basename(media.filePath);
-      const internalUrl = `${base}/api/downloader/youtube/file/${fileId}`;
-      const proxyUrl = shortProxyUrl(base, internalUrl, {
-        filename: `${result.title.replace(/[^a-zA-Z0-9 _-]/g, '')} (${media.quality}).mp4`,
-        contentType: 'video/mp4',
-      });
+      const safeTitle = result.title.replace(/[^a-zA-Z0-9 _-]/g, '').trim() || 'video';
+
+      let selectedMedia = result.media;
+
+      // Jika tidak minta "all=true", filter hanya 1 video yang sesuai/mendekati quality yang diminta
+      if (!showAll && result.media.length > 0) {
+        const targetHeight = parseInt(targetQuality, 10);
+        
+        // Cari video yang tingginya <= targetHeight, atau ambil yang tertinggi jika tidak ada
+        const pick =
+          result.media.find((m) => parseHeight(m.quality) <= targetHeight) ??
+          result.media[0];
+
+        selectedMedia = pick ? [pick] : [];
+      }
+
+      // Berikan proxy URL untuk media yang dipilih
+      const mediaList = selectedMedia.map((m) => ({
+        type: m.type,
+        quality: m.quality,
+        format: m.format,
+        size: m.size,
+        url: shortProxyUrl(base, m.url, {
+          filename: `${safeTitle} (${m.quality}).${m.format}`,
+          contentType: 'video/mp4',
+        }),
+      }));
 
       return {
         ok: true,
@@ -45,37 +70,9 @@ const youtubeRoutes: FastifyPluginAsyncZod = async (app) => {
           author: result.author,
           thumbnail: result.thumbnail,
           duration: result.duration,
-          media: [{ type: 'video', url: proxyUrl, quality: media.quality }],
+          media: mediaList,
         },
       };
-    },
-  );
-
-  // File serving endpoint — streams the temp mp4 (used internally by proxy)
-  app.get(
-    '/file/:id',
-    { schema: { hide: true } },
-    async (req, reply) => {
-      const { id } = req.params as { id: string };
-      if (!/^[a-f0-9]+\.mp4$/.test(id)) {
-        return reply.code(400).send({ ok: false, error: { message: 'Invalid file ID' } });
-      }
-
-      const filePath = `${getTempDir()}/${id}`;
-
-      try {
-        const stat = statSync(filePath);
-
-        reply
-          .type('video/mp4')
-          .header('content-length', String(stat.size))
-          .header('content-disposition', `inline; filename="${id}"`)
-          .header('cache-control', 'private, max-age=3600');
-
-        return reply.send(createReadStream(filePath));
-      } catch {
-        return reply.code(404).send({ ok: false, error: { message: 'File expired or not found' } });
-      }
     },
   );
 };

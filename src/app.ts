@@ -19,7 +19,7 @@ import apiKeyRoutes from './modules/apiKeys/apiKeys.routes.js';
 import { closeAllProxyDispatchers } from './shared/http/proxyDispatcher.js';
 
 //========[Tools]=======
-import screenshotRoutes from './modules/tools/screenshot/screenshot.routes.js';
+// import screenshotRoutes from './modules/tools/screenshot/screenshot.routes.js';
 import tgstickerRoutes from './modules/tools/tgsticker/sticker.routes.js';
 import exifRoutes from './modules/tools/exif/exif.routes.js';
 import shortlinkRoutes from './modules/tools/shortlinks/shortlinks.routes.js';
@@ -42,10 +42,10 @@ import randomStickerAdminRoutes from './modules/tools/randomsticker/randomsticke
 import combineRoutes from './modules/tools/combine/combine.routes.js';
 
 //=========[Makers]========
-import bratRoutes from './modules/makers/brat/brat.routes.js';
-import quoteRoutes from './modules/makers/quote/quote.routes.js';
-import iqcRoutes from './modules/makers/iqc/iqc.routes.js';
-import qcRoutes from './modules/makers/qc/qc.routes.js';
+// import bratRoutes from './modules/makers/brat/brat.routes.js';
+// import quoteRoutes from './modules/makers/quote/quote.routes.js';
+// import iqcRoutes from './modules/makers/iqc/iqc.routes.js';
+// import qcRoutes from './modules/makers/qc/qc.routes.js';
 import miqRoutes from './modules/makers/miq/miq.routes.js';
 import smemeRoutes from './modules/makers/smeme/smeme.routes.js';
 import lqRoutes from './modules/makers/lq/lq.routes.js';
@@ -217,7 +217,7 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(apiKeyRoutes, { prefix: '/api/keys' });
   
   //=======[Tools]=======
-  await app.register(screenshotRoutes, { prefix: '/api/tools/screenshot' });
+  // await app.register(screenshotRoutes, { prefix: '/api/tools/screenshot' });
   await app.register(exifRoutes, { prefix: '/api/tools/exif' });
   await app.register(shortlinkRoutes, { prefix: '/api/tools/shortlink' });
   await app.register(qrRoutes, { prefix: '/api/tools/qr' });
@@ -238,10 +238,10 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   
   //=======[MAKERS]=======
   await app.register(tgstickerRoutes, { prefix: '/api/maker/tgsticker' });
-  await app.register(bratRoutes, { prefix: '/api/maker/brat' });
-  await app.register(quoteRoutes, { prefix: '/api/maker/quote' });
-  await app.register(iqcRoutes, { prefix: '/api/maker/iqc' });
-  await app.register(qcRoutes, { prefix: '/api/maker/qc' });
+  // await app.register(bratRoutes, { prefix: '/api/maker/brat' });
+  // await app.register(quoteRoutes, { prefix: '/api/maker/quote' });
+  // await app.register(iqcRoutes, { prefix: '/api/maker/iqc' });
+  // await app.register(qcRoutes, { prefix: '/api/maker/qc' });
   await app.register(miqRoutes, { prefix: '/api/maker/miq' });
   await app.register(smemeRoutes, { prefix: '/api/maker/smeme' });
   await app.register(lqRoutes, { prefix: '/api/maker/lq' });

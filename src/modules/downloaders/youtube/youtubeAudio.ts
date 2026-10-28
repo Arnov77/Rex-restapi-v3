@@ -1,26 +1,21 @@
 /**
- * YouTube audio resolver — scrapr first, ytultra last.
+ * YouTube audio resolver — scrapr only.
  *
- * Why this order: ytultra returns googlevideo URLs, and googlevideo rejects
- * requests coming from datacenter IPs (the panel server and RDP both got
- * 403, while residential/mobile IPs got 206 for the same class of URL).
- * That rejection is what made the old `/p/` short links return 502.
- *
- * scrapr's YouTube methods instead return files hosted on the converter
- * services' own servers (not googlevideo), so the panel proxy can fetch
- * them. ytultra stays as the last fallback for when both scrapr methods
- * fail — its URLs still work for end users opening them directly.
+ * scrapr's YouTube methods return files hosted on the converter services'
+ * own servers (not googlevideo), so the panel proxy can fetch them. The
+ * old ytultra fallback was removed on purpose: it returned googlevideo
+ * URLs, and googlevideo rejects requests from datacenter IPs, which made
+ * `/p/` links return 502 from the panel. If both scrapr methods fail,
+ * this throws an aggregated error instead of returning a link that 502s.
  *
  * Chain (sequential, first success wins):
  *   1. scrapr youtube.ytmp3  (convert1s + ytmp3.mobi fallback inside)
  *   2. scrapr youtube.ytmp3gg (convert1s)
- *   3. ytultra (googlevideo URLs — last resort)
  */
 
 import scrapr from '@coflyn/scrapr';
-import { ytultraGetAudio } from './ytultra.js';
 
-export type AudioSource = 'scrapr-ytmp3' | 'scrapr-ytmp3gg' | 'ytultra';
+export type AudioSource = 'scrapr-ytmp3' | 'scrapr-ytmp3gg';
 
 export interface YoutubeAudio {
   id: string;
@@ -106,7 +101,7 @@ export async function getYoutubeAudio(url: string): Promise<YoutubeAudio> {
   const oembedPromise = fetchOembed(id);
 
   // Failure reasons are collected so a total failure names every link
-  // that broke — otherwise only ytultra's error would surface.
+  // that broke.
   const failures: string[] = [];
 
   // 1. scrapr ytmp3 (convert1s, with ytmp3.mobi fallback inside scrapr)
@@ -157,24 +152,7 @@ export async function getYoutubeAudio(url: string): Promise<YoutubeAudio> {
     failures.push(`scrapr-ytmp3gg: ${err instanceof Error ? err.message : 'unknown error'}`);
   }
 
-  // 3. ytultra — googlevideo URLs. Works for end users opening them
-  // directly, but the panel proxy will likely 502 on them (datacenter IP).
-  try {
-    const ultra = await ytultraGetAudio(url);
-    return {
-      id: ultra.id,
-      title: ultra.title,
-      author: ultra.author,
-      thumbnail: ultra.thumbnail,
-      duration: ultra.duration,
-      audioUrl: ultra.audioUrl,
-      quality: ultra.quality,
-      format: ultra.format,
-      size: ultra.size,
-      source: 'ytultra',
-    };
-  } catch (err) {
-    failures.push(`ytultra: ${err instanceof Error ? err.message : 'unknown error'}`);
-    throw new Error(`Semua resolver YouTube gagal — ${failures.join('; ')}`);
-  }
+  // Both scrapr methods failed — throw instead of returning a link
+  // that would 502 (the old ytultra fallback did exactly that).
+  throw new Error(`Semua resolver YouTube gagal — ${failures.join('; ')}`);
 }

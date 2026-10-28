@@ -1,28 +1,43 @@
 /**
- * YouTube video download — scrapr first, ytultra last.
+ * YouTube video download — scrapr only.
  *
- * Same reason as the audio resolver (see youtubeAudio.ts): ytultra returns
- * googlevideo URLs, and googlevideo rejects requests from datacenter IPs,
- * which made `/p/` video links return 502 from the panel server. scrapr's
- * methods return files hosted on the converter services' own servers, so
- * the panel proxy can fetch them. ytultra stays as the last fallback.
+ * Same reason as the audio resolver (see youtubeAudio.ts): the old
+ * ytultra fallback returned googlevideo URLs, and googlevideo rejects
+ * requests from datacenter IPs, which made `/p/` video links return 502
+ * from the panel. That fallback was removed on purpose — if both scrapr
+ * methods fail, this throws an aggregated error instead of returning a
+ * link that 502s.
  *
  * Chain (sequential, first success wins):
  *   1. scrapr youtube.ytmp3  (mp4, convert1s + ytmp3.mobi fallback inside)
  *   2. scrapr youtube.ytmp3gg (mp4 at the requested quality, convert1s)
- *   3. ytultra (all googlevideo qualities — last resort)
  *
  * Note: scrapr converts a single quality per call, so the scrapr path
  * returns one video item (720p from ytmp3, requested quality from
- * ytmp3gg), while ytultra returns the full quality list. The route's
- * quality filter handles both shapes.
+ * ytmp3gg). The route's quality filter handles that shape.
  */
 
 import scrapr from '@coflyn/scrapr';
-import { ytultraGetVideo, type YtVideoResult, type YtVideoMediaItem } from './ytultra.js';
 import { extractVideoId, fetchOembed, authorFromOembed } from './youtubeAudio.js';
 
-export type VideoSource = 'scrapr-ytmp3' | 'scrapr-ytmp3gg' | 'ytultra';
+export type VideoSource = 'scrapr-ytmp3' | 'scrapr-ytmp3gg';
+
+export interface YtVideoMediaItem {
+  type: 'video';
+  url: string;
+  quality: string;
+  format: string;
+  size: string;
+}
+
+export interface YtVideoResult {
+  id: string;
+  title: string;
+  author: { name: string; username: string; url: string };
+  thumbnail: string | null;
+  duration: number | null;
+  media: YtVideoMediaItem[];
+}
 
 export interface YoutubeVideo extends YtVideoResult {
   source: VideoSource;
@@ -69,7 +84,7 @@ export async function downloadYoutube(url: string, quality: string = '720'): Pro
   const oembedPromise = fetchOembed(id);
 
   // Failure reasons are collected so a total failure names every link
-  // that broke — otherwise only ytultra's error would surface.
+  // that broke.
   const failures: string[] = [];
 
   // 1. scrapr ytmp3 (mp4 — convert1s at 720p, with ytmp3.mobi fallback inside)
@@ -114,13 +129,7 @@ export async function downloadYoutube(url: string, quality: string = '720'): Pro
     failures.push(`scrapr-ytmp3gg: ${err instanceof Error ? err.message : 'unknown error'}`);
   }
 
-  // 3. ytultra — full quality list, but googlevideo URLs. Works for end
-  // users opening them directly; the panel proxy will likely 502 on them.
-  try {
-    const ultra = await ytultraGetVideo(url, quality);
-    return { ...ultra, source: 'ytultra' };
-  } catch (err) {
-    failures.push(`ytultra: ${err instanceof Error ? err.message : 'unknown error'}`);
-    throw new Error(`Semua resolver YouTube gagal — ${failures.join('; ')}`);
-  }
+  // Both scrapr methods failed — throw instead of returning a link
+  // that would 502 (the old ytultra fallback did exactly that).
+  throw new Error(`Semua resolver YouTube gagal — ${failures.join('; ')}`);
 }

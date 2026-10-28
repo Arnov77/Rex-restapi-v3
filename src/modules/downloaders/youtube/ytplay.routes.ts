@@ -1,5 +1,6 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
-import { ytSearch, ytultraGetAudio } from './ytultra.js';
+import { ytSearch } from './ytultra.js';
+import { getYoutubeAudio } from './youtubeAudio.js';
 import { YtPlayQuery } from './ytplay.schemas.js';
 import { shortProxyUrl } from '@modules/downloaders/_proxy/proxy.token.js';
 
@@ -40,7 +41,7 @@ const ytplayRoutes: FastifyPluginAsyncZod = async (app) => {
         source = 'search';
       }
 
-      const result = await ytultraGetAudio(videoUrl);
+      const result = await getYoutubeAudio(videoUrl);
 
       const base = `${req.protocol}://${req.host}`;
       const safeTitle = result.title.replace(/[^a-zA-Z0-9 _-]/g, '').trim() || 'youtube-audio';
@@ -61,6 +62,7 @@ const ytplayRoutes: FastifyPluginAsyncZod = async (app) => {
           quality: result.quality,
           size: result.size,
           url: proxyUrl,
+          resolver: result.source,
         },
       };
     },

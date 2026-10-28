@@ -71,6 +71,7 @@ const youtubeRoutes: FastifyPluginAsyncZod = async (app) => {
           thumbnail: result.thumbnail,
           duration: result.duration,
           media: mediaList,
+          resolver: result.source,
         },
       };
     },

@@ -1,6 +1,6 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { ytultraGetAudio } from './ytultra.js';
+import { getYoutubeAudio } from './youtubeAudio.js';
 import { shortProxyUrl } from '@modules/downloaders/_proxy/proxy.token.js';
 
 const Ytmp3Query = z.object({
@@ -21,7 +21,7 @@ const ytmp3Routes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (req) => {
-      const result = await ytultraGetAudio(req.query.url);
+      const result = await getYoutubeAudio(req.query.url);
 
       const base = `${req.protocol}://${req.host}`;
       const proxyUrl = shortProxyUrl(base, result.audioUrl, {
@@ -36,6 +36,7 @@ const ytmp3Routes: FastifyPluginAsyncZod = async (app) => {
           author: result.author,
           url: proxyUrl,
           format: 'mp3',
+          resolver: result.source,
         },
       };
     },

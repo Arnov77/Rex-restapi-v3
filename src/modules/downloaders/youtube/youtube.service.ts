@@ -18,7 +18,7 @@
  */
 
 import scrapr from '@coflyn/scrapr';
-import { extractVideoId, fetchOembed, authorFromOembed } from './youtubeAudio.js';
+import { extractVideoId, fetchOembed, authorFromOembed, fetchVideoDuration } from './youtubeAudio.js';
 
 export type VideoSource = 'scrapr-ytmp3' | 'scrapr-ytmp3gg';
 
@@ -80,8 +80,9 @@ export async function downloadYoutube(url: string, quality: string = '720'): Pro
   const id = extractVideoId(url);
   if (!id) throw new Error('URL atau ID YouTube tidak valid.');
 
-  // Started up front so it runs in parallel with the (slow) conversion calls.
+  // Started up front so they run in parallel with the (slow) conversion calls.
   const oembedPromise = fetchOembed(id);
+  const durationPromise = fetchVideoDuration(id);
 
   // Failure reasons are collected so a total failure names every link
   // that broke.
@@ -98,7 +99,7 @@ export async function downloadYoutube(url: string, quality: string = '720'): Pro
         title: res.result?.title || oembed?.title || 'YouTube Video',
         author: authorFromOembed(oembed),
         thumbnail: res.result?.thumbnail || oembed?.thumbnail_url || `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
-        duration: null,
+        duration: await durationPromise,
         media: [toMediaItem(dl)],
         source: 'scrapr-ytmp3',
       };
@@ -119,7 +120,7 @@ export async function downloadYoutube(url: string, quality: string = '720'): Pro
         title: res.result?.title || oembed?.title || 'YouTube Video',
         author: authorFromOembed(oembed),
         thumbnail: res.result?.thumbnail || oembed?.thumbnail_url || `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
-        duration: null,
+        duration: await durationPromise,
         media: [toMediaItem(dl)],
         source: 'scrapr-ytmp3gg',
       };

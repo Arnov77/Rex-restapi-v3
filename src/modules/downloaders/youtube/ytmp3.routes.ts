@@ -36,6 +36,7 @@ const ytmp3Routes: FastifyPluginAsyncZod = async (app) => {
           author: result.author,
           url: proxyUrl,
           format: 'mp3',
+          duration: result.duration,
           resolver: result.source,
         },
       };

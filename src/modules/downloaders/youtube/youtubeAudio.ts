@@ -14,6 +14,7 @@
  */
 
 import scrapr from '@coflyn/scrapr';
+import { loadEnv } from '../../../config/env.js';
 
 export type AudioSource = 'scrapr-ytmp3' | 'scrapr-ytmp3gg';
 
@@ -70,6 +71,43 @@ export function authorFromOembed(o: Oembed | null): YoutubeAudio['author'] {
   return { name, username, url };
 }
 
+const YOUTUBE_VIDEOS_API = 'https://www.googleapis.com/youtube/v3/videos';
+
+/** Parse an ISO 8601 duration (PT4M13S, PT1H2M3S, P1DT2H) to seconds. */
+export function parseIso8601Duration(iso: string): number | null {
+  const m = String(iso || '').match(/^P(?:(\d+)D)?T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
+  if (!m) return null;
+  const days = parseInt(m[1] || '0', 10);
+  const hours = parseInt(m[2] || '0', 10);
+  const minutes = parseInt(m[3] || '0', 10);
+  const seconds = parseInt(m[4] || '0', 10);
+  return days * 86400 + hours * 3600 + minutes * 60 + seconds;
+}
+
+/**
+ * Video duration via the YouTube Data API (videos.list, contentDetails).
+ * Best-effort: returns null when the key is missing, the API fails, or
+ * the video is not found — a missing duration must never break a download.
+ * (scrapr never returns a duration, and oEmbed has no duration field,
+ * so the Data API is the only source for it.)
+ */
+export async function fetchVideoDuration(id: string): Promise<number | null> {
+  try {
+    const env = loadEnv();
+    if (!env.YOUTUBE_API_KEY) return null;
+    const res = await fetch(
+      `${YOUTUBE_VIDEOS_API}?part=contentDetails&id=${id}&key=${env.YOUTUBE_API_KEY}`,
+      { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(5000) },
+    );
+    if (!res.ok) return null;
+    const body = (await res.json()) as { items?: Array<{ contentDetails?: { duration?: string } }> };
+    const iso = body.items?.[0]?.contentDetails?.duration;
+    return iso ? parseIso8601Duration(iso) : null;
+  } catch {
+    return null;
+  }
+}
+
 interface ScraprDownload {
   url?: string;
   type?: string;
@@ -97,8 +135,9 @@ export async function getYoutubeAudio(url: string): Promise<YoutubeAudio> {
   const id = extractVideoId(url);
   if (!id) throw new Error('URL atau ID YouTube tidak valid.');
 
-  // Started up front so it runs in parallel with the (slow) conversion calls.
+  // Started up front so they run in parallel with the (slow) conversion calls.
   const oembedPromise = fetchOembed(id);
+  const durationPromise = fetchVideoDuration(id);
 
   // Failure reasons are collected so a total failure names every link
   // that broke.
@@ -115,7 +154,7 @@ export async function getYoutubeAudio(url: string): Promise<YoutubeAudio> {
         title: res.result?.title || oembed?.title || 'YouTube Audio',
         author: authorFromOembed(oembed),
         thumbnail: res.result?.thumbnail || oembed?.thumbnail_url || `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
-        duration: null,
+        duration: await durationPromise,
         audioUrl: dl.url,
         quality: dl.quality || '128kbps',
         format: 'mp3',
@@ -139,7 +178,7 @@ export async function getYoutubeAudio(url: string): Promise<YoutubeAudio> {
         title: res.result?.title || oembed?.title || 'YouTube Audio',
         author: authorFromOembed(oembed),
         thumbnail: res.result?.thumbnail || oembed?.thumbnail_url || `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
-        duration: null,
+        duration: await durationPromise,
         audioUrl: dl.url,
         quality: dl.quality || '128kbps',
         format: 'mp3',

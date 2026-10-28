@@ -11,7 +11,6 @@ const YoutubeQuery = z.object({
     { message: 'Must be a valid YouTube URL' },
   ),
   quality: z.enum(['1080', '720', '480', '360', '240', '144']).default('720').optional(),
-  all: z.enum(['true', 'false']).transform((v) => v === 'true').default('false').optional(),
 });
 
 function parseHeight(q: string): number {
@@ -31,7 +30,6 @@ const youtubeRoutes: FastifyPluginAsyncZod = async (app) => {
     },
     async (req) => {
       const targetQuality = req.query.quality || '720';
-      const showAll = req.query.all === true;
       const result = await downloadYoutube(req.query.url, targetQuality);
 
       const base = `${req.protocol}://${req.host}`;
@@ -39,8 +37,14 @@ const youtubeRoutes: FastifyPluginAsyncZod = async (app) => {
 
       let selectedMedia = result.media;
 
-      // Jika tidak minta "all=true", filter hanya 1 video yang sesuai/mendekati quality yang diminta
-      if (!showAll && result.media.length > 0) {
+      // Selalu kembalikan 1 video yang sesuai/mendekati quality yang diminta.
+      // (Parameter "all" sudah dihapus: di jalur scrapr hanya ada 1 kualitas
+      // per panggilan, jadi all=true dan all=false hasilnya sama — dan skema
+      // enum-nya justru menimbulkan error "invalid parameter" bila klien
+      // mengirim nilai selain 'true'/'false'. Param tak dikenal kini
+      // diabaikan zod, jadi klien lama yang masih mengirim all=... tidak
+      // akan error lagi.)
+      if (result.media.length > 0) {
         const targetHeight = parseInt(targetQuality, 10);
         
         // Cari video yang tingginya <= targetHeight, atau ambil yang tertinggi jika tidak ada

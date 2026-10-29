@@ -1,27 +1,15 @@
+import axios from 'axios';
 import { createHash } from 'node:crypto';
-import sharp from 'sharp';
-import { withPage } from '@shared/browser/browserManager.js';
-import { Internal } from '@shared/errors.js';
+import { loadEnv } from '../../../config/env.js';
 import { LruCache } from '@shared/utils/lruCache.js';
 import { assertPublicUrl } from '@shared/utils/ssrfGuard.js';
 import type { IqcQuery } from './iqc.schemas.js';
-import { renderIqcHtml } from './iqc.template.js';
 
 export interface IqcResult {
   buffer: Buffer;
   mimeType: 'image/png' | 'image/jpeg' | 'image/webp';
   format: 'png' | 'jpeg' | 'webp';
 }
-
-export interface IqcGenerateOptions {
-  signal?: AbortSignal;
-}
-
-const MIME = {
-  png: 'image/png',
-  jpeg: 'image/jpeg',
-  webp: 'image/webp',
-} as const;
 
 const CACHE_MAX = 200;
 const CACHE_TTL_MS = 30 * 60 * 1000;
@@ -33,7 +21,39 @@ function cacheKey(opts: IqcQuery): string {
   return createHash('sha1').update(JSON.stringify(sorted)).digest('hex');
 }
 
-export async function generate(opts: IqcQuery, { signal }: IqcGenerateOptions = {}): Promise<IqcResult> {
+async function renderRemote(opts: IqcQuery, signal?: AbortSignal): Promise<IqcResult> {
+  const env = loadEnv();
+  const baseUrl = env.MAKERS_URL;
+  if (!baseUrl) throw new Error('MAKERS_URL is not configured');
+
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries(opts)) {
+    if (v !== undefined) params.set(k, String(v));
+  }
+
+  const res = await axios.get(`${baseUrl}/iqc?${params.toString()}`, {
+    responseType: 'arraybuffer',
+    timeout: 30_000,
+    signal,
+    headers: {
+      'x-makers-secret': env.MAKERS_SECRET ?? '',
+    },
+  });
+
+  const format = opts.format;
+  const mimeMap = { png: 'image/png', jpeg: 'image/jpeg', webp: 'image/webp' } as const;
+
+  return {
+    buffer: Buffer.from(res.data),
+    mimeType: mimeMap[format],
+    format,
+  };
+}
+
+export async function generate(
+  opts: IqcQuery,
+  { signal }: { signal?: AbortSignal } = {},
+): Promise<IqcResult> {
   if (opts.media) await assertPublicUrl(opts.media);
 
   const key = cacheKey(opts);
@@ -43,46 +63,12 @@ export async function generate(opts: IqcQuery, { signal }: IqcGenerateOptions = 
   const existing = inflight.get(key);
   if (existing) return existing;
 
-  const promise = renderOnce(opts, signal)
-    .then((result) => {
-      cache.set(key, result);
-      return result;
-    })
+  const promise = renderRemote(opts, signal)
+    .then((result) => { cache.set(key, result); return result; })
     .finally(() => inflight.delete(key));
 
   inflight.set(key, promise);
   return promise;
-}
-
-async function renderOnce(opts: IqcQuery, signal?: AbortSignal): Promise<IqcResult> {
-  const html = renderIqcHtml(opts);
-
-  const png = await withPage(
-    async (page) => {
-      await page.setContent(html, { waitUntil: 'load', timeout: 15_000 });
-      await page
-        .waitForFunction("document.documentElement.dataset['ready'] === '1'", undefined, { timeout: 5_000 })
-        .catch(() => {});
-
-      const el = await page.$('#canvas');
-      if (!el) throw Internal('IQC canvas element not found');
-
-      return el.screenshot({ type: 'png' });
-    },
-    { viewport: { width: 736, height: 1308 }, signal },
-  );
-
-  if (!png || png.length === 0) throw Internal('IQC produced empty buffer');
-
-  let buffer: Buffer = Buffer.isBuffer(png) ? png : Buffer.from(png);
-
-  if (opts.format === 'jpeg') {
-    buffer = await sharp(buffer).jpeg({ quality: opts.quality }).toBuffer();
-  } else if (opts.format === 'webp') {
-    buffer = await sharp(buffer).webp({ quality: opts.quality, effort: 3 }).toBuffer();
-  }
-
-  return { buffer, mimeType: MIME[opts.format], format: opts.format };
 }
 
 export const iqcService = { generate, cache };

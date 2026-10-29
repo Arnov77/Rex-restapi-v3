@@ -169,6 +169,10 @@ const schema = z.object({
   CAPSOLVER_API_KEY: z.string().optional(),
 
   YOUTUBE_API_KEY: z.string().optional(),
+
+  // Makers microservice (Render)
+  MAKERS_URL: z.string().url().optional(),
+  MAKERS_SECRET: z.string().optional(),
 });
 
 export type Env = z.infer<typeof schema>;

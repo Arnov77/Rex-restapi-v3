@@ -1,13 +1,14 @@
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+import { createCanvas, GlobalFonts, loadImage } from '@napi-rs/canvas';
 import gifenc from 'gifenc';
 const { GIFEncoder, quantize, applyPalette } = gifenc;
-import { PNG } from 'pngjs';
 import sharp from 'sharp';
-import { withPage } from '@shared/browser/browserManager.js';
 import { assertPublicUrl } from '@shared/utils/ssrfGuard.js';
 import { Internal } from '@shared/errors.js';
 import { LruCache } from '@shared/utils/lruCache.js';
-import { renderBratHtml } from './brat.template.js';
 import type { BratQuery } from './brat.schemas.js';
 
 export interface BratResult {
@@ -17,7 +18,6 @@ export interface BratResult {
 }
 
 export interface GenerateOptions {
-  /** AbortSignal from the HTTP request — cancels the render early on client disconnect. */
   signal?: AbortSignal;
 }
 
@@ -28,149 +28,157 @@ const MIME = {
   webp: 'image/webp',
 } as const;
 
-/**
- * Decode a PNG buffer to raw RGBA in node. Uses pngjs (pure JS) so we don't
- * round-trip pixel data through page.evaluate — that JSON-serialized a
- * 720*720*4 = ~2M-element number array per frame and dominated wall-time.
- */
-function pngToRgba(png: Buffer): Uint8ClampedArray {
-  const decoded = PNG.sync.read(png);
-  return new Uint8ClampedArray(
-    decoded.data.buffer,
-    decoded.data.byteOffset,
-    decoded.data.byteLength,
-  );
+const FONT_FAMILY = 'BratArialNarrow';
+const FONT_PATH = join(dirname(fileURLToPath(import.meta.url)), 'assets', 'arialnarrow.ttf');
+
+// Register font once at module init
+try {
+  GlobalFonts.registerFromPath(FONT_PATH, FONT_FAMILY);
+} catch {
+  // fallback to system Arial Narrow / Arial
 }
 
-/**
- * In-memory cache of finished brat renders. Brat is fully deterministic
- * given its query — same params always produce identical bytes — so we can
- * skip the browser entirely on a hit. Bounded LRU with TTL keeps memory
- * predictable; in-flight Map dedupes concurrent identical requests so a
- * burst from N clients only spawns ONE render.
- */
+// ─── Cache ────────────────────────────────────────────────────────────────────
+
 const CACHE_MAX = 200;
-const CACHE_TTL_MS = 30 * 60 * 1000; // 30 min
+const CACHE_TTL_MS = 30 * 60 * 1000;
 const cache = new LruCache<string, BratResult>({ max: CACHE_MAX, ttlMs: CACHE_TTL_MS });
 const inflight = new Map<string, Promise<BratResult>>();
 
 function cacheKey(opts: BratQuery): string {
-  // JSON.stringify with sorted keys → stable hash regardless of query order.
   const sorted = Object.fromEntries(
     Object.entries(opts).sort(([a], [b]) => a.localeCompare(b)),
   );
   return createHash('sha1').update(JSON.stringify(sorted)).digest('hex');
 }
 
-export async function generate(opts: BratQuery, { signal }: GenerateOptions = {}): Promise<BratResult> {
-  // SSRF guard runs BEFORE the browser is touched. Same rule as screenshot:
-  // a blocked URL must never reach Playwright.
-  if (opts.bgImage) await assertPublicUrl(opts.bgImage);
+// ─── Text fitting ─────────────────────────────────────────────────────────────
 
-  const key = cacheKey(opts);
-  const cached = cache.get(key);
-  if (cached) return cached;
+/**
+ * Find the largest font size (px) where the text fits within (maxW x maxH).
+ * Mirrors the brat HTML shrink-to-fit loop logic.
+ */
+function fitFontSize(
+  text: string,
+  maxW: number,
+  maxH: number,
+  startSize: number,
+): number {
+  const canvas = createCanvas(maxW, maxH);
+  const ctx = canvas.getContext('2d');
 
-  const existing = inflight.get(key);
-  if (existing) return existing;
+  let size = startSize;
+  for (let i = 0; i < 80; i++) {
+    ctx.font = `400 ${size}px "${FONT_FAMILY}", "Arial Narrow", Arial, sans-serif`;
 
-  const animated = opts.format === 'gif' || opts.format === 'webp';
-  const isMulti = animated && /\s/.test(opts.text.trim());
-  const promise = (isMulti ? generateAnimated(opts, signal) : generateStill(opts, signal))
-    .then((result) => {
-      cache.set(key, result);
-      return result;
-    })
-    .finally(() => {
-      inflight.delete(key);
-    });
-  inflight.set(key, promise);
-  return promise;
-}
+    // Wrap text manually and measure total height
+    const lines = wrapText(ctx, text, maxW);
+    const lineHeight = size * 1.2;
+    const totalHeight = lines.length * lineHeight;
+    const maxLineWidth = Math.max(...lines.map((l) => ctx.measureText(l).width));
 
-async function generateStill(opts: BratQuery, signal?: AbortSignal): Promise<BratResult> {
-  const html = renderBratHtml(opts);
-  const buffer = await withPage(
-    async (page) => {
-      await page.setContent(html, { waitUntil: 'load', timeout: 15_000 });
-      await page
-        .waitForFunction("document.documentElement.dataset['ready'] === '1'", undefined, {
-          timeout: 2_000,
-        })
-        .catch(() => {});
-      // Playwright's page.screenshot only does png/jpeg. For still webp we
-      // grab a PNG and re-encode via sharp — fast since libwebp is native.
-      const shotType: 'png' | 'jpeg' = opts.format === 'jpeg' ? 'jpeg' : 'png';
-      const shotOpts: Parameters<typeof page.screenshot>[0] = { type: shotType };
-      if (shotType === 'jpeg') shotOpts.quality = opts.quality;
-      const png = await page.screenshot(shotOpts);
-      if (opts.format === 'webp') {
-        return sharp(png).webp({ quality: opts.quality, effort: 3 }).toBuffer();
-      }
-      return png;
-    },
-    { viewport: { width: opts.width, height: opts.height }, signal },
-  );
-
-  if (!buffer || buffer.length === 0) throw Internal('Brat produced an empty buffer');
-  return { buffer, mimeType: MIME[opts.format], format: opts.format };
+    if (totalHeight <= maxH && maxLineWidth <= maxW) break;
+    size = Math.max(10, size - Math.ceil(size * 0.05));
+  }
+  return size;
 }
 
 /**
- * Capture progressive-word-reveal frames. Frame N shows the first N words.
- * Returns PNG buffers (used as-is for WebP join, decoded to RGBA for GIF).
+ * Word-wrap text to fit within maxWidth, returns array of lines.
  */
-async function captureFrames(opts: BratQuery, signal?: AbortSignal): Promise<Buffer[]> {
-  const words = opts.text.split(/\s+/).filter(Boolean);
-  const frameCount = Math.max(1, Math.min(words.length, 30));
+function wrapText(
+  ctx: ReturnType<ReturnType<typeof createCanvas>['getContext']>,
+  text: string,
+  maxWidth: number,
+): string[] {
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let current = '';
 
-  return withPage(
-    async (page) => {
-      const html = renderBratHtml(opts);
-      await page.setContent(html, { waitUntil: 'load', timeout: 15_000 });
-      await page
-        .waitForFunction("document.documentElement.dataset['ready'] === '1'", undefined, {
-          timeout: 2_000,
-        })
-        .catch(() => {});
-
-      const frames: Buffer[] = [];
-      for (let i = 0; i < frameCount; i++) {
-        const partial = words.slice(0, i + 1).join(' ');
-        await page.evaluate((v: string) => {
-          const el = (globalThis as any).document.getElementById('t');
-          if (el) el.textContent = v;
-        }, partial);
-        const png = await page.screenshot({ type: 'png', omitBackground: false });
-        if (!png || png.length === 0) throw Internal('Brat frame produced empty buffer');
-        frames.push(png);
-      }
-      return frames;
-    },
-    { viewport: { width: opts.width, height: opts.height }, signal },
-  );
+  for (const word of words) {
+    const test = current ? `${current} ${word}` : word;
+    if (ctx.measureText(test).width > maxWidth && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = test;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
 }
 
-async function generateAnimated(opts: BratQuery, signal?: AbortSignal): Promise<BratResult> {
-  const frames = await captureFrames(opts, signal);
-  const HOLD_MS = 1200;
-  const buffer =
-    opts.format === 'webp'
-      ? await encodeWebp(opts, frames, HOLD_MS)
-      : encodeGif(opts, frames, HOLD_MS);
-  if (!buffer || buffer.length === 0) throw Internal('Brat animation produced empty buffer');
-  return { buffer, mimeType: MIME[opts.format], format: opts.format };
+// ─── Single frame renderer ────────────────────────────────────────────────────
+
+async function renderFrame(
+  opts: BratQuery,
+  text: string,
+  bgImageBuffer?: Buffer,
+): Promise<Buffer> {
+  const { width, height, background, color, blur } = opts;
+
+  const canvas = createCanvas(width, height);
+  const ctx = canvas.getContext('2d');
+
+  // Background
+  ctx.fillStyle = background;
+  ctx.fillRect(0, 0, width, height);
+
+  // Background image
+  if (bgImageBuffer) {
+    const img = await loadImage(bgImageBuffer);
+    // cover: scale to fill, center crop
+    const scale = Math.max(width / img.width, height / img.height);
+    const sw = img.width * scale;
+    const sh = img.height * scale;
+    const sx = (width - sw) / 2;
+    const sy = (height - sh) / 2;
+    ctx.drawImage(img, sx, sy, sw, sh);
+  }
+
+  // Font size auto-fit (start at 25% of width, same as HTML template)
+  const startSize = Math.round(width * 0.25);
+  const fontSize = fitFontSize(text, width, height, startSize);
+
+  ctx.font = `400 ${fontSize}px "${FONT_FAMILY}", "Arial Narrow", Arial, sans-serif`;
+  ctx.fillStyle = color;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+
+  // Draw wrapped lines
+  const lines = wrapText(ctx, text, width);
+  const lineHeight = fontSize * 1.2;
+  const totalHeight = lines.length * lineHeight;
+  const startY = (height - totalHeight) / 2;
+
+  for (let i = 0; i < lines.length; i++) {
+    ctx.fillText(lines[i]!, 0, startY + i * lineHeight);
+  }
+
+  // Export as PNG buffer for further processing (blur, format conversion)
+  const png = canvas.toBuffer('image/png');
+
+  // Apply blur via sharp if requested
+  if (blur > 0) {
+    // sharp sigma: blur px maps roughly 1:1 for small values
+    const sigma = Math.max(0.3, blur * 0.8);
+    return sharp(png).blur(sigma).toBuffer();
+  }
+
+  return png;
 }
+
+// ─── GIF / WebP helpers ───────────────────────────────────────────────────────
 
 function encodeGif(opts: BratQuery, frames: Buffer[], holdMs: number): Buffer {
   const enc = GIFEncoder();
-  // Quantize once on the first frame, reuse palette across all frames —
-  // cuts ~40-60% off encoding time for brat's near-static palette.
   let sharedPalette: number[][] | null = null;
+
   for (let i = 0; i < frames.length; i++) {
-    const rgba = pngToRgba(frames[i]!);
-    if (!sharedPalette) sharedPalette = quantize(rgba, 64, { format: 'rgb444' });
-    const indexed = applyPalette(rgba, sharedPalette, 'rgb444');
+    // pngjs-free: use sharp to get raw RGBA
+    const raw = new Uint8ClampedArray(frames[i]!.buffer);
+    if (!sharedPalette) sharedPalette = quantize(raw, 64, { format: 'rgb444' });
+    const indexed = applyPalette(raw, sharedPalette, 'rgb444');
     const isLast = i === frames.length - 1;
     enc.writeFrame(indexed, opts.width, opts.height, {
       palette: i === 0 ? sharedPalette : undefined,
@@ -181,19 +189,112 @@ function encodeGif(opts: BratQuery, frames: Buffer[], holdMs: number): Buffer {
   return Buffer.from(enc.bytes());
 }
 
-async function encodeWebp(
-  opts: BratQuery,
-  frames: Buffer[],
-  holdMs: number,
-): Promise<Buffer> {
-  // Sharp joins multiple input images into a single animated WebP via the
-  // `join.animated` constructor option. Per-frame delay is an array; loop=0
-  // means infinite playback. effort=3 is a good speed/size trade-off.
+async function encodeWebp(opts: BratQuery, frames: Buffer[], holdMs: number): Promise<Buffer> {
   const delay = frames.map((_, i) => (i === frames.length - 1 ? holdMs : opts.delay));
   return sharp(frames, { join: { animated: true } })
     .webp({ quality: opts.quality, effort: 3, loop: 0, delay })
     .toBuffer();
 }
 
-export const bratService = { generate, cache };
+// ─── Raw RGBA from PNG buffer ─────────────────────────────────────────────────
 
+async function toRgba(png: Buffer): Promise<Uint8ClampedArray> {
+  const raw = await sharp(png).ensureAlpha().raw().toBuffer();
+  return new Uint8ClampedArray(raw.buffer);
+}
+
+// ─── Generate still ───────────────────────────────────────────────────────────
+
+async function generateStill(opts: BratQuery, bgImageBuffer?: Buffer): Promise<BratResult> {
+  const png = await renderFrame(opts, opts.text, bgImageBuffer);
+
+  let buffer: Buffer;
+  if (opts.format === 'jpeg') {
+    buffer = await sharp(png).jpeg({ quality: opts.quality }).toBuffer();
+  } else if (opts.format === 'webp') {
+    buffer = await sharp(png).webp({ quality: opts.quality, effort: 3 }).toBuffer();
+  } else {
+    buffer = png;
+  }
+
+  if (!buffer || buffer.length === 0) throw Internal('Brat produced an empty buffer');
+  return { buffer, mimeType: MIME[opts.format], format: opts.format };
+}
+
+// ─── Generate animated ────────────────────────────────────────────────────────
+
+async function generateAnimated(opts: BratQuery, bgImageBuffer?: Buffer): Promise<BratResult> {
+  const words = opts.text.split(/\s+/).filter(Boolean);
+  const frameCount = Math.max(1, Math.min(words.length, 30));
+  const HOLD_MS = 1200;
+
+  const frames: Buffer[] = [];
+  for (let i = 0; i < frameCount; i++) {
+    const partial = words.slice(0, i + 1).join(' ');
+    const png = await renderFrame(opts, partial, bgImageBuffer);
+    if (!png || png.length === 0) throw Internal('Brat frame produced empty buffer');
+    frames.push(png);
+  }
+
+  let buffer: Buffer;
+  if (opts.format === 'webp') {
+    buffer = await encodeWebp(opts, frames, HOLD_MS);
+  } else {
+    // GIF needs raw RGBA
+    const rgbaFrames = await Promise.all(frames.map(toRgba));
+    const enc = GIFEncoder();
+    let sharedPalette: number[][] | null = null;
+    for (let i = 0; i < rgbaFrames.length; i++) {
+      const rgba = rgbaFrames[i]!;
+      if (!sharedPalette) sharedPalette = quantize(rgba, 64, { format: 'rgb444' });
+      const indexed = applyPalette(rgba, sharedPalette, 'rgb444');
+      const isLast = i === rgbaFrames.length - 1;
+      enc.writeFrame(indexed, opts.width, opts.height, {
+        palette: i === 0 ? sharedPalette : undefined,
+        delay: isLast ? HOLD_MS : opts.delay,
+      });
+    }
+    enc.finish();
+    buffer = Buffer.from(enc.bytes());
+  }
+
+  if (!buffer || buffer.length === 0) throw Internal('Brat animation produced empty buffer');
+  return { buffer, mimeType: MIME[opts.format], format: opts.format };
+}
+
+// ─── Public entry point ───────────────────────────────────────────────────────
+
+export async function generate(opts: BratQuery, { signal: _signal }: GenerateOptions = {}): Promise<BratResult> {
+  if (opts.bgImage) await assertPublicUrl(opts.bgImage);
+
+  const key = cacheKey(opts);
+  const cached = cache.get(key);
+  if (cached) return cached;
+
+  const existing = inflight.get(key);
+  if (existing) return existing;
+
+  // Pre-fetch bgImage buffer once (if provided) so we don't re-fetch per frame
+  let bgImageBuffer: Buffer | undefined;
+  if (opts.bgImage) {
+    const res = await fetch(opts.bgImage);
+    bgImageBuffer = Buffer.from(await res.arrayBuffer());
+  }
+
+  const animated = opts.format === 'gif' || opts.format === 'webp';
+  const isMulti = animated && /\s/.test(opts.text.trim());
+
+  const promise = (isMulti ? generateAnimated(opts, bgImageBuffer) : generateStill(opts, bgImageBuffer))
+    .then((result) => {
+      cache.set(key, result);
+      return result;
+    })
+    .finally(() => {
+      inflight.delete(key);
+    });
+
+  inflight.set(key, promise);
+  return promise;
+}
+
+export const bratService = { generate, cache };

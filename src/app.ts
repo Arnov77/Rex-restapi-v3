@@ -42,7 +42,7 @@ import randomStickerAdminRoutes from './modules/tools/randomsticker/randomsticke
 import combineRoutes from './modules/tools/combine/combine.routes.js';
 
 //=========[Makers]========
-// import bratRoutes from './modules/makers/brat/brat.routes.js';
+import bratRoutes from './modules/makers/brat/brat.routes.js';
 // import quoteRoutes from './modules/makers/quote/quote.routes.js';
 // import iqcRoutes from './modules/makers/iqc/iqc.routes.js';
 // import qcRoutes from './modules/makers/qc/qc.routes.js';
@@ -238,7 +238,7 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   
   //=======[MAKERS]=======
   await app.register(tgstickerRoutes, { prefix: '/api/maker/tgsticker' });
-  // await app.register(bratRoutes, { prefix: '/api/maker/brat' });
+  await app.register(bratRoutes, { prefix: '/api/maker/brat' });
   // await app.register(quoteRoutes, { prefix: '/api/maker/quote' });
   // await app.register(iqcRoutes, { prefix: '/api/maker/iqc' });
   // await app.register(qcRoutes, { prefix: '/api/maker/qc' });

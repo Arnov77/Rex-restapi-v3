@@ -108,6 +108,40 @@ function wrapText(
   return lines;
 }
 
+/**
+ * Draw justified text — spaces are stretched so each line fills maxWidth.
+ * Last line is left-aligned (standard justify behavior).
+ */
+function drawJustifiedText(
+  ctx: ReturnType<ReturnType<typeof createCanvas>['getContext']>,
+  lines: string[],
+  x: number,
+  y: number,
+  maxWidth: number,
+  lineHeight: number,
+): void {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    const isLast = i === lines.length - 1;
+    const lineY = y + i * lineHeight;
+
+    if (isLast || !line.includes(' ')) {
+      // Last line or single word: left-align
+      ctx.fillText(line, x, lineY);
+    } else {
+      // Justify: distribute extra space between words
+      const words = line.split(' ');
+      const totalWordWidth = words.reduce((sum, w) => sum + ctx.measureText(w).width, 0);
+      const gap = (maxWidth - totalWordWidth) / (words.length - 1);
+      let curX = x;
+      for (const word of words) {
+        ctx.fillText(word, curX, lineY);
+        curX += ctx.measureText(word).width + gap;
+      }
+    }
+  }
+}
+
 // ─── Single frame renderer ────────────────────────────────────────────────────
 
 async function renderFrame(
@@ -145,15 +179,11 @@ async function renderFrame(
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
 
-  // Draw wrapped lines
+  // Draw wrapped + justified lines, starting from top-left (y=0)
   const lines = wrapText(ctx, text, width);
   const lineHeight = fontSize * 1.2;
-  const totalHeight = lines.length * lineHeight;
-  const startY = (height - totalHeight) / 2;
 
-  for (let i = 0; i < lines.length; i++) {
-    ctx.fillText(lines[i]!, 0, startY + i * lineHeight);
-  }
+  drawJustifiedText(ctx, lines, 0, 0, width, lineHeight);
 
   // Export as PNG buffer for further processing (blur, format conversion)
   const png = canvas.toBuffer('image/png');

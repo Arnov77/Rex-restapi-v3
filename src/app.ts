@@ -43,7 +43,7 @@ import combineRoutes from './modules/tools/combine/combine.routes.js';
 
 //=========[Makers]========
 import bratRoutes from './modules/makers/brat/brat.routes.js';
-// import quoteRoutes from './modules/makers/quote/quote.routes.js';
+import quoteRoutes from './modules/makers/quote/quote.routes.js';
 import iqcRoutes from './modules/makers/iqc/iqc.routes.js';
 import qcRoutes from './modules/makers/qc/qc.routes.js';
 import miqRoutes from './modules/makers/miq/miq.routes.js';
@@ -98,6 +98,8 @@ import tebakkimiaRoutes from './modules/games/tebakkimia/tebakkimia.routes.js';
 import tebaklirikRoutes from './modules/games/tebaklirik/tebaklirik.routes.js';
 import tebaktebakanRoutes from './modules/games/tebaktebakan/tebaktebakan.routes.js';
 import tekatekiRoutes from './modules/games/tekateki/tekateki.routes.js';
+import lengkapikalimatRoutes from './modules/games/lengkapiklimat/lengkapikalimat.routes.js';
+import tebaklogoRoutes from './modules/games/tebaklogo/tebaklogo.routes.js';
 
 //=================[FUN]=================
 import cekkodamRoutes from './modules/fun/cek-kodam/cekkodam.routes.js';
@@ -239,7 +241,7 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   //=======[MAKERS]=======
   await app.register(tgstickerRoutes, { prefix: '/api/maker/tgsticker' });
   await app.register(bratRoutes, { prefix: '/api/maker/brat' });
-  // await app.register(quoteRoutes, { prefix: '/api/maker/quote' });
+  await app.register(quoteRoutes, { prefix: '/api/maker/quote' });
   await app.register(iqcRoutes, { prefix: '/api/maker/iqc' });
   await app.register(qcRoutes, { prefix: '/api/maker/qc' });
   await app.register(miqRoutes, { prefix: '/api/maker/miq' });
@@ -294,7 +296,9 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(tebaklirikRoutes, { prefix: '/api/games/tebaklirik' });
   await app.register(tebaktebakanRoutes, { prefix: '/api/games/tebaktebakan' });
   await app.register(tekatekiRoutes, { prefix: '/api/games/tekateki' });
-  
+  await app.register(lengkapikalimatRoutes, { prefix: '/api/games/lengkapikalimat' });
+  await app.register(tebaklogoRoutes, { prefix: '/api/games/tebaklogo' });
+
   //=================[FUN]=================
   await app.register(cekkodamRoutes, { prefix: '/api/fun/cek-kodam' });
   await app.register(cekprimbonRoutes, { prefix: '/api/fun/primbon' });

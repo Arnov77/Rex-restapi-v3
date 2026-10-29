@@ -1,10 +1,8 @@
+import axios from 'axios';
 import { createHash } from 'node:crypto';
-import sharp from 'sharp';
-import { withPage } from '@shared/browser/browserManager.js';
-import { assertPublicUrl } from '@shared/utils/ssrfGuard.js';
-import { Internal } from '@shared/errors.js';
+import { loadEnv } from '../../../config/env.js';
 import { LruCache } from '@shared/utils/lruCache.js';
-import { renderQuoteHtml } from './quote.template.js';
+import { assertPublicUrl } from '@shared/utils/ssrfGuard.js';
 import type { QuoteQuery } from './quote.schemas.js';
 
 export interface QuoteResult {
@@ -13,36 +11,38 @@ export interface QuoteResult {
   format: 'png' | 'jpeg' | 'webp';
 }
 
-export interface QuoteGenerateOptions {
-  /** AbortSignal from the HTTP request — cancels the render early on client disconnect. */
-  signal?: AbortSignal;
-}
-
-const MIME = {
-  png: 'image/png',
-  jpeg: 'image/jpeg',
-  webp: 'image/webp',
-} as const;
-
-/**
- * In-memory cache for quote renders. Quote output is fully deterministic
- * given its query, identical to brat's caching strategy: bounded LRU + TTL
- * + in-flight dedup so a burst of identical requests spawns ONE render.
- */
 const CACHE_MAX = 200;
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const cache = new LruCache<string, QuoteResult>({ max: CACHE_MAX, ttlMs: CACHE_TTL_MS });
 const inflight = new Map<string, Promise<QuoteResult>>();
 
 function cacheKey(opts: QuoteQuery): string {
-  const sorted = Object.fromEntries(
-    Object.entries(opts).sort(([a], [b]) => a.localeCompare(b)),
-  );
+  const sorted = Object.fromEntries(Object.entries(opts).sort(([a], [b]) => a.localeCompare(b)));
   return createHash('sha1').update(JSON.stringify(sorted)).digest('hex');
 }
 
-export async function generate(opts: QuoteQuery, { signal }: QuoteGenerateOptions = {}): Promise<QuoteResult> {
-  // SSRF guard BEFORE touching Chromium — same rule as brat/screenshot.
+async function renderRemote(opts: QuoteQuery, signal?: AbortSignal): Promise<QuoteResult> {
+  const env = loadEnv();
+  const baseUrl = env.MAKERS_URL;
+  if (!baseUrl) throw new Error('MAKERS_URL is not configured');
+
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries(opts)) {
+    if (v !== undefined) params.set(k, String(v));
+  }
+
+  const res = await axios.get(`${baseUrl}/quote?${params.toString()}`, {
+    responseType: 'arraybuffer',
+    timeout: 30_000,
+    signal,
+    headers: { 'x-makers-secret': env.MAKERS_SECRET ?? '' },
+  });
+
+  const mimeMap = { png: 'image/png', jpeg: 'image/jpeg', webp: 'image/webp' } as const;
+  return { buffer: Buffer.from(res.data), mimeType: mimeMap[opts.format], format: opts.format };
+}
+
+export async function generate(opts: QuoteQuery, { signal }: { signal?: AbortSignal } = {}): Promise<QuoteResult> {
   if (opts.avatar) await assertPublicUrl(opts.avatar);
 
   const key = cacheKey(opts);
@@ -52,48 +52,12 @@ export async function generate(opts: QuoteQuery, { signal }: QuoteGenerateOption
   const existing = inflight.get(key);
   if (existing) return existing;
 
-  const promise = renderOnce(opts, signal)
-    .then((result) => {
-      cache.set(key, result);
-      return result;
-    })
+  const promise = renderRemote(opts, signal)
+    .then((result) => { cache.set(key, result); return result; })
     .finally(() => inflight.delete(key));
+
   inflight.set(key, promise);
   return promise;
-}
-
-async function renderOnce(opts: QuoteQuery, signal?: AbortSignal): Promise<QuoteResult> {
-  const html = renderQuoteHtml(opts);
-  // Width is auto on the card itself; we just need a wide-enough viewport.
-  // Height grows with text, so 2000px max keeps everything in-frame.
-  const png = await withPage(
-    async (page) => {
-      await page.setContent(html, { waitUntil: 'load', timeout: 15_000 });
-      await page
-        .waitForFunction("document.documentElement.dataset['ready'] === '1'", undefined, { timeout: 2_000 })
-        .catch(() => {});
-      // Element-bounded screenshot → output matches the card exactly.
-      const el = await page.$('#card');
-      if (!el) throw Internal('Quote card element not found');
-      return el.screenshot({ type: 'png', omitBackground: true });
-    },
-    { viewport: { width: opts.width, height: 2000 }, deviceScaleFactor: 2, signal },
-  );
-
-  if (!png || png.length === 0) throw Internal('Quote produced empty buffer');
-
-  let buffer: Buffer = Buffer.isBuffer(png) ? png : Buffer.from(png);
-  if (opts.format === 'jpeg') {
-    // JPEG has no alpha — flatten onto white to avoid black background.
-    buffer = await sharp(buffer)
-      .flatten({ background: '#ffffff' })
-      .jpeg({ quality: opts.quality })
-      .toBuffer();
-  } else if (opts.format === 'webp') {
-    buffer = await sharp(buffer).webp({ quality: opts.quality, effort: 3 }).toBuffer();
-  }
-
-  return { buffer, mimeType: MIME[opts.format], format: opts.format };
 }
 
 export const quoteService = { generate, cache };

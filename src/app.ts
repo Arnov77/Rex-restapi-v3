@@ -45,7 +45,7 @@ import combineRoutes from './modules/tools/combine/combine.routes.js';
 import bratRoutes from './modules/makers/brat/brat.routes.js';
 // import quoteRoutes from './modules/makers/quote/quote.routes.js';
 import iqcRoutes from './modules/makers/iqc/iqc.routes.js';
-// import qcRoutes from './modules/makers/qc/qc.routes.js';
+import qcRoutes from './modules/makers/qc/qc.routes.js';
 import miqRoutes from './modules/makers/miq/miq.routes.js';
 import smemeRoutes from './modules/makers/smeme/smeme.routes.js';
 import lqRoutes from './modules/makers/lq/lq.routes.js';
@@ -241,7 +241,7 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(bratRoutes, { prefix: '/api/maker/brat' });
   // await app.register(quoteRoutes, { prefix: '/api/maker/quote' });
   await app.register(iqcRoutes, { prefix: '/api/maker/iqc' });
-  // await app.register(qcRoutes, { prefix: '/api/maker/qc' });
+  await app.register(qcRoutes, { prefix: '/api/maker/qc' });
   await app.register(miqRoutes, { prefix: '/api/maker/miq' });
   await app.register(smemeRoutes, { prefix: '/api/maker/smeme' });
   await app.register(lqRoutes, { prefix: '/api/maker/lq' });

@@ -165,6 +165,12 @@ async function fetchViaCobalt(videoUrl: string): Promise<string | null> {
       body: JSON.stringify({
         url: videoUrl,
         downloadMode: 'audio',   // v10+
+        // videoQuality 'max' mengaktifkan jalur session (PO token) cobalt
+        // untuk request audio: useSession hanya true bila quality > 1080 +
+        // client IOS + YOUTUBE_SESSION_SERVER diset. Tanpa session server
+        // nilai ini diabaikan jalur audio (pemilihan format audio tidak
+        // memakai quality), jadi aman dikirim selalu.
+        videoQuality: 'max',
         //isAudioOnly: true,        // v9 compat
         audioFormat: 'mp3',
         audioBitrate: '128',

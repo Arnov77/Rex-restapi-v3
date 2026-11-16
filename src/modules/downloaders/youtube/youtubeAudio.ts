@@ -132,47 +132,62 @@ function pickAudio(res: ScraprResult): ScraprDownload | null {
 
 /**
  * Cobalt resolver for YouTube audio.
- * Returns a direct mp3/audio URL, or null if cobalt is not configured / fails.
- * Never throws — failures are returned as null so the chain continues.
+ * Supports both cobalt v9 (isAudioOnly) and v10+ (downloadMode) request formats.
+ * Returns a direct audio URL, or throws with a descriptive message so the
+ * caller can include it in the aggregated failure list.
  */
 async function fetchViaCobalt(videoUrl: string): Promise<string | null> {
+  const env = loadEnv();
+  const cobaltBase = env.COBALT_API_URL;
+  if (!cobaltBase) return null;
+
+  // Normalise: strip trailing slash then append the API path.
+  // Cobalt v10+ uses POST /  (the root), same as v9.
+  const cobaltUrl = cobaltBase.replace(/\/$/, '') + '/';
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
+
   try {
-    const env = loadEnv();
-    const cobaltUrl = env.COBALT_API_URL;
-    if (!cobaltUrl) return null;
+    const res = await fetch(cobaltUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      // v10+: downloadMode / audioFormat / audioBitrate
+      // v9:   isAudioOnly / audioFormat / audioBitrate  (extra fields ignored by v10+)
+      body: JSON.stringify({
+        url: videoUrl,
+        downloadMode: 'audio',   // v10+
+        isAudioOnly: true,        // v9 compat
+        audioFormat: 'mp3',
+        audioBitrate: '128',
+      }),
+      signal: controller.signal,
+    });
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 25_000);
+    const rawText = await res.text();
 
-    try {
-      const res = await fetch(cobaltUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({
-          url: videoUrl,
-          downloadMode: 'audio',
-          audioFormat: 'mp3',
-          audioBitrate: '128',
-        }),
-        signal: controller.signal,
-      });
-
-      if (!res.ok) return null;
-      if (!(res.headers.get('content-type') || '').includes('json')) return null;
-
-      const json = (await res.json()) as {
-        status?: string;
-        url?: string;
-        error?: { code?: string };
-      };
-
-      if (json.status === 'error' || !json.url) return null;
-      return json.url;
-    } finally {
-      clearTimeout(timeout);
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}: ${rawText.slice(0, 200)}`);
     }
-  } catch {
-    return null;
+
+    let json: { status?: string; url?: string; error?: { code?: string }; text?: string };
+    try {
+      json = JSON.parse(rawText);
+    } catch {
+      throw new Error(`non-JSON response: ${rawText.slice(0, 100)}`);
+    }
+
+    if (json.status === 'error') {
+      throw new Error(json.error?.code || json.text || 'cobalt error response');
+    }
+
+    if (!json.url) {
+      throw new Error(`no url in response (status=${json.status})`);
+    }
+
+    return json.url;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -188,7 +203,7 @@ export async function getYoutubeAudio(url: string): Promise<YoutubeAudio> {
   // that broke.
   const failures: string[] = [];
 
-  // 1. cobalt — most reliable, self-hostable via COBALT_API_URL env
+  // 1. cobalt — self-hostable via COBALT_API_URL env (http://localhost:25412/)
   try {
     const audioUrl = await fetchViaCobalt(`https://www.youtube.com/watch?v=${id}`);
     if (audioUrl) {
@@ -206,9 +221,11 @@ export async function getYoutubeAudio(url: string): Promise<YoutubeAudio> {
         source: 'cobalt',
       };
     }
-    failures.push('cobalt: no audio URL returned');
+    // fetchViaCobalt returns null only when COBALT_API_URL is not set
+    failures.push('cobalt: not configured');
   } catch (err) {
-    failures.push(`cobalt: ${err instanceof Error ? err.message : 'unknown error'}`);
+    // fetchViaCobalt throws with a descriptive message on any real failure
+    failures.push(`cobalt: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   // 2. scrapr ytmp3 (convert1s, with ytmp3.mobi fallback inside scrapr)

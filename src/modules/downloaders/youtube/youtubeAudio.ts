@@ -1,22 +1,21 @@
 /**
- * YouTube audio resolver — scrapr only.
+ * YouTube audio resolver.
  *
- * scrapr's YouTube methods return files hosted on the converter services'
- * own servers (not googlevideo), so the panel proxy can fetch them. The
- * old ytultra fallback was removed on purpose: it returned googlevideo
- * URLs, and googlevideo rejects requests from datacenter IPs, which made
- * `/p/` links return 502 from the panel. If both scrapr methods fail,
- * this throws an aggregated error instead of returning a link that 502s.
+ * All resolvers return files hosted on third-party converter servers (not
+ * googlevideo), so the panel proxy can fetch them without 502 errors.
  *
  * Chain (sequential, first success wins):
- *   1. scrapr youtube.ytmp3  (convert1s + ytmp3.mobi fallback inside)
- *   2. scrapr youtube.ytmp3gg (convert1s)
+ *   1. cobalt  — self-hostable, reliable, returns a direct audio stream URL
+ *   2. scrapr youtube.ytmp3  (convert1s + ytmp3.mobi fallback inside)
+ *   3. scrapr youtube.ytmp3gg (convert1s)
+ *
+ * If all three fail, throws an aggregated error naming every failure.
  */
 
 import scrapr from '@coflyn/scrapr';
 import { loadEnv } from '../../../config/env.js';
 
-export type AudioSource = 'scrapr-ytmp3' | 'scrapr-ytmp3gg';
+export type AudioSource = 'cobalt' | 'scrapr-ytmp3' | 'scrapr-ytmp3gg';
 
 export interface YoutubeAudio {
   id: string;
@@ -131,6 +130,52 @@ function pickAudio(res: ScraprResult): ScraprDownload | null {
   return downloads.find((d) => d.type === 'audio' && typeof d.url === 'string') ?? null;
 }
 
+/**
+ * Cobalt resolver for YouTube audio.
+ * Returns a direct mp3/audio URL, or null if cobalt is not configured / fails.
+ * Never throws — failures are returned as null so the chain continues.
+ */
+async function fetchViaCobalt(videoUrl: string): Promise<string | null> {
+  try {
+    const env = loadEnv();
+    const cobaltUrl = env.COBALT_API_URL;
+    if (!cobaltUrl) return null;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25_000);
+
+    try {
+      const res = await fetch(cobaltUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          url: videoUrl,
+          downloadMode: 'audio',
+          audioFormat: 'mp3',
+          audioBitrate: '128',
+        }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) return null;
+      if (!(res.headers.get('content-type') || '').includes('json')) return null;
+
+      const json = (await res.json()) as {
+        status?: string;
+        url?: string;
+        error?: { code?: string };
+      };
+
+      if (json.status === 'error' || !json.url) return null;
+      return json.url;
+    } finally {
+      clearTimeout(timeout);
+    }
+  } catch {
+    return null;
+  }
+}
+
 export async function getYoutubeAudio(url: string): Promise<YoutubeAudio> {
   const id = extractVideoId(url);
   if (!id) throw new Error('URL atau ID YouTube tidak valid.');
@@ -143,7 +188,30 @@ export async function getYoutubeAudio(url: string): Promise<YoutubeAudio> {
   // that broke.
   const failures: string[] = [];
 
-  // 1. scrapr ytmp3 (convert1s, with ytmp3.mobi fallback inside scrapr)
+  // 1. cobalt — most reliable, self-hostable via COBALT_API_URL env
+  try {
+    const audioUrl = await fetchViaCobalt(`https://www.youtube.com/watch?v=${id}`);
+    if (audioUrl) {
+      const oembed = await oembedPromise;
+      return {
+        id,
+        title: oembed?.title || 'YouTube Audio',
+        author: authorFromOembed(oembed),
+        thumbnail: oembed?.thumbnail_url || `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
+        duration: await durationPromise,
+        audioUrl,
+        quality: '128kbps',
+        format: 'mp3',
+        size: '-',
+        source: 'cobalt',
+      };
+    }
+    failures.push('cobalt: no audio URL returned');
+  } catch (err) {
+    failures.push(`cobalt: ${err instanceof Error ? err.message : 'unknown error'}`);
+  }
+
+  // 2. scrapr ytmp3 (convert1s, with ytmp3.mobi fallback inside scrapr)
   try {
     const res = (await scrapr.youtube.ytmp3(url, 'mp3')) as ScraprResult;
     const dl = res.status ? pickAudio(res) : null;
@@ -167,7 +235,7 @@ export async function getYoutubeAudio(url: string): Promise<YoutubeAudio> {
     failures.push(`scrapr-ytmp3: ${err instanceof Error ? err.message : 'unknown error'}`);
   }
 
-  // 2. scrapr ytmp3gg (convert1s)
+  // 3. scrapr ytmp3gg (convert1s)
   try {
     const res = (await scrapr.youtube.ytmp3gg(url, { format: 'mp3' })) as ScraprResult;
     const dl = res.status ? pickAudio(res) : null;
@@ -191,7 +259,6 @@ export async function getYoutubeAudio(url: string): Promise<YoutubeAudio> {
     failures.push(`scrapr-ytmp3gg: ${err instanceof Error ? err.message : 'unknown error'}`);
   }
 
-  // Both scrapr methods failed — throw instead of returning a link
-  // that would 502 (the old ytultra fallback did exactly that).
+  // All three resolvers failed — throw instead of returning a link that would 502.
   throw new Error(`Semua resolver YouTube gagal — ${failures.join('; ')}`);
 }

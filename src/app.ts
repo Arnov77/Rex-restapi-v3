@@ -14,6 +14,7 @@ import authPlugin from './plugins/auth.js';
 import rateLimitPlugin from './plugins/rateLimit.js';
 import quotaPlugin from './plugins/quota.js';
 import healthRoutes from './modules/health/health.routes.js';
+import poSessionRoutes from './modules/poSession/poSession.routes.js';
 import authRoutes from './modules/auth/auth.routes.js';
 import apiKeyRoutes from './modules/apiKeys/apiKeys.routes.js';
 import { closeAllProxyDispatchers } from './shared/http/proxyDispatcher.js';
@@ -215,6 +216,9 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
 
   // Routes
   await app.register(healthRoutes, { prefix: '/api' });
+  // Session server PO token untuk cobalt — HARUS tanpa prefix: cobalt
+  // mengganti total pathname YOUTUBE_SESSION_SERVER menjadi /get_pot.
+  await app.register(poSessionRoutes);
   await app.register(authRoutes, { prefix: '/api/auth' });
   await app.register(apiKeyRoutes, { prefix: '/api/keys' });
   

@@ -145,13 +145,21 @@ async function fetchViaCobalt(videoUrl: string): Promise<string | null> {
   // Cobalt v10+ uses POST /  (the root), same as v9.
   const cobaltUrl = cobaltBase.replace(/\/$/, '') + '/';
 
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+  if (env.COBALT_API_KEY) {
+    headers['Authorization'] = `Api-Key ${env.COBALT_API_KEY}`;
+  }
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 30_000);
 
   try {
     const res = await fetch(cobaltUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      headers,
       // v10+: downloadMode / audioFormat / audioBitrate
       // v9:   isAudioOnly / audioFormat / audioBitrate  (extra fields ignored by v10+)
       body: JSON.stringify({
@@ -181,10 +189,15 @@ async function fetchViaCobalt(videoUrl: string): Promise<string | null> {
       throw new Error(json.error?.code || json.text || 'cobalt error response');
     }
 
+    // cobalt returns status: "tunnel" | "redirect" | "stream" — all carry a url
     if (!json.url) {
       throw new Error(`no url in response (status=${json.status})`);
     }
 
+    // For tunnel URLs pointing at localhost/internal cobalt, replace the host
+    // with whatever COBALT_API_URL is set to, so the stream proxy can reach it.
+    // e.g. http://localhost:25412/tunnel?... stays as-is since COBALT_API_URL
+    // already whitelists that host in trustedInternalHosts().
     return json.url;
   } finally {
     clearTimeout(timeout);

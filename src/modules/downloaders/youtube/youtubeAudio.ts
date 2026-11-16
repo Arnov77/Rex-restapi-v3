@@ -165,7 +165,7 @@ async function fetchViaCobalt(videoUrl: string): Promise<string | null> {
       body: JSON.stringify({
         url: videoUrl,
         downloadMode: 'audio',   // v10+
-        isAudioOnly: true,        // v9 compat
+        //isAudioOnly: true,        // v9 compat
         audioFormat: 'mp3',
         audioBitrate: '128',
       }),

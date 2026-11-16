@@ -113,6 +113,9 @@ const schema = z.object({
   //   docker run -d -p 9000:9000 ghcr.io/imputnet/cobalt:latest
   // Then set COBALT_API_URL=http://localhost:9000/
   COBALT_API_URL: z.string().url().default('https://api.cobalt.tools/'),
+  // Optional API key for self-hosted cobalt instances with JWT auth enabled.
+  // Set this to the key configured in cobalt's API_KEY_URL / keys file.
+  COBALT_API_KEY: z.string().optional(),
   
   // Extra hostnames the signed download proxy may stream from even if they
   // resolve to private/loopback IPs (self-hosted media helpers). The

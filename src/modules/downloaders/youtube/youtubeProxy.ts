@@ -35,6 +35,10 @@ import { ProxyAgent, fetch as undiciFetch, type Dispatcher } from 'undici';
 const MAX_PROXY_ATTEMPTS = 5;
 const SESSION_TIMEOUT_MS = 25_000;
 const PLAYER_TIMEOUT_MS = 25_000;
+const PROBE_TIMEOUT_MS = 15_000;
+
+const PROBE_UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
 export interface ProxyAudioResult {
   audioUrl: string;
@@ -165,6 +169,34 @@ function makeProxiedFetch(agent: ProxyAgent): typeof fetch {
   }) as typeof fetch;
 }
 
+/**
+ * Verify the media URL actually streams through THIS proxy (1-byte
+ * Range probe, same headers the stream proxy will send). A proxy can
+ * pass the player request yet still be 403'd at googlevideo level —
+ * that is exactly what happened on the first production deploy: the
+ * resolver returned a player-OK pair whose media fetch 403'd, and the
+ * /p/ link died with a silent 502. Only a pair that passes BOTH
+ * stages is returned, so a minted token is guaranteed streamable.
+ */
+async function probeMediaUrl(audioUrl: string, agent: ProxyAgent): Promise<number> {
+  const res = await undiciFetch(audioUrl, {
+    headers: {
+      Range: 'bytes=0-0',
+      Referer: 'https://www.youtube.com/',
+      'User-Agent': PROBE_UA,
+    },
+    signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+    dispatcher: agent,
+  } as any);
+  // Drain the 1-byte body so the socket can be reused.
+  try {
+    await res.arrayBuffer();
+  } catch {
+    /* ignore drain errors */
+  }
+  return res.status;
+}
+
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return Promise.race([
     promise,
@@ -183,7 +215,8 @@ function mapFormat(mimeType: string): { format: string; contentType: string } {
 
 /**
  * Resolve audio for `videoId` through the proxy list (iOS client).
- * Tries proxies in file order until one returns a playable audio URL.
+ * Tries proxies in file order until one passes BOTH stages: a playable
+ * player response AND a media probe through the same proxy.
  * Throws an aggregated error naming every proxy that failed.
  */
 export async function fetchViaProxyResolver(videoId: string): Promise<ProxyAudioResult> {
@@ -224,6 +257,22 @@ export async function fetchViaProxyResolver(videoId: string): Promise<ProxyAudio
         .sort((a, b) => b.bitrate - a.bitrate)[0];
       if (!audio?.url) {
         failures.push(`${label}: tidak ada format audio ber-URL (SABR?)`);
+        continue;
+      }
+      // Stage 2: the media itself must stream through THIS proxy.
+      // Player-OK does not imply media-OK (googlevideo trusts IPs
+      // independently — see probeMediaUrl).
+      let probeStatus: number;
+      try {
+        probeStatus = await probeMediaUrl(audio.url, agent);
+      } catch (err) {
+        failures.push(
+          `${label}: probe media gagal: ${err instanceof Error ? err.message : String(err)}`.slice(0, 160),
+        );
+        continue;
+      }
+      if (probeStatus !== 200 && probeStatus !== 206) {
+        failures.push(`${label}: probe media HTTP ${probeStatus}`);
         continue;
       }
       const { format, contentType } = mapFormat(audio.mime_type);

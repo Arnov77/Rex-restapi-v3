@@ -168,6 +168,12 @@ export async function streamProxyResponse(
 
     // 206 Partial Content is expected when we send a Range header.
     if (!upstream.ok && upstream.status !== 206) {
+      // Log the status: this branch used to fail silently, which made a
+      // proxy 403 look like a mystery 502. No URL — it carries a signature.
+      req.log.warn(
+        { status: upstream.status, proxyIndex: payload.proxyIndex },
+        `${logLabel} upstream rejected the fetch`,
+      );
       return reply.code(502).send({
         ok: false,
         error: { message: `Upstream returned ${upstream.status}` },

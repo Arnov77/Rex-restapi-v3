@@ -46,8 +46,9 @@ const ytplayRoutes: FastifyPluginAsyncZod = async (app) => {
       const base = `${req.protocol}://${req.host}`;
       const safeTitle = result.title.replace(/[^a-zA-Z0-9 _-]/g, '').trim() || 'youtube-audio';
       const proxyUrl = shortProxyUrl(base, result.audioUrl, {
-        filename: `${safeTitle}.mp3`,
-        contentType: 'audio/mpeg',
+        filename: `${safeTitle}.${result.format}`,
+        contentType: result.contentType ?? 'audio/mpeg',
+        proxyIndex: result.proxyIndex,
       });
 
       return {

@@ -25,6 +25,7 @@ import { Readable, Transform } from 'node:stream';
 import { assertPublicUrl } from '@shared/utils/ssrfGuard.js';
 import { loadEnv } from '@/config/env.js';
 import type { ProxyPayload } from './proxy.token.js';
+import { getYoutubeProxyDispatcher } from '../youtube/youtubeProxy.js';
 
 const FETCH_TIMEOUT_MS = 30_000;
 const MAX_REDIRECTS = 5;
@@ -80,19 +81,33 @@ function trustedInternalHosts(): string[] {
 /**
  * Fetch `rawUrl` with manual redirect handling. The initial URL and every
  * redirect target are validated with `assertPublicUrl` before a connection
- * is opened, closing the redirect-based SSRF bypass.
+ * is opened, closing the redirect-based SSRF bypass. When `proxyIndex` is
+ * set (signed token from the YouTube proxy resolver), the request goes
+ * through that proxy instead of direct — googlevideo 403s the signed URL
+ * from this server's IP. The SSRF validation still runs: it checks the
+ * URL itself, not the transport.
  */
-async function ssrfSafeFetch(rawUrl: string, signal: AbortSignal): Promise<Response> {
+async function ssrfSafeFetch(
+  rawUrl: string,
+  signal: AbortSignal,
+  proxyIndex?: number,
+): Promise<Response> {
   const allowHosts = trustedInternalHosts();
+  const dispatcher =
+    proxyIndex !== undefined ? getYoutubeProxyDispatcher(proxyIndex) : undefined;
   let current = rawUrl;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
     // Throws AppError(400) when the target resolves to a blocked address.
     const url = await assertPublicUrl(current, { allowHosts });
-    const res = await fetch(url, {
-      signal,
-      headers: buildHeaders(url),
-      redirect: 'manual',
-    });
+    const res = await fetch(
+      url,
+      {
+        signal,
+        headers: buildHeaders(url),
+        redirect: 'manual',
+        ...(dispatcher ? { dispatcher } : {}),
+      } as any,
+    );
 
     if (!REDIRECT_STATUSES.has(res.status)) return res;
 
@@ -149,7 +164,7 @@ export async function streamProxyResponse(
   req.raw.on('close', onClose);
 
   try {
-    const upstream = await ssrfSafeFetch(payload.url, controller.signal);
+    const upstream = await ssrfSafeFetch(payload.url, controller.signal, payload.proxyIndex);
 
     // 206 Partial Content is expected when we send a Range header.
     if (!upstream.ok && upstream.status !== 206) {

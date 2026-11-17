@@ -25,8 +25,9 @@ const ytmp3Routes: FastifyPluginAsyncZod = async (app) => {
 
       const base = `${req.protocol}://${req.host}`;
       const proxyUrl = shortProxyUrl(base, result.audioUrl, {
-        filename: `${result.title.replace(/[^a-zA-Z0-9 _-]/g, '')}.mp3`,
-        contentType: 'audio/mpeg',
+        filename: `${result.title.replace(/[^a-zA-Z0-9 _-]/g, '')}.${result.format}`,
+        contentType: result.contentType ?? 'audio/mpeg',
+        proxyIndex: result.proxyIndex,
       });
 
       return {
@@ -35,7 +36,7 @@ const ytmp3Routes: FastifyPluginAsyncZod = async (app) => {
           title: result.title,
           author: result.author,
           url: proxyUrl,
-          format: 'mp3',
+          format: result.format,
           duration: result.duration,
           resolver: result.source,
         },

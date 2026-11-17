@@ -19,6 +19,10 @@ export interface ProxyPayload {
   filename?: string;
   /** Optional content-type override */
   contentType?: string;
+  /** Optional proxy-list index: fetch the upstream through this proxy
+   *  (YouTube proxy resolver — the signed URL 403s from the server IP).
+   *  Safe to carry here: the token is HMAC-signed by the app itself. */
+  proxyIndex?: number;
 }
 
 function getSecret(): string {
@@ -83,7 +87,7 @@ export function verifyProxyToken(token: string): ProxyPayload | null {
 export function proxyUrl(
   baseUrl: string,
   sourceUrl: string,
-  opts?: { filename?: string; contentType?: string; ttlSec?: number },
+  opts?: { filename?: string; contentType?: string; ttlSec?: number; proxyIndex?: number },
 ): string {
   const env = loadEnv();
   const ttl = opts?.ttlSec ?? env.DOWNLOAD_PROXY_TTL_SEC;
@@ -92,6 +96,7 @@ export function proxyUrl(
     exp: Math.floor(Date.now() / 1000) + ttl,
     filename: opts?.filename,
     contentType: opts?.contentType,
+    proxyIndex: opts?.proxyIndex,
   });
   return `${baseUrl}/api/download/proxy?t=${token}`;
 }
@@ -104,7 +109,7 @@ export function proxyUrl(
 export function shortProxyUrl(
   baseUrl: string,
   sourceUrl: string,
-  opts?: { filename?: string; contentType?: string; ttlSec?: number },
+  opts?: { filename?: string; contentType?: string; ttlSec?: number; proxyIndex?: number },
 ): string {
   const env = loadEnv();
   const ttlSec = opts?.ttlSec ?? env.DOWNLOAD_PROXY_TTL_SEC;
@@ -113,6 +118,7 @@ export function shortProxyUrl(
     exp: Math.floor(Date.now() / 1000) + ttlSec,
     filename: opts?.filename,
     contentType: opts?.contentType,
+    proxyIndex: opts?.proxyIndex,
   });
   const id = put(token, ttlSec * 1000);
   return `${baseUrl}/p/${id}`;

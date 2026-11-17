@@ -8,14 +8,18 @@
  *   1. cobalt  — self-hostable, reliable, returns a direct audio stream URL
  *   2. scrapr youtube.ytmp3  (convert1s + ytmp3.mobi fallback inside)
  *   3. scrapr youtube.ytmp3gg (convert1s)
+ *   4. proxy   — youtubei.js (iOS client) through the `.proxy` list; last
+ *      resort for videos YouTube walls off from this server's IP. Player
+ *      AND media go through the same proxy (see youtubeProxy.ts).
  *
- * If all three fail, throws an aggregated error naming every failure.
+ * If all four fail, throws an aggregated error naming every failure.
  */
 
 import scrapr from '@coflyn/scrapr';
 import { loadEnv } from '../../../config/env.js';
+import { fetchViaProxyResolver } from './youtubeProxy.js';
 
-export type AudioSource = 'cobalt' | 'scrapr-ytmp3' | 'scrapr-ytmp3gg';
+export type AudioSource = 'cobalt' | 'scrapr-ytmp3' | 'scrapr-ytmp3gg' | 'proxy-ios';
 
 export interface YoutubeAudio {
   id: string;
@@ -28,6 +32,11 @@ export interface YoutubeAudio {
   format: string;
   size: string;
   source: AudioSource;
+  /** Set only by the proxy resolver: the stream proxy must fetch the
+   *  media through this proxy-list index (carried in the signed token). */
+  proxyIndex?: number;
+  /** Real content type of the bytes (proxy source only; mp3 otherwise). */
+  contentType?: string;
 }
 
 const UA =
@@ -295,6 +304,34 @@ export async function getYoutubeAudio(url: string): Promise<YoutubeAudio> {
     failures.push(`scrapr-ytmp3gg: ${err instanceof Error ? err.message : 'unknown error'}`);
   }
 
-  // All three resolvers failed — throw instead of returning a link that would 502.
+  // 4. proxy resolver (youtubei.js iOS via `.proxy`) — last resort for
+  // videos YouTube walls off from this server's IP. Runs last so proxy
+  // bandwidth is spent only when cobalt and scrapr both fail.
+  try {
+    const res = await fetchViaProxyResolver(id);
+    const oembed = await oembedPromise;
+    return {
+      id,
+      title: res.title || oembed?.title || 'YouTube Audio',
+      author: {
+        name: res.authorName || oembed?.author_name || '',
+        username: oembed?.author_url ? oembed.author_url.split('/').pop() || '' : '',
+        url: res.authorUrl || oembed?.author_url || '',
+      },
+      thumbnail: res.thumbnail || oembed?.thumbnail_url || `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
+      duration: res.duration ?? (await durationPromise),
+      audioUrl: res.audioUrl,
+      quality: res.quality,
+      format: res.format,
+      size: '-',
+      source: 'proxy-ios',
+      proxyIndex: res.proxyIndex,
+      contentType: res.contentType,
+    };
+  } catch (err) {
+    failures.push(`proxy-ios: ${err instanceof Error ? err.message : 'unknown error'}`);
+  }
+
+  // All four resolvers failed — throw instead of returning a link that would 502.
   throw new Error(`Semua resolver YouTube gagal — ${failures.join('; ')}`);
 }

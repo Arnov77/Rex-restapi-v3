@@ -26,8 +26,51 @@ declare module '@coflyn/scrapr' {
     playlist: (url: string) => Promise<unknown>;
   }
 
+  export interface ScraprSpotifyDownload {
+    url: string;
+    type: string;
+    quality: string;
+  }
+
+  export interface ScraprSpotifyTrackItem {
+    id?: string;
+    title?: string;
+    name?: string;
+    artist?: string;
+    artists?: string[];
+    album?: string;
+    duration?: number;
+    duration_ms?: number;
+    thumbnail?: string;
+    track_url?: string;
+    image?: { url?: string };
+  }
+
+  export interface ScraprSpotifyResult {
+    status: boolean;
+    message?: string;
+    result?: {
+      title?: string;
+      artist?: string;
+      album?: string;
+      thumbnail?: string;
+      type?: string;
+      trackCount?: number;
+      downloads?: ScraprSpotifyDownload[];
+      tracks?: ScraprSpotifyTrackItem[];
+    };
+  }
+
+  export interface ScraprSpotify {
+    spotidown: (url: string) => Promise<ScraprSpotifyResult>;
+    spotisaver: (url: string) => Promise<ScraprSpotifyResult>;
+    spotmate: (url: string) => Promise<ScraprSpotifyResult>;
+    soundloaders: (url: string) => Promise<ScraprSpotifyResult>;
+  }
+
   const scrapr: {
     youtube: ScraprYoutube;
+    spotify: ScraprSpotify;
   };
 
   export default scrapr;

@@ -6,6 +6,7 @@ import { promisify } from 'node:util';
 import { parseFile } from 'music-metadata';
 import { AppError } from '@shared/errors.js';
 import { storeSpotifyFile } from './spotify.store.js';
+import { fetchSpotifyViaScrapr } from './spotifyScrapr.js';
 import { shortProxyUrl } from '@modules/downloaders/_proxy/proxy.token.js';
 import { getProxyArgs, YTDLP_CLIENT_ARGS_FALLBACK } from '@modules/downloaders/youtube/ytdlp.js';
 
@@ -350,17 +351,19 @@ async function downloadWithSpotdl(
 
 // ─── Main Export ──────────────────────────────────────────────────────────────
 
-export async function downloadSpotify(
+/**
+ * Jalur utama: metadata via Spotify API (butuh SPOTIFY_CLIENT_ID/SECRET),
+ * audio via yt-dlp + YouTube search, file disimpan di disk lalu disajikan
+ * lewat /file/:id. Dipakai dulu bila kredensial ada; bila gagal, pemanggil
+ * jatuh ke downloadSpotifyViaScrapr.
+ */
+async function downloadSpotifyViaApi(
   input: string,
+  type: 'track' | 'album' | 'playlist',
+  tempDir: string,
+  cookiesPath: string,
   base: string,
 ): Promise<{ type: 'track' | 'album' | 'playlist'; tracks: SpotifyTrack[] }> {
-  input = normalizeSpotifyUrl(input);
-  const type = detectType(input);
-  const tempDir = join(TEMP_BASE, `${Date.now()}`);
-  mkdirSync(tempDir, { recursive: true });
-
-  const cookiesPath = process.env['YTDLP_COOKIES_PATH'] ?? './cookies.txt';
-
   try {
     const token = await getSpotifyToken();
 
@@ -428,5 +431,66 @@ export async function downloadSpotify(
     }
     const stderr = err.stderr?.toString() ?? '';
     throw new AppError(502, 'SPOTIFY_ERROR', stderr.slice(0, 300) || err.message);
+  }
+}
+
+// ─── Fallback via scrapr (tanpa kredensial Spotify, tanpa yt-dlp) ────────
+
+/**
+ * Fallback: resolve URL Spotify langsung ke mp3 lewat converter scrapr,
+ * lalu bungkus tiap URL dengan short proxy URL (10 menit, seperti jalur
+ * utama). Tidak menyimpan file di disk dan tidak menyentuh API Spotify.
+ */
+async function downloadSpotifyViaScrapr(
+  input: string,
+  type: 'track' | 'album' | 'playlist',
+  base: string,
+): Promise<{ type: 'track' | 'album' | 'playlist'; tracks: SpotifyTrack[] }> {
+  const res = await fetchSpotifyViaScrapr(input);
+  const tracks: SpotifyTrack[] = res.tracks.map((t) => ({
+    title: t.title,
+    artist: t.artist,
+    album: t.album,
+    playlist: t.playlist,
+    duration: t.duration,
+    url: shortProxyUrl(base, t.audioUrl, {
+      filename: `${t.title} - ${t.artist}.mp3`,
+      contentType: 'audio/mpeg',
+      ttlSec: 10 * 60,
+    }),
+  }));
+  return { type: res.type, tracks };
+}
+
+// ─── Main Export ──────────────────────────────────────────────────────────────
+
+export async function downloadSpotify(
+  input: string,
+  base: string,
+): Promise<{ type: 'track' | 'album' | 'playlist'; tracks: SpotifyTrack[] }> {
+  input = normalizeSpotifyUrl(input);
+  const type = detectType(input);
+  const tempDir = join(TEMP_BASE, `${Date.now()}`);
+  mkdirSync(tempDir, { recursive: true });
+
+  const cookiesPath = process.env['YTDLP_COOKIES_PATH'] ?? './cookies.txt';
+
+  try {
+    return await downloadSpotifyViaApi(input, type, tempDir, cookiesPath, base);
+  } catch (apiErr) {
+    // Fallback tanpa kredensial Spotify dan tanpa yt-dlp — hanya untuk
+    // URL Spotify (pencarian teks bebas tetap butuh API Spotify).
+    if (!isSpotifyUrl(input)) throw apiErr;
+    try {
+      return await downloadSpotifyViaScrapr(input, type, base);
+    } catch (scraprErr) {
+      const apiMsg = apiErr instanceof Error ? apiErr.message : String(apiErr);
+      const scraprMsg = scraprErr instanceof Error ? scraprErr.message : String(scraprErr);
+      throw new AppError(
+        502,
+        'SPOTIFY_ALL_FAILED',
+        `Spotify gagal: API/yt-dlp (${apiMsg}); scrapr juga gagal (${scraprMsg})`,
+      );
+    }
   }
 }

@@ -8,18 +8,24 @@
  *   1. cobalt  — self-hostable, reliable, returns a direct audio stream URL
  *   2. scrapr youtube.ytmp3  (convert1s + ytmp3.mobi fallback inside)
  *   3. scrapr youtube.ytmp3gg (convert1s)
- *   4. proxy   — youtubei.js (iOS client) through the `.proxy` list; last
+ *   4. savetube — independent converter (save-tube.com); returns a real
+ *      mp3 on SaveTube's CDN, so no proxy and no googlevideo are involved.
+ *      Runs before the proxy resolver: it costs no proxy bandwidth and it
+ *      converts videos YouTube walls off from this server's IP (proven on
+ *      the panel 2026-11-19 for IPANK - MUTIARA).
+ *   5. proxy   — youtubei.js (iOS client) through the `.proxy` list; last
  *      resort for videos YouTube walls off from this server's IP. Player
  *      AND media go through the same proxy (see youtubeProxy.ts).
  *
- * If all four fail, throws an aggregated error naming every failure.
+ * If all five fail, throws an aggregated error naming every failure.
  */
 
 import scrapr from '@coflyn/scrapr';
 import { loadEnv } from '../../../config/env.js';
 import { fetchViaProxyResolver } from './youtubeProxy.js';
+import { fetchViaSavetube } from './youtubeSavetube.js';
 
-export type AudioSource = 'cobalt' | 'scrapr-ytmp3' | 'scrapr-ytmp3gg' | 'proxy-ios';
+export type AudioSource = 'cobalt' | 'scrapr-ytmp3' | 'scrapr-ytmp3gg' | 'savetube' | 'proxy-ios';
 
 export interface YoutubeAudio {
   id: string;
@@ -304,9 +310,31 @@ export async function getYoutubeAudio(url: string): Promise<YoutubeAudio> {
     failures.push(`scrapr-ytmp3gg: ${err instanceof Error ? err.message : 'unknown error'}`);
   }
 
-  // 4. proxy resolver (youtubei.js iOS via `.proxy`) — last resort for
+  // 4. savetube — independent converter (save-tube.com). Real mp3 on
+  // SaveTube's CDN: no proxy bandwidth, no googlevideo. Runs before the
+  // proxy resolver so the proxy is spent only when everything else fails.
+  try {
+    const res = await fetchViaSavetube(id);
+    const oembed = await oembedPromise;
+    return {
+      id,
+      title: res.title || oembed?.title || 'YouTube Audio',
+      author: authorFromOembed(oembed),
+      thumbnail: oembed?.thumbnail_url || `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
+      duration: await durationPromise,
+      audioUrl: res.audioUrl,
+      quality: res.quality,
+      format: res.format,
+      size: '-',
+      source: 'savetube',
+    };
+  } catch (err) {
+    failures.push(`savetube: ${err instanceof Error ? err.message : 'unknown error'}`);
+  }
+
+  // 5. proxy resolver (youtubei.js iOS via `.proxy`) — last resort for
   // videos YouTube walls off from this server's IP. Runs last so proxy
-  // bandwidth is spent only when cobalt and scrapr both fail.
+  // bandwidth is spent only when cobalt, scrapr, and savetube all fail.
   try {
     const res = await fetchViaProxyResolver(id);
     const oembed = await oembedPromise;
@@ -332,6 +360,6 @@ export async function getYoutubeAudio(url: string): Promise<YoutubeAudio> {
     failures.push(`proxy-ios: ${err instanceof Error ? err.message : 'unknown error'}`);
   }
 
-  // All four resolvers failed — throw instead of returning a link that would 502.
+  // All five resolvers failed — throw instead of returning a link that would 502.
   throw new Error(`Semua resolver YouTube gagal — ${failures.join('; ')}`);
 }

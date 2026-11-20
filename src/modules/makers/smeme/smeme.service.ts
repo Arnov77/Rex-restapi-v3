@@ -107,7 +107,7 @@ function wrapText(ctx: CanvasCtx, text: string, maxWidth: number): string[] {
 
 /**
  * Hitung font size dari panjang teks — tier yang sama dengan JS di
- * template HTML lama (base dari lebar natural gambar, clamp 40–140).
+ * template HTML lama (base dari lebar natural gambar, clamp 40–170).
  */
 function calcSize(len: number, baseFontSize: number): number {
   let size: number;
@@ -143,7 +143,7 @@ async function renderImageSmeme(
 
   // Font size: base dari lebar natural gambar, lalu tier per panjang teks,
   // pakai ukuran terkecil untuk semua blok biar konsisten (seperti template).
-  const baseFontSize = Math.max(40, Math.min(140, Math.round(img.width * 0.14)));
+  const baseFontSize = Math.max(40, Math.min(170, Math.round(img.width * 0.17)));
   const sizes: number[] = [];
   if (opts.top) sizes.push(calcSize(opts.top.length, baseFontSize));
   if (opts.bottom) sizes.push(calcSize(opts.bottom.length, baseFontSize));

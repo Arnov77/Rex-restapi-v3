@@ -3,12 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── Mocks ────────────────────────────────────────────────────────────────
 
-const browserMock = { withPage: vi.fn() };
 const ssrfMock = { assertPublicUrl: vi.fn() };
-
-vi.mock('../src/shared/browser/browserManager.js', () => ({
-  withPage: (fn: any, opts: any) => browserMock.withPage(fn, opts),
-}));
 
 vi.mock('../src/shared/utils/ssrfGuard.js', () => ({
   assertPublicUrl: (...a: any[]) => ssrfMock.assertPublicUrl(...a),
@@ -17,20 +12,58 @@ vi.mock('../src/shared/utils/ssrfGuard.js', () => ({
 const { screenshotService } = await import('../src/modules/tools/screenshot/screenshot.service.js');
 const { ScreenshotQuery } = await import('../src/modules/tools/screenshot/screenshot.schemas.js');
 
-beforeEach(() => {
-  browserMock.withPage.mockReset();
-  ssrfMock.assertPublicUrl.mockReset().mockResolvedValue(new URL('https://example.com/'));
-});
-afterEach(() => vi.restoreAllMocks());
+// ── fetch mock helpers ───────────────────────────────────────────────────
 
-function makePage(buf = Buffer.from([0x89, 0x50, 0x4e, 0x47])) {
-  return {
-    emulateMedia: vi.fn(async () => {}),
-    goto: vi.fn(async () => {}),
-    waitForTimeout: vi.fn(async () => {}),
-    screenshot: vi.fn(async () => buf),
-  };
+const PNG_BUF = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const JPEG_BUF = Buffer.from([0xff, 0xd8, 0xff, 0xe0]);
+
+function toArrayBuffer(buf: Buffer): ArrayBuffer {
+  return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
 }
+
+const ML_OK = {
+  status: 'success',
+  data: { screenshot: { url: 'https://iad.microlink.io/x.png' } },
+};
+
+interface MockFetchOpts {
+  mlBody?: unknown;
+  mlOk?: boolean;
+  mlStatus?: number;
+  imgBuf?: Buffer;
+  imgOk?: boolean;
+}
+
+/** fetch mock: JSON Microlink untuk api.microlink.io, bytes gambar untuk URL lain. */
+function mockFetch({
+  mlBody = ML_OK,
+  mlOk = true,
+  mlStatus = mlOk ? 200 : 429,
+  imgBuf = PNG_BUF,
+  imgOk = true,
+}: MockFetchOpts = {}) {
+  return vi.fn(async (url: string) => {
+    if (String(url).startsWith('https://api.microlink.io/')) {
+      return { ok: mlOk, status: mlStatus, json: async () => mlBody };
+    }
+    return { ok: imgOk, status: imgOk ? 200 : 500, arrayBuffer: async () => toArrayBuffer(imgBuf) };
+  });
+}
+
+function microlinkParams(fetchMock: ReturnType<typeof mockFetch>): URLSearchParams {
+  const url = String(fetchMock.mock.calls[0]?.[0]);
+  expect(url.startsWith('https://api.microlink.io/?')).toBe(true);
+  return new URL(url).searchParams;
+}
+
+beforeEach(() => {
+  ssrfMock.assertPublicUrl.mockReset().mockResolvedValue(new URL('https://example.com/'));
+  vi.stubGlobal('fetch', mockFetch());
+});
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
 describe('screenshot.schemas', () => {
   it('applies defaults', () => {
@@ -58,32 +91,46 @@ describe('screenshot.schemas', () => {
 });
 
 describe('screenshot.service.capture', () => {
-  it('runs SSRF guard before touching the browser', async () => {
+  it('runs SSRF guard before touching Microlink', async () => {
     ssrfMock.assertPublicUrl.mockRejectedValueOnce({ statusCode: 400, message: 'blocked' });
+    const fetchMock = vi.fn(async () => {
+      throw new Error('fetch must not be called');
+    });
+    vi.stubGlobal('fetch', fetchMock);
     await expect(
       screenshotService.capture(ScreenshotQuery.parse({ url: 'http://127.0.0.1' })),
     ).rejects.toMatchObject({ statusCode: 400 });
-    expect(browserMock.withPage).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('captures PNG with correct viewport and mime', async () => {
-    const page = makePage();
-    browserMock.withPage.mockImplementationOnce(async (fn: any, opts: any) => {
-      expect(opts.viewport).toEqual({ width: 1280, height: 720 });
-      return fn(page);
-    });
+  it('captures PNG with correct Microlink params', async () => {
+    const fetchMock = mockFetch();
+    vi.stubGlobal('fetch', fetchMock);
     const out = await screenshotService.capture(
       ScreenshotQuery.parse({ url: 'https://example.com' }),
     );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const params = microlinkParams(fetchMock);
+    expect(params.get('url')).toBe('https://example.com');
+    expect(params.get('screenshot')).toBe('true');
+    expect(params.get('screenshot.type')).toBe('png');
+    expect(params.get('viewport.width')).toBe('1280');
+    expect(params.get('viewport.height')).toBe('720');
+    expect(params.get('viewport.deviceScaleFactor')).toBe('1');
+    expect(params.get('meta')).toBe('false');
+    expect(params.has('screenshot.fullPage')).toBe(false);
+    expect(params.has('colorScheme')).toBe(false);
+    expect(params.has('waitForTimeout')).toBe(false);
+    expect(params.has('apiKey')).toBe(false);
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('https://iad.microlink.io/x.png');
     expect(out.mimeType).toBe('image/png');
     expect(out.format).toBe('png');
-    expect(page.screenshot).toHaveBeenCalledWith({ type: 'png', fullPage: false });
-    expect(page.emulateMedia).not.toHaveBeenCalled();
+    expect(out.buffer.equals(PNG_BUF)).toBe(true);
   });
 
   it('passes JPEG quality and fullPage flag', async () => {
-    const page = makePage(Buffer.from([0xff, 0xd8]));
-    browserMock.withPage.mockImplementationOnce(async (fn: any) => fn(page));
+    const fetchMock = mockFetch({ imgBuf: JPEG_BUF });
+    vi.stubGlobal('fetch', fetchMock);
     const out = await screenshotService.capture(
       ScreenshotQuery.parse({
         url: 'https://example.com',
@@ -92,44 +139,73 @@ describe('screenshot.service.capture', () => {
         fullPage: true,
       }),
     );
+    const params = microlinkParams(fetchMock);
+    expect(params.get('screenshot.type')).toBe('jpeg');
+    expect(params.get('screenshot.quality')).toBe('70');
+    expect(params.get('screenshot.fullPage')).toBe('true');
     expect(out.mimeType).toBe('image/jpeg');
-    expect(page.screenshot).toHaveBeenCalledWith({ type: 'jpeg', fullPage: true, quality: 70 });
+    expect(out.buffer.equals(JPEG_BUF)).toBe(true);
   });
 
-  it('emulates dark mode when requested', async () => {
-    const page = makePage();
-    browserMock.withPage.mockImplementationOnce(async (fn: any) => fn(page));
+  it('passes dark mode as colorScheme', async () => {
+    const fetchMock = mockFetch();
+    vi.stubGlobal('fetch', fetchMock);
     await screenshotService.capture(
       ScreenshotQuery.parse({ url: 'https://example.com', darkMode: true }),
     );
-    expect(page.emulateMedia).toHaveBeenCalledWith({ colorScheme: 'dark' });
+    expect(microlinkParams(fetchMock).get('colorScheme')).toBe('dark');
   });
 
-  it('falls back to domcontentloaded when networkidle times out', async () => {
-    const page = makePage();
-    const goto = vi
-      .fn<(...a: any[]) => Promise<void>>()
-      .mockRejectedValueOnce(new Error('networkidle timeout'))
-      .mockResolvedValueOnce(undefined);
-    page.goto = goto;
-    browserMock.withPage.mockImplementationOnce(async (fn: any) => fn(page));
-    await screenshotService.capture(ScreenshotQuery.parse({ url: 'https://example.com' }));
-    expect(goto).toHaveBeenCalledTimes(2);
-    expect(goto.mock.calls[1]![1]).toMatchObject({ waitUntil: 'domcontentloaded' });
-  });
-
-  it('honours waitFor', async () => {
-    const page = makePage();
-    browserMock.withPage.mockImplementationOnce(async (fn: any) => fn(page));
+  it('passes waitFor as waitForTimeout', async () => {
+    const fetchMock = mockFetch();
+    vi.stubGlobal('fetch', fetchMock);
     await screenshotService.capture(
       ScreenshotQuery.parse({ url: 'https://example.com', waitFor: 500 }),
     );
-    expect(page.waitForTimeout).toHaveBeenCalledWith(500);
+    expect(microlinkParams(fetchMock).get('waitForTimeout')).toBe('500');
+  });
+
+  it('throws 502 when Microlink reports failure', async () => {
+    const fetchMock = mockFetch({ mlBody: { status: 'fail', message: 'oops' } });
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(
+      screenshotService.capture(ScreenshotQuery.parse({ url: 'https://example.com' })),
+    ).rejects.toMatchObject({ statusCode: 502, code: 'SCREENSHOT_UPSTREAM_FAILED' });
+    // Image fetch must not happen after a failed Microlink response.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('throws 502 on Microlink HTTP error', async () => {
+    const fetchMock = mockFetch({
+      mlBody: { status: 'fail', message: 'rate limited' },
+      mlOk: false,
+      mlStatus: 429,
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(
+      screenshotService.capture(ScreenshotQuery.parse({ url: 'https://example.com' })),
+    ).rejects.toMatchObject({ statusCode: 502 });
+  });
+
+  it('throws 502 when screenshot URL is missing', async () => {
+    const fetchMock = mockFetch({ mlBody: { status: 'success', data: {} } });
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(
+      screenshotService.capture(ScreenshotQuery.parse({ url: 'https://example.com' })),
+    ).rejects.toMatchObject({ statusCode: 502 });
+  });
+
+  it('throws 502 when image download fails', async () => {
+    const fetchMock = mockFetch({ imgOk: false });
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(
+      screenshotService.capture(ScreenshotQuery.parse({ url: 'https://example.com' })),
+    ).rejects.toMatchObject({ statusCode: 502 });
   });
 
   it('throws Internal on empty buffer', async () => {
-    const page = makePage(Buffer.alloc(0));
-    browserMock.withPage.mockImplementationOnce(async (fn: any) => fn(page));
+    const fetchMock = mockFetch({ imgBuf: Buffer.alloc(0) });
+    vi.stubGlobal('fetch', fetchMock);
     await expect(
       screenshotService.capture(ScreenshotQuery.parse({ url: 'https://example.com' })),
     ).rejects.toMatchObject({ statusCode: 500 });

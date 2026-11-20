@@ -116,6 +116,11 @@ const schema = z.object({
   // Optional API key for self-hosted cobalt instances with JWT auth enabled.
   // Set this to the key configured in cobalt's API_KEY_URL / keys file.
   COBALT_API_KEY: z.string().optional(),
+
+  // Optional Microlink API key for /api/tools/screenshot. Without it the
+  // free endpoint is used (daily limit; same URL cached 24h, cache hits
+  // don't count against the quota).
+  MICROLINK_API_KEY: z.string().optional(),
   
   // Extra hostnames the signed download proxy may stream from even if they
   // resolve to private/loopback IPs (self-hosted media helpers). The

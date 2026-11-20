@@ -7,7 +7,7 @@ const screenshotRoutes: FastifyPluginAsyncZod = async (app) => {
   // Master keys bypass the quota check entirely.
   const quota = app.quota({ message: 'Daily screenshot quota exceeded' });
 
-  // Screenshot is heavy (one Chromium tab per call) — keep buckets tight.
+  // Screenshot goes through Microlink (free tier, daily limit) — keep buckets tight.
   // Anonymous IPs share a small budget; authenticated keys get more.
   const limit = app.rateLimit({
     prefix: 'screenshot',
@@ -33,7 +33,7 @@ const screenshotRoutes: FastifyPluginAsyncZod = async (app) => {
     async (req, reply) => {
       // Create an AbortSignal tied to client disconnect. If the user
       // closes the modal or navigates away mid-render, this fires and
-      // the page pool abandons the Chromium work early — saving CPU.
+      // the Microlink request is aborted early.
       const ac = new AbortController();
       req.raw.once('close', () => ac.abort());
 

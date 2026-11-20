@@ -20,7 +20,7 @@ import apiKeyRoutes from './modules/apiKeys/apiKeys.routes.js';
 import { closeAllProxyDispatchers } from './shared/http/proxyDispatcher.js';
 
 //========[Tools]=======
-// import screenshotRoutes from './modules/tools/screenshot/screenshot.routes.js';
+import screenshotRoutes from './modules/tools/screenshot/screenshot.routes.js';
 import tgstickerRoutes from './modules/tools/tgsticker/sticker.routes.js';
 import exifRoutes from './modules/tools/exif/exif.routes.js';
 import shortlinkRoutes from './modules/tools/shortlinks/shortlinks.routes.js';
@@ -223,7 +223,7 @@ export async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
   await app.register(apiKeyRoutes, { prefix: '/api/keys' });
   
   //=======[Tools]=======
-  // await app.register(screenshotRoutes, { prefix: '/api/tools/screenshot' });
+  await app.register(screenshotRoutes, { prefix: '/api/tools/screenshot' });
   await app.register(exifRoutes, { prefix: '/api/tools/exif' });
   await app.register(shortlinkRoutes, { prefix: '/api/tools/shortlink' });
   await app.register(qrRoutes, { prefix: '/api/tools/qr' });

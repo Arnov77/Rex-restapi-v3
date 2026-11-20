@@ -1,19 +1,32 @@
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { writeFile, readFile, unlink } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { createCanvas, GlobalFonts, loadImage } from '@napi-rs/canvas';
 import sharp from 'sharp';
-import { withPage } from '@shared/browser/browserManager.js';
 import { Internal, AppError } from '@shared/errors.js';
 import { LruCache } from '@shared/utils/lruCache.js';
 import { assertPublicUrl } from '@shared/utils/ssrfGuard.js';
 import type { SmemeQuery } from './smeme.schemas.js';
-import { renderSmemeHtml } from './smeme.template.js';
 
 const execFileAsync = promisify(execFile);
 const MAX_VIDEO_DURATION = 10;
+
+// ── Font Anton (bundled di assets, sama seperti template HTML lama) ──────────
+// Pola yang sama dengan brat.service.ts: register sekali saat module init.
+// Tidak butuh Chromium, tidak butuh font sistem.
+
+const FONT_FAMILY = 'SmemeAnton';
+const FONT_PATH = join(dirname(fileURLToPath(import.meta.url)), 'assets', 'anton.ttf');
+
+try {
+  GlobalFonts.registerFromPath(FONT_PATH, FONT_FAMILY);
+} catch {
+  // fallback ke Impact / Arial / sans-serif di ctx.font
+}
 
 export interface SmemeResult {
   buffer: Buffer;
@@ -52,31 +65,123 @@ function escapeFfmpegText(s: string): string {
     .replace(/\]/g, '\\]');
 }
 
-// ── Image smeme via Puppeteer ─────────────────────────────────────────────────
+// ── Image smeme via @napi-rs/canvas (tanpa Chromium) ─────────────────────────
+// Menggantikan render HTML + screenshot Puppeteer. Layout meniru template
+// lama: gambar fit dalam batas, teks atas/bawah uppercase, tengah, outline hitam.
+
+const MAX_IMAGE_DIM = 1200; // cap sisi terpanjang output, tanpa upscale
+const PADDING_CSS = 10;    // jarak teks dari tepi, dalam px
+
+type CanvasCtx = ReturnType<ReturnType<typeof createCanvas>['getContext']>;
+
+/**
+ * Word-wrap dengan ctx.measureText (pola yang sama dengan brat.service.ts).
+ * Kata tunggal yang sendirian sudah lebih lebar dari maxWidth dipecah
+ * per karakter, meniru `word-break: break-word` di CSS lama.
+ */
+function wrapText(ctx: CanvasCtx, text: string, maxWidth: number): string[] {
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let current = '';
+
+  const pushWord = (word: string) => {
+    while (ctx.measureText(word).width > maxWidth && word.length > 1) {
+      let cut = 1;
+      while (cut < word.length && ctx.measureText(word.slice(0, cut + 1)).width <= maxWidth) cut++;
+      lines.push(word.slice(0, cut));
+      word = word.slice(cut);
+    }
+    const test = current ? `${current} ${word}` : word;
+    if (ctx.measureText(test).width > maxWidth && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = test;
+    }
+  };
+
+  for (const word of words) pushWord(word);
+  if (current) lines.push(current);
+  return lines;
+}
+
+/**
+ * Hitung font size dari panjang teks — tier yang sama dengan JS di
+ * template HTML lama (base dari lebar natural gambar, clamp 40–140).
+ */
+function calcSize(len: number, baseFontSize: number): number {
+  let size: number;
+  if (len <= 4)       size = baseFontSize;         // 1 kata pendek
+  else if (len <= 8)  size = baseFontSize * 0.75;  // 1-2 kata
+  else if (len <= 14) size = baseFontSize * 0.60;  // 2-3 kata
+  else if (len <= 22) size = baseFontSize * 0.48;  // 3-4 kata
+  else if (len <= 35) size = baseFontSize * 0.38;  // 4-6 kata
+  else if (len <= 55) size = baseFontSize * 0.30;  // kalimat panjang
+  else                size = baseFontSize * 0.24;  // sangat panjang
+  return Math.max(20, Math.min(baseFontSize, Math.round(size)));
+}
 
 async function renderImageSmeme(
   opts: SmemeQuery,
-  imageUrl: string,
-  signal?: AbortSignal,
+  imageBuffer: Buffer,
 ): Promise<SmemeResult> {
-  const html = renderSmemeHtml({ ...opts, image: imageUrl, format: 'jpeg' });
+  let img;
+  try {
+    img = await loadImage(imageBuffer);
+  } catch {
+    throw new AppError(400, 'SMEME_INVALID_IMAGE', 'Could not decode image');
+  }
 
-  const png = await withPage(
-    async (page) => {
-      await page.setContent(html, { waitUntil: 'load', timeout: 15_000 });
-      await page
-        .waitForFunction("document.documentElement.dataset['ready'] === '1'", undefined, { timeout: 5_000 })
-        .catch(() => {});
-      const el = await page.$('#canvas');
-      if (!el) throw Internal('SMEME canvas element not found');
-      return el.screenshot({ type: 'png' });
-    },
-    { viewport: { width: 900, height: 900 }, deviceScaleFactor: 2, signal },
-  );
+  // Fit dalam 1200px tanpa upscale (gambar kecil tetap ukuran aslinya).
+  const scale = Math.min(1, MAX_IMAGE_DIM / img.width, MAX_IMAGE_DIM / img.height);
+  const W = Math.round(img.width * scale);
+  const H = Math.round(img.height * scale);
 
+  const canvas = createCanvas(W, H);
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, W, H);
+
+  // Font size: base dari lebar natural gambar, lalu tier per panjang teks,
+  // pakai ukuran terkecil untuk semua blok biar konsisten (seperti template).
+  const baseFontSize = Math.max(40, Math.min(140, Math.round(img.width * 0.14)));
+  const sizes: number[] = [];
+  if (opts.top) sizes.push(calcSize(opts.top.length, baseFontSize));
+  if (opts.bottom) sizes.push(calcSize(opts.bottom.length, baseFontSize));
+  const finalSizeCss = sizes.length ? Math.min(...sizes) : baseFontSize;
+  const fontSize = finalSizeCss;
+  const lineHeight = fontSize * 1.1;
+  const padding = PADDING_CSS;
+  const maxTextW = W - padding * 2;
+
+  ctx.font = `${fontSize}px "${FONT_FAMILY}", Impact, Arial, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  // Outline hitam: strokeText + round join meniru -webkit-text-stroke 2px
+  // + 8 text-shadow di CSS lama.
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = '#000';
+  ctx.lineWidth = Math.max(2, Math.round(fontSize * 0.10));
+  ctx.fillStyle = '#fff';
+
+  const drawLines = (lines: string[], yTop: number) => {
+    lines.forEach((line, i) => {
+      const y = yTop + i * lineHeight;
+      ctx.strokeText(line, W / 2, y);
+      ctx.fillText(line, W / 2, y);
+    });
+  };
+
+  if (opts.top) {
+    drawLines(wrapText(ctx, opts.top.toUpperCase(), maxTextW), padding);
+  }
+  if (opts.bottom) {
+    const lines = wrapText(ctx, opts.bottom.toUpperCase(), maxTextW);
+    drawLines(lines, H - padding - lines.length * lineHeight);
+  }
+
+  const png = canvas.toBuffer('image/png');
   if (!png || png.length === 0) throw Internal('SMEME produced empty buffer');
-  let buffer: Buffer = Buffer.isBuffer(png) ? png : Buffer.from(png);
-  buffer = await sharp(buffer).flatten({ background: '#ffffff' }).jpeg({ quality: opts.quality }).toBuffer();
+  const buffer = await sharp(png).flatten({ background: '#ffffff' }).jpeg({ quality: opts.quality }).toBuffer();
   return { buffer, mimeType: 'image/jpeg', format: 'jpeg' };
 }
 
@@ -149,29 +254,28 @@ export async function generate(
     if (fmt === 'gif' || fmt === 'mp4') {
       return renderVideoSmeme(opts, inputBuffer, inputMime, signal);
     }
-    // Image upload → render via Puppeteer dengan data URI
-    const b64 = inputBuffer.toString('base64');
-    const dataUri = `data:${inputMime};base64,${b64}`;
-    return renderImageSmeme(opts, dataUri, signal);
+    // Image upload → render via canvas langsung dari buffer
+    return renderImageSmeme(opts, inputBuffer);
   }
 
   // URL input
   if (!opts.url) throw new AppError(400, 'SMEME_NO_INPUT', 'Provide ?url= or upload a file');
-  await assertPublicUrl(opts.url);
+  const url = opts.url;
+  await assertPublicUrl(url);
 
   // Detect apakah URL adalah video/GIF
-  const headRes = await fetch(opts.url, { method: 'HEAD', signal }).catch(() => null);
+  const headRes = await fetch(url, { method: 'HEAD', signal }).catch(() => null);
   const mime = headRes?.headers.get('content-type') ?? '';
   const fmt = detectFormat(mime);
 
   if (fmt === 'gif' || fmt === 'mp4') {
-    const res = await fetch(opts.url, { signal });
+    const res = await fetch(url, { signal });
     if (!res.ok) throw new AppError(400, 'SMEME_FETCH_FAILED', `Failed to fetch media: ${res.status}`);
     const buf = Buffer.from(await res.arrayBuffer());
     return renderVideoSmeme(opts, buf, mime, signal);
   }
 
-  // Image URL → Puppeteer (dengan cache)
+  // Image URL → canvas (dengan cache)
   const key = cacheKey(opts);
   const cached = cache.get(key);
   if (cached) return cached;
@@ -179,7 +283,12 @@ export async function generate(
   const existing = inflight.get(key);
   if (existing) return existing;
 
-  const promise = renderImageSmeme(opts, opts.url, signal)
+  const promise = (async () => {
+    const res = await fetch(url, { signal });
+    if (!res.ok) throw new AppError(400, 'SMEME_FETCH_FAILED', `Failed to fetch media: ${res.status}`);
+    const buf = Buffer.from(await res.arrayBuffer());
+    return renderImageSmeme(opts, buf);
+  })()
     .then((result) => { cache.set(key, result); return result; })
     .finally(() => inflight.delete(key));
 

@@ -36,7 +36,12 @@ export const RevealKeyResponse = z.object({
 export const OkResponse = z.object({ ok: z.literal(true) });
 
 export const ListKeysQuery = z.object({
-  includeRevoked: z.coerce.boolean().optional().default(false),
+  // Sama seperti screenshot: JANGAN z.coerce.boolean() — query string
+  // 'false' jadi Boolean('false') = true.
+  includeRevoked: z.preprocess(
+    (v) => (typeof v === 'string' ? v.toLowerCase() === 'true' : v),
+    z.boolean(),
+  ).default(false),
 });
 export type ListKeysQuery = z.infer<typeof ListKeysQuery>;
 

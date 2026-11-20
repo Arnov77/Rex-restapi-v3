@@ -80,6 +80,14 @@ describe('smeme.service (canvas, tanpa chromium)', () => {
     }
   });
 
+  it('teks dengan emoji tetap render jadi jpeg', async () => {
+    const input = await testImage();
+    const query = SmemeQuery.parse({ top: 'halo 😂', bottom: 'tes 😭🔥', quality: 90 });
+    const result = await smemeService.generate(query, { inputBuffer: input, inputMime: 'image/png' });
+    expect(result.format).toBe('jpeg');
+    expect(result.buffer.length).toBeGreaterThan(1000);
+  });
+
   it('schema tetap menolak tanpa top/bottom', () => {
     expect(() => SmemeQuery.parse({ quality: 90 })).toThrow();
   });

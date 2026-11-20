@@ -28,6 +28,17 @@ try {
   // fallback ke Impact / Arial / sans-serif di ctx.font
 }
 
+// Font emoji warna (Noto Color Emoji, ~24MB) — fallback per glyph: huruf
+// pakai Anton, emoji pakai font ini. Tanpa font ini emoji hilang diam-diam.
+const EMOJI_FONT_FAMILY = 'NotoColorEmoji';
+const EMOJI_FONT_PATH = join(dirname(fileURLToPath(import.meta.url)), 'assets', 'NotoColorEmoji.ttf');
+
+try {
+  GlobalFonts.registerFromPath(EMOJI_FONT_PATH, EMOJI_FONT_FAMILY);
+} catch {
+  // tanpa font emoji, emoji tidak ter-render (perilaku lama)
+}
+
 export interface SmemeResult {
   buffer: Buffer;
   mimeType: 'image/jpeg' | 'image/gif' | 'video/mp4';
@@ -107,17 +118,17 @@ function wrapText(ctx: CanvasCtx, text: string, maxWidth: number): string[] {
 
 /**
  * Hitung font size dari panjang teks — tier yang sama dengan JS di
- * template HTML lama (base dari lebar natural gambar, clamp 40–170).
+ * template HTML lama (base dari lebar natural gambar, clamp 40–200).
  */
 function calcSize(len: number, baseFontSize: number): number {
   let size: number;
   if (len <= 4)       size = baseFontSize;         // 1 kata pendek
-  else if (len <= 8)  size = baseFontSize * 0.75;  // 1-2 kata
-  else if (len <= 14) size = baseFontSize * 0.60;  // 2-3 kata
-  else if (len <= 22) size = baseFontSize * 0.48;  // 3-4 kata
-  else if (len <= 35) size = baseFontSize * 0.38;  // 4-6 kata
-  else if (len <= 55) size = baseFontSize * 0.30;  // kalimat panjang
-  else                size = baseFontSize * 0.24;  // sangat panjang
+  else if (len <= 8)  size = baseFontSize * 0.85;  // 1-2 kata
+  else if (len <= 14) size = baseFontSize * 0.72;  // 2-3 kata
+  else if (len <= 22) size = baseFontSize * 0.60;  // 3-4 kata
+  else if (len <= 35) size = baseFontSize * 0.50;  // 4-6 kata
+  else if (len <= 55) size = baseFontSize * 0.42;  // kalimat panjang
+  else                size = baseFontSize * 0.34;  // sangat panjang
   return Math.max(20, Math.min(baseFontSize, Math.round(size)));
 }
 
@@ -143,7 +154,7 @@ async function renderImageSmeme(
 
   // Font size: base dari lebar natural gambar, lalu tier per panjang teks,
   // pakai ukuran terkecil untuk semua blok biar konsisten (seperti template).
-  const baseFontSize = Math.max(40, Math.min(170, Math.round(img.width * 0.17)));
+  const baseFontSize = Math.max(40, Math.min(200, Math.round(img.width * 0.20)));
   const sizes: number[] = [];
   if (opts.top) sizes.push(calcSize(opts.top.length, baseFontSize));
   if (opts.bottom) sizes.push(calcSize(opts.bottom.length, baseFontSize));
@@ -153,7 +164,7 @@ async function renderImageSmeme(
   const padding = PADDING_CSS;
   const maxTextW = W - padding * 2;
 
-  ctx.font = `${fontSize}px "${FONT_FAMILY}", Impact, Arial, sans-serif`;
+  ctx.font = `${fontSize}px "${FONT_FAMILY}", "${EMOJI_FONT_FAMILY}", Impact, Arial, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
   // Outline hitam: strokeText + round join meniru -webkit-text-stroke 2px
